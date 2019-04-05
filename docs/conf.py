@@ -48,8 +48,8 @@ master_doc = 'index'
 
 # General information about the project.
 project = u'pyfesom2'
-copyright = u"2019, Nikolay Koldunov"
-author = u"Nikolay Koldunov"
+copyright = u"2019, FESOM team"
+author = u"FESOM team"
 
 # The version info for the project you're documenting, acts as replacement
 # for |version| and |release|, also used in various other places throughout
@@ -130,7 +130,7 @@ latex_elements = {
 latex_documents = [
     (master_doc, 'pyfesom2.tex',
      u'pyfesom2 Documentation',
-     u'Nikolay Koldunov', 'manual'),
+     u'FESOM team', 'manual'),
 ]
 
 

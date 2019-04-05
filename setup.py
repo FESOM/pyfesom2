@@ -11,28 +11,32 @@ with open('README.rst') as readme_file:
 with open('HISTORY.rst') as history_file:
     history = history_file.read()
 
-requirements = [ ]
+requirements = ['numpy', 'pandas', ]
 
 setup_requirements = ['pytest-runner', ]
 
 test_requirements = ['pytest', ]
 
 setup(
-    author="Nikolay Koldunov",
+    author="FESOM team",
     author_email='koldunovn@gmail.com',
     classifiers=[
         'Development Status :: 2 - Pre-Alpha',
         'Intended Audience :: Developers',
         'License :: OSI Approved :: MIT License',
         'Natural Language :: English',
-        "Programming Language :: Python :: 2",
-        'Programming Language :: Python :: 2.7',
         'Programming Language :: Python :: 3',
         'Programming Language :: Python :: 3.4',
         'Programming Language :: Python :: 3.5',
         'Programming Language :: Python :: 3.6',
         'Programming Language :: Python :: 3.7',
     ],
+    entry_points={
+    'console_scripts': [
+        'pfplot=pyfesom2.pfplot:pfplot',  # command=package.module:function
+        'pfinterp=pyfesom2.pfinterp:pfinterp'
+    ],
+    },
     description="FESOM2 tools",
     install_requires=requirements,
     license="MIT license",

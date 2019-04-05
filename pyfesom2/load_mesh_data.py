@@ -386,3 +386,95 @@ def cut_region(mesh, nlevels, box=[13, 30, 53, 66], depth=0 ):
     elem_no_nan = elem2[no_nan_triangles,:]
 
     return elem_no_nan, no_nan_triangles
+
+def get_data(result_path, variable, years, mesh, runid='fesom', 
+             records=1, depth=0, how='mean', ncfile=None, compute=True,  **kwargs):
+    '''
+    Get the data at some depth level, agregated if needed.
+    
+    Parameters
+    ----------
+    result_path : string
+        path to the data folder. 
+    variable : string
+        variable name
+    years : int, list
+        year or list of years to open
+    mesh: mesh object
+        FESOM2 mesh object. 
+    records: int
+        number of time steps to be considered for aggregation
+        If 1 - only the first record will be taken, if, for example, 5 then
+        five time steps will be taken for aggregation.
+    depth: float
+        The model depth closest to provided depth will be taken.
+    how: str
+        method of aggregation. 
+        Can be "mean" (default), "min", "max", "median", "min", "sum", "std", "var"
+        If None, no aggregation is applied. 
+    ncfile: str
+        if provided, the netCDF file will be opened directly. 
+        Some dummy data have to be provided for result_path and years
+    compute: bool
+        Do the actual computations or not. Default True.
+    **kwargs: dict
+       you can add aditional arguments to pass to the xarray.open_mfdataset (for example slice sizes)
+    
+    Returns
+    -------
+    data: xarray
+        aggregated data at some depth level.
+        
+    '''
+    if records == 0:
+        records = 1
+    
+    paths = []
+    if ncfile:
+        paths = ncfile
+    elif isinstance(years, list) or isinstance(years, np.ndarray) or isinstance(years, range):
+        paths = []
+        for year in years:
+            fname = "{}.{}.{}.nc".format(variable, runid, year)
+            path  = os.path.join(result_path, fname)
+            paths.append(path)
+    elif isinstance(years, int):
+        fname = "{}.{}.{}.nc".format(variable, runid, years)
+        paths = os.path.join(result_path, fname)
+    else:
+        raise ValueError('year can be integer, list or one dimentional numpy array') 
+
+    
+    dind = pf.ind_for_depth(depth, mesh)
+    print("Model depth: {}".format(abs(mesh.zlev[dind])))
+    
+    dataset = xr.open_mfdataset(paths, **kwargs)
+    data = dataset[variable].isel(time=slice(0,records))
+    
+    if 'nz1' in dataset.dims:
+        data = data.isel(nz1=dind)
+    
+    
+    if how=='mean':
+        data = data.mean(dim='time')
+    elif how=='max':
+        data = data.max(dim='time')
+    elif how=='min':
+        data = data.min(dim='time')
+    elif how=='median':
+        data = data.median(dim='time')
+    elif how=='sum':
+        data = data.sum(dim='time')
+    elif how=='std':
+        data = data.std(dim='time')
+    elif how=='var':
+        data = data.var(dim='time')
+    else:
+        pass
+    
+    if compute:
+        data = data.compute()
+        data = data.data
+        
+#     median min sum std var
+    return data

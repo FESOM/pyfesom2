@@ -4,10 +4,24 @@
 """Tests for `pyfesom2` package."""
 
 import pytest
+import os
 
 
 from pyfesom2 import pyfesom2
+from pyfesom2 import load_mesh
 
+THIS_DIR = os.path.dirname(os.path.abspath(__file__))
+my_data_folder = os.path.join(THIS_DIR, 'data')
+
+
+def test_readmesh():
+    mesh_path = os.path.join(my_data_folder, 'pi-grid')
+    mesh = load_mesh(mesh_path, usepickle = False, usejoblib = False)
+    assert mesh.n2d == 3140
+    assert mesh.e2d == 5839
+    
+    print(mesh)
+    
 
 @pytest.fixture
 def response():

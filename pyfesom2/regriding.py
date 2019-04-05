@@ -8,6 +8,11 @@
 
 from scipy.spatial import cKDTree
 import numpy as np
+import os
+import joblib
+import scipy.spatial.qhull as qhull
+from scipy.interpolate import LinearNDInterpolator, CloughTocher2DInterpolator
+import logging
 
 def lon_lat_to_cartesian(lon, lat, R = 6371000):
     """
@@ -56,8 +61,9 @@ def create_indexes_and_distances(mesh, lons, lats, k=1, n_jobs=2, ):
     
     return distances, inds
 
-def fesom2regular(data, mesh, lons, lats, distances=None, \
-                  inds=None, how='nn', k=10, radius_of_influence=100000, n_jobs = 2 ):
+def fesom2regular(data, mesh, lons, lats, distances_path=None, \
+                  inds_path=None, qhull_path = None, how='nn', k=5, radius_of_influence=100000, 
+                  n_jobs = 2, dumpfile = True, basepath=None ):
     '''
     Interpolates data from FESOM mesh to target (usually regular) mesh.
 
@@ -69,19 +75,26 @@ def fesom2regular(data, mesh, lons, lats, distances=None, \
         pyfesom mesh representation
     lons/lats : array
         2d arrays with target grid values.
-    distances : array of floats, optional
-        The distances to the nearest neighbors.
-    inds : ndarray of ints, optional
-        The locations of the neighbors in data.
+    distances_path : string
+        Path to the file with distances. If not provided and dumpfile=True, it will be created.
+    inds_path : string
+        Path to the file with inds. If not provided and dumpfile=True, it will be created.
+    qhull_path : str
+         Path to the file with qhull (needed for linear and cubic interpolations). If not provided and dumpfile=True, it will be created.
     how : str
-       Interpolation method. Options are 'nn' (nearest neighbor) and 'idist' (inverce distance)
+       Interpolation method. Options are 'nn' (nearest neighbor), 'idist' (inverce distance), "linear" and "cubic".
     k : int
         k-th nearest neighbors to use. Only used when how==idist
     radius_of_influence : int
-        Cut off distance in meters.
+        Cut off distance in meters, only used in nn and idist.
     n_jobs : int, optional
         Number of jobs to schedule for parallel processing. If -1 is given
-        all processors are used. Default: 1.
+        all processors are used. Default: 1. Only used for nn and idist.
+    dumpfile: bool
+        wether to dump resulted distances and inds to the file.
+    basepath: str
+        path where to store additional interpolation files. If None (default),
+        the path of the mesh will be used.
     
     Returns
     -------
@@ -89,33 +102,100 @@ def fesom2regular(data, mesh, lons, lats, distances=None, \
         array with data interpolated to the target grid.
 
     '''
+
+    left, right, down, up = np.min(lons), np.max(lons), np.min(lats), np.min(lats)
+    lonNumber, latNumber = lons.shape[1], lons.shape[0]
+
+    if how=='nn':
+        kk = 1
+    else:
+        kk = k
+
+    if not basepath:
+        basepath=mesh.path
+
+    if (distances_path is None) and (inds_path is None):
+        distances_file = "distances_{}_{}_{}_{}_{}_{}_{}_{}".format(mesh.n2d,
+                                                                left, right,
+                                                                down, up,
+                                                                lonNumber, latNumber, kk)
+        inds_file      = "inds_{}_{}_{}_{}_{}_{}_{}_{}".format(mesh.n2d,
+                                                                left, right,
+                                                                down, up,
+                                                                lonNumber, latNumber, kk)
+    
+
+        distances_path = os.path.join(basepath, distances_file)
+        inds_path      = os.path.join(basepath, inds_file)   
+    
+    if qhull_path is None:
+        qhull_file     = "qhull_{}".format(mesh.n2d)
+        qhull_path     = os.path.join(basepath, qhull_file)
     #print distances
-    if (distances is None) or (inds is None):
-        
-        if how=='nn':
+
+    if how=='nn':
+        if (os.path.isfile(distances_path) and os.path.isfile(distances_path)):
+            logging.info("Note: using precalculated file from {}".format(distances_path))
+            logging.info("Note: using precalculated file from {}".format(inds_path))
+            distances = joblib.load(distances_path)
+            inds      = joblib.load(inds_path)
+        else:
             distances, inds = create_indexes_and_distances(mesh, lons, lats,\
                                                            k=1, n_jobs=n_jobs)
-        elif how=='idist':
-            distances, inds = create_indexes_and_distances(mesh, lons, lats,\
-                                                           k=k, n_jobs=n_jobs)
-
-    if distances.ndim == 1:
-        #distances_ma = np.ma.masked_greater(distances, radius_of_influence)
-        data_interpolated = data[inds]
-
-        data_interpolated[distances>=radius_of_influence] = np.nan
+            if dumpfile:
+                joblib.dump(distances, distances_path)
+                joblib.dump(inds, inds_path)
         
+        data_interpolated = data[inds]
+        data_interpolated[distances>=radius_of_influence] = np.nan       
         data_interpolated = data_interpolated.reshape(lons.shape)
         data_interpolated = np.ma.masked_invalid(data_interpolated)
-    else:
+        return data_interpolated
+
+    elif how=='idist':
+        if (os.path.isfile(distances_path) and os.path.isfile(distances_path)):
+            logging.info("Note: using precalculated file from {}".format(distances_path))
+            logging.info("Note: using precalculated file from {}".format(inds_path))
+            distances = joblib.load(distances_path)
+            inds      = joblib.load(inds_path)
+        else:
+            distances, inds = create_indexes_and_distances(mesh, lons, lats,\
+                                                           k=1, n_jobs=n_jobs)
+            if dumpfile:
+                joblib.dump(distances, distances_path)
+                joblib.dump(inds, inds_path)
+        
         distances_ma = np.ma.masked_greater(distances, radius_of_influence)
         
         w = 1.0 / distances_ma**2
         data_interpolated = np.ma.sum(w * data[inds], axis=1) / np.ma.sum(w, axis=1)
         data_interpolated.shape = lons.shape
         data_interpolated = np.ma.masked_invalid(data_interpolated)
-    
-    return data_interpolated
+        return data_interpolated
+
+    elif how=='linear':
+        if (os.path.isfile(qhull_path)):
+            logging.info("Note: using precalculated file from {}".format(qhull_path))
+            qh = joblib.load(qhull_path)
+        else:
+            points = np.vstack((mesh.x2, mesh.y2)).T
+            qh = qhull.Delaunay(points)
+            if dumpfile:
+                joblib.dump(qh, qhull_path)
+        data_interpolated = LinearNDInterpolator(qh, data)((lons, lats))
+        return data_interpolated
+
+    elif how=='cubic':
+        if (os.path.isfile(qhull_path)):
+            logging.info("Note: using precalculated file from {}".format(qhull_path))
+            qh = joblib.load(qhull_path)
+        else:
+            points = np.vstack((mesh.x2, mesh.y2)).T
+            qh = qhull.Delaunay(points)
+            if dumpfile:
+                joblib.dump(qh, qhull_path)
+        data_interpolated = CloughTocher2DInterpolator(qh, data)((lons, lats))
+        return data_interpolated
 
 def fesom2clim(data, depth, mesh, climatology, verbose=True, radius_of_influence=100000):
     '''
