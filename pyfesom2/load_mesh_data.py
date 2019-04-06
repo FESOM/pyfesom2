@@ -14,6 +14,7 @@ import time
 import pickle
 import pyresample
 import joblib
+import xarray as xr
 
 def load_mesh(path, abg = [0, 0, 0], usepickle = True,
               usejoblib = False):
@@ -445,7 +446,7 @@ def get_data(result_path, variable, years, mesh, runid='fesom',
         raise ValueError('year can be integer, list or one dimentional numpy array') 
 
     
-    dind = pf.ind_for_depth(depth, mesh)
+    dind = ind_for_depth(depth, mesh)
     print("Model depth: {}".format(abs(mesh.zlev[dind])))
     
     dataset = xr.open_mfdataset(paths, **kwargs)
