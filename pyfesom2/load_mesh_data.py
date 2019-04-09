@@ -389,7 +389,7 @@ def cut_region(mesh, nlevels, box=[13, 30, 53, 66], depth=0 ):
     return elem_no_nan, no_nan_triangles
 
 def get_data(result_path, variable, years, mesh, runid='fesom', 
-             records=1, depth=0, how='mean', ncfile=None, compute=True,  **kwargs):
+             records=-1, depth=0, how='mean', ncfile=None, compute=True,  **kwargs):
     '''
     Get the data at some depth level, agregated if needed.
     
@@ -406,7 +406,7 @@ def get_data(result_path, variable, years, mesh, runid='fesom',
     records: int
         number of time steps to be considered for aggregation
         If 1 - only the first record will be taken, if, for example, 5 then
-        five time steps will be taken for aggregation.
+        five time steps will be taken for aggregation. De
     depth: float
         The model depth closest to provided depth will be taken.
     how: str
@@ -433,7 +433,7 @@ def get_data(result_path, variable, years, mesh, runid='fesom',
     paths = []
     if ncfile:
         paths = ncfile
-    elif isinstance(years, list) or isinstance(years, np.ndarray) or isinstance(years, range):
+    elif isinstance(years, (list, np.ndarray, range)):
         paths = []
         for year in years:
             fname = "{}.{}.{}.nc".format(variable, runid, year)
@@ -450,7 +450,10 @@ def get_data(result_path, variable, years, mesh, runid='fesom',
     print("Model depth: {}".format(abs(mesh.zlev[dind])))
     
     dataset = xr.open_mfdataset(paths, **kwargs)
-    data = dataset[variable].isel(time=slice(0,records))
+    if records == -1:
+        data = dataset[variable]
+    else:
+        data = dataset[variable].isel(time=slice(0,records))
     
     if 'nz1' in dataset.dims:
         data = data.isel(nz1=dind)

@@ -6,6 +6,7 @@
 import pytest
 import os
 import numpy as np
+import xarray as xr
 
 
 from pyfesom2 import pyfesom2
@@ -64,13 +65,83 @@ def test_get_data():
     mmean = ice.mean()
     assert mmean == pytest.approx(0.27451384)
 
+    # get multiple years
+    temp = get_data(data_path, 'temp', [1948, 1949], mesh)
+    mmean = temp.mean()
+    assert mmean == pytest.approx(8.5541878)
 
+    # get one record from multiple files
+    temp = get_data(data_path, 'temp', [1948, 1949], mesh, records=1)
+    mmean = temp.mean()
+    assert mmean == pytest.approx(8.4580183)
+
+    # get different depth
+    temp = get_data(data_path, 'temp', [1948, 1949], mesh, depth = 200)
+    mmean = temp.mean()
+    assert mmean == pytest.approx(5.3856239)
+
+    # get different depth and different aggregation
+    temp = get_data(data_path, 'temp', [1948, 1949], mesh, depth = 200, how='max')
+    mmean = temp.mean()
+    assert mmean == pytest.approx(5.6487503)
+
+    # directly open ncfile (in data 1948, but we directly request 1949)
+    temp = get_data(data_path, 'temp', [1948], mesh, depth = 200, how='max',
+                    ncfile='{}/{}'.format(data_path, "temp.fesom.1949.nc"))
+    mmean = temp.mean()
+    assert mmean == pytest.approx(5.3057818)
+
+    # return dask array
+    temp = get_data(data_path, 'temp', [1948, 1949], mesh, depth = 200, how='max', 
+                    compute=False)
+    assert isinstance(temp, xr.DataArray)
+
+    # use range as argument
+    temp = get_data(data_path, 'temp', range(1948, 1950), mesh, depth = 200, how='max')
+    mmean = temp.mean()
+    assert mmean == pytest.approx(5.6487503)
 
 def test_regriding():
     mesh_path = os.path.join(my_data_folder, 'pi-grid')
     data_path = os.path.join(my_data_folder, 'pi-results')
     mesh = load_mesh(mesh_path, usepickle = False, usejoblib = False)
+    lons = range(0,360)
+    lats = range(-90,90)
+    lons, lats = np.meshgrid(lons, lats)
+    data = get_data(data_path, 'temp', 1948, mesh)
 
+    # default nn interpolation
+    data_inter = fesom2regular(data, mesh, lons,lats)
+    mmean = data_inter.mean()
+    assert mmean == pytest.approx(6.309350409986763)
+    assert isinstance(data_inter, np.ma.core.MaskedArray)
+
+    # idist method
+    data_inter = fesom2regular(data, mesh, lons,lats, how='idist')
+    mmean = data_inter.mean()
+    assert mmean == pytest.approx(6.308561066202526)
+    assert isinstance(data_inter, np.ma.core.MaskedArray)
+
+    # linear method from scipy
+    data_inter = fesom2regular(data, mesh, lons,lats, how='linear')
+    mmean = data_inter.mean()
+    assert mmean == pytest.approx(13.582933890477655)
+    assert isinstance(data_inter, np.ma.core.MaskedArray)
+
+    # cubic method from scipy
+    data_inter = fesom2regular(data, mesh, lons,lats, how='cubic')
+    mmean = data_inter.mean()
+    assert mmean == pytest.approx(13.39402615207708)
+    assert isinstance(data_inter, np.ma.core.MaskedArray)
+
+    # clean up
+    os.remove(os.path.join(mesh_path, 'distances_3140_0_359_-90_-90_360_180_1'))
+    os.remove(os.path.join(mesh_path, 'distances_3140_0_359_-90_-90_360_180_5'))
+
+    os.remove(os.path.join(mesh_path, 'inds_3140_0_359_-90_-90_360_180_1'))
+    os.remove(os.path.join(mesh_path, 'inds_3140_0_359_-90_-90_360_180_5'))
+
+    os.remove(os.path.join(mesh_path, 'qhull_3140'))
 
 
 @pytest.fixture

@@ -141,7 +141,7 @@ def fesom2regular(data, mesh, lons, lats, distances_path=None, \
             inds      = joblib.load(inds_path)
         else:
             distances, inds = create_indexes_and_distances(mesh, lons, lats,\
-                                                           k=1, n_jobs=n_jobs)
+                                                           k=kk, n_jobs=n_jobs)
             if dumpfile:
                 joblib.dump(distances, distances_path)
                 joblib.dump(inds, inds_path)
@@ -160,7 +160,7 @@ def fesom2regular(data, mesh, lons, lats, distances_path=None, \
             inds      = joblib.load(inds_path)
         else:
             distances, inds = create_indexes_and_distances(mesh, lons, lats,\
-                                                           k=1, n_jobs=n_jobs)
+                                                           k=kk, n_jobs=n_jobs)
             if dumpfile:
                 joblib.dump(distances, distances_path)
                 joblib.dump(inds, inds_path)
@@ -183,6 +183,7 @@ def fesom2regular(data, mesh, lons, lats, distances_path=None, \
             if dumpfile:
                 joblib.dump(qh, qhull_path)
         data_interpolated = LinearNDInterpolator(qh, data)((lons, lats))
+        data_interpolated = np.ma.masked_invalid(data_interpolated)
         return data_interpolated
 
     elif how=='cubic':
@@ -195,7 +196,11 @@ def fesom2regular(data, mesh, lons, lats, distances_path=None, \
             if dumpfile:
                 joblib.dump(qh, qhull_path)
         data_interpolated = CloughTocher2DInterpolator(qh, data)((lons, lats))
+        data_interpolated = np.ma.masked_invalid(data_interpolated)
         return data_interpolated
+    else:
+        raise ValueError('Interpolation method is not supported')
+        
 
 def fesom2clim(data, depth, mesh, climatology, verbose=True, radius_of_influence=100000):
     '''
