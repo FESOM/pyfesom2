@@ -7,12 +7,15 @@ import pytest
 import os
 import numpy as np
 import xarray as xr
-
+import matplotlib
+from matplotlib.testing.compare import compare_images
+from matplotlib.testing.decorators import _image_directories
 
 from pyfesom2 import pyfesom2
 from pyfesom2 import load_mesh
 from pyfesom2 import get_data
 from pyfesom2 import fesom2regular
+from pyfesom2 import plot 
 
 THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 my_data_folder = os.path.join(THIS_DIR, 'data')
@@ -143,6 +146,49 @@ def test_regriding():
 
     os.remove(os.path.join(mesh_path, 'qhull_3140'))
 
+def test_plot():
+    mesh_path = os.path.join(my_data_folder, 'pi-grid')
+    data_path = os.path.join(my_data_folder, 'pi-results')
+    figure_path = os.path.join(my_data_folder, 'baseline_images')
+    mesh = load_mesh(mesh_path, abg=[50, 15, -90], usepickle = False, usejoblib = False)
+    data = get_data(data_path, 'temp', 1948, mesh)
+
+    # standard plot
+    fig = plot(mesh,data, influence=800000)
+    fig.savefig('./out.png')
+    baseline_image = os.path.join(figure_path, 'plot_temp_basic.png')
+    compare_images('./out.png', baseline_image, tol=10)
+    os.remove('./out.png')
+
+    # inverce distance interpolation
+    fig = plot(mesh,data, influence=800000, interp='idist')
+    fig.savefig('./out.png')
+    baseline_image = os.path.join(figure_path, 'plot_temp_idist.png')
+    compare_images('./out.png', baseline_image, tol=10)
+    os.remove('./out.png')
+
+    # pc projection
+    fig = plot(mesh,data, influence=800000, mapproj = 'pc')
+    fig.savefig('./out.png')
+    baseline_image = os.path.join(figure_path, 'plot_temp_pc.png')
+    compare_images('./out.png', baseline_image, tol=10)
+    os.remove('./out.png')
+
+    # pc projection
+    fig = plot(mesh,data, influence=800000, mapproj = 'pc')
+    fig.savefig('./out.png')
+    baseline_image = os.path.join(figure_path, 'plot_temp_pc.png')
+    compare_images('./out.png', baseline_image, tol=10)
+    os.remove('./out.png')
+
+    # pc projection
+    fig = plot(mesh,data, influence=800000, mapproj = 'np')
+    fig.savefig('./out.png')
+    baseline_image = os.path.join(figure_path, 'plot_temp_np.png')
+    compare_images('./out.png', baseline_image, tol=10)
+    os.remove('./out.png')
+
+    assert isinstance(fig, matplotlib.figure.Figure)
 
 @pytest.fixture
 def response():

@@ -210,9 +210,8 @@ def movingaverage(interval, window_size):
     return ret
 
 def plot(mesh, data, cmap=None, influence=80000, box=[-180,180,-89,90],
-            res=[360, 180], interp ='nn', mapproj = 'merc', levels=None, ptype='cf', units=None,
-             figsize=(10,10), rowscol=(1,1), titles=None, distances_path=None,
-                  inds_path=None, qhull_path = None, basepath=None):
+        res=[360, 180], interp ='nn', mapproj = 'merc', levels=None, ptype='cf', units=None, figsize=(10,10), rowscol=(1,1), titles=None, distances_path=None,
+        inds_path=None, qhull_path = None, basepath=None):
     '''
     Plots interpolated 2d field on the map.
     
