@@ -13,6 +13,7 @@ import joblib
 import scipy.spatial.qhull as qhull
 from scipy.interpolate import LinearNDInterpolator, CloughTocher2DInterpolator
 import logging
+from numba import jit
 
 def lon_lat_to_cartesian(lon, lat, R = 6371000):
     """
@@ -458,3 +459,26 @@ def clim2regular(climatology, param, olons, olats, \
     #depth_indexes = [np.where(climatology.z==i)[0][0] for i in levels]
     #out_data = np.ma.masked_where(climatology.T[depth_indexes,:,:].mask, out_data)
     return xx, yy, out_data
+
+
+@jit("float64[:](float64[:],int64, float64[:], int64[:,:], int64, float64[:])", nopython=True)
+def tonodes(component, n2d, voltri, elem, e2d, lump2):
+    ''' Function to interpolate from elements to nodes.
+    Made fast with numba.
+    '''
+    onnodes=np.zeros(shape=n2d)
+
+    var_elem=component*voltri
+    for i in range(e2d):
+        onnodes[elem[i,:]]=onnodes[elem[i,:]]+np.array([var_elem[i], var_elem[i], var_elem[i]])
+    onnodes=onnodes/lump2/3.
+    return onnodes
+
+def tonodes3d(component, mesh):
+    levels = component.shape[1]
+    out_data = np.zeros((mesh.n2d, levels))
+    for level in range(levels):
+        component_level = component[:, level].astype('float64')
+        onnodes = tonodes(component_level, mesh.n2d, mesh.voltri, mesh.elem, mesh.e2d, mesh.lump2)
+        out_data[:, level] = onnodes
+    return out_data

@@ -389,7 +389,7 @@ def cut_region(mesh, nlevels, box=[13, 30, 53, 66], depth=0 ):
     return elem_no_nan, no_nan_triangles
 
 def get_data(result_path, variable, years, mesh, runid='fesom', 
-             records=-1, depth=0, how='mean', ncfile=None, compute=True,  **kwargs):
+             records=-1, depth=None, how='mean', ncfile=None, compute=True,  **kwargs):
     '''
     Get the data at some depth level, agregated if needed.
     
@@ -409,6 +409,7 @@ def get_data(result_path, variable, years, mesh, runid='fesom',
         five time steps will be taken for aggregation. De
     depth: float
         The model depth closest to provided depth will be taken.
+        If None, 3d field will be returned. Default = None.
     how: str
         method of aggregation. 
         Can be "mean" (default), "min", "max", "median", "min", "sum", "std", "var"
@@ -445,9 +446,11 @@ def get_data(result_path, variable, years, mesh, runid='fesom',
     else:
         raise ValueError('year can be integer, list or one dimentional numpy array') 
 
-    
-    dind = ind_for_depth(depth, mesh)
-    print("Model depth: {}".format(abs(mesh.zlev[dind])))
+    if depth != None:
+        dind = ind_for_depth(depth, mesh)
+        print("Model depth: {}".format(abs(mesh.zlev[dind])))
+    else:
+        print('Depth is None, 3d field will be returned')
     
     dataset = xr.open_mfdataset(paths, **kwargs)
     if records == -1:
@@ -455,7 +458,7 @@ def get_data(result_path, variable, years, mesh, runid='fesom',
     else:
         data = dataset[variable].isel(time=slice(0,records))
     
-    if 'nz1' in dataset.dims:
+    if ('nz1' in dataset.dims) and (depth != None):
         data = data.isel(nz1=dind)
     
     

@@ -42,7 +42,7 @@ def test_get_data():
     data_path = os.path.join(my_data_folder, 'pi-results')
     mesh = load_mesh(mesh_path, usepickle = False, usejoblib = False)
     # variable on vertices
-    temp = get_data(data_path, 'temp', 1948, mesh)
+    temp = get_data(data_path, 'temp', 1948, mesh, depth=0)
     assert type(temp) == np.ndarray
 
     mmin = temp.min()
@@ -52,7 +52,7 @@ def test_get_data():
     assert  mmax == pytest.approx(28.816469)
     
     # variable on elements
-    u = get_data(data_path, 'u', 1948, mesh)
+    u = get_data(data_path, 'u', 1948, mesh, depth=0)
     assert type(u) == np.ndarray
 
     mmin = u.min()
@@ -62,19 +62,19 @@ def test_get_data():
     assert  mmax == pytest.approx(0.27181712)
 
     # 2d variable on vertices
-    ice = get_data(data_path, 'a_ice', 1948, mesh)
+    ice = get_data(data_path, 'a_ice', 1948, mesh, depth=0)
     assert type(u) == np.ndarray
 
     mmean = ice.mean()
     assert mmean == pytest.approx(0.27451384)
 
     # get multiple years
-    temp = get_data(data_path, 'temp', [1948, 1949], mesh)
+    temp = get_data(data_path, 'temp', [1948, 1949], mesh, depth=0)
     mmean = temp.mean()
     assert mmean == pytest.approx(8.5541878)
 
     # get one record from multiple files
-    temp = get_data(data_path, 'temp', [1948, 1949], mesh, records=1)
+    temp = get_data(data_path, 'temp', [1948, 1949], mesh, records=1, depth=0)
     mmean = temp.mean()
     assert mmean == pytest.approx(8.4580183)
 
@@ -111,7 +111,7 @@ def test_regriding():
     lons = range(0,360)
     lats = range(-90,90)
     lons, lats = np.meshgrid(lons, lats)
-    data = get_data(data_path, 'temp', 1948, mesh)
+    data = get_data(data_path, 'temp', 1948, mesh, depth=0)
 
     # default nn interpolation
     data_inter = fesom2regular(data, mesh, lons,lats)
@@ -151,7 +151,7 @@ def test_plot():
     data_path = os.path.join(my_data_folder, 'pi-results')
     figure_path = os.path.join(my_data_folder, 'baseline_images')
     mesh = load_mesh(mesh_path, abg=[50, 15, -90], usepickle = False, usejoblib = False)
-    data = get_data(data_path, 'temp', 1948, mesh)
+    data = get_data(data_path, 'temp', 1948, mesh, depth=0)
 
     # standard plot
     fig = plot(mesh,data, influence=800000)
@@ -181,7 +181,7 @@ def test_plot():
     compare_images('./out.png', baseline_image, tol=10)
     os.remove('./out.png')
 
-    # pc projection
+    # np projection
     fig = plot(mesh,data, influence=800000, mapproj = 'np')
     fig.savefig('./out.png')
     baseline_image = os.path.join(figure_path, 'plot_temp_np.png')

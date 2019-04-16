@@ -10,3 +10,5 @@ from .load_mesh_data import *
 from .fesom_plot_tools import *
 from .climatology import *
 from .regriding import *
+from .transect import *
+

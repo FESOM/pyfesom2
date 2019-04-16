@@ -233,3 +233,93 @@ def vec_rotate_r2g(al, be, ga, lon, lat, urot, vrot, flag):
     v=np.array(v)
 
     return (u,v)
+
+def tunnel_fast1d(latvar,lonvar,lat0,lon0):
+    '''
+    Find closest point in a set of (lat,lon) points to specified point.abs
+    Parameters:
+    -----------
+        latvar : ndarray
+            1d array with lats
+        lonvar : ndarray
+            1d array with lons
+        lat : float
+            lat of the query point
+        lon : float
+            lon  of the query point
+            
+    Returns:
+    --------
+        node : int
+            node number of the closest point
+            
+    Taken from here http://www.unidata.ucar.edu/blogs/developer/en/entry/accessing_netcdf_data_by_coordinates
+    and modifyed for 1d
+    '''
+    rad_factor = np.pi/180.0 # for trignometry, need angles in radians
+    # Read latitude and longitude from file into numpy arrays
+    latvals = latvar[:] * rad_factor
+    lonvals = lonvar[:] * rad_factor
+    #ny,nx = latvals.shape
+    lat0_rad = lat0 * rad_factor
+    lon0_rad = lon0 * rad_factor
+    # Compute numpy arrays for all values, no loops
+    clat,clon = np.cos(latvals),np.cos(lonvals)
+    slat,slon = np.sin(latvals),np.sin(lonvals)
+    delX = np.cos(lat0_rad)*np.cos(lon0_rad) - clat*clon
+    delY = np.cos(lat0_rad)*np.sin(lon0_rad) - clat*slon
+    delZ = np.sin(lat0_rad) - slat;
+    dist_sq = delX**2 + delY**2 + delZ**2
+    minindex_1d = dist_sq.argmin()  # 1D index of minimum element
+    node = np.unravel_index(minindex_1d, latvals.shape)
+    return node
+
+def shiftedColorMap(cmap, start=0, midpoint=0.5, stop=1.0, name='shiftedcmap'):
+    '''
+    Function to offset the "center" of a colormap. Useful for
+    data with a negative min and positive max and you want the
+    middle of the colormap's dynamic range to be at zero.
+    Source: https://stackoverflow.com/questions/7404116/defining-the-midpoint-of-a-colormap-in-matplotlib
+    Parameters
+    ----------
+      cmap : The matplotlib colormap to be altered
+      start : Offset from lowest point in the colormap's range.
+          Defaults to 0.0 (no lower ofset). Should be between
+          0.0 and `midpoint`.
+      midpoint : The new center of the colormap. Defaults to 
+          0.5 (no shift). Should be between 0.0 and 1.0. In
+          general, this should be  1 - vmax/(vmax + abs(vmin))
+          For example if your data range from -15.0 to +5.0 and
+          you want the center of the colormap at 0.0, `midpoint`
+          should be set to  1 - 5/(5 + 15)) or 0.75
+      stop : Offset from highets point in the colormap's range.
+          Defaults to 1.0 (no upper ofset). Should be between
+          `midpoint` and 1.0.
+    '''
+    cdict = {
+        'red': [],
+        'green': [],
+        'blue': [],
+        'alpha': []
+    }
+
+    # regular index to compute the colors
+    reg_index = np.linspace(start, stop, 257)
+
+    # shifted index to match the data
+    shift_index = np.hstack([
+        np.linspace(0.0, midpoint, 128, endpoint=False), 
+        np.linspace(midpoint, 1.0, 129, endpoint=True)
+    ])
+
+    for ri, si in zip(reg_index, shift_index):
+        r, g, b, a = cmap(ri)
+
+        cdict['red'].append((si, r, r))
+        cdict['green'].append((si, g, g))
+        cdict['blue'].append((si, b, b))
+        cdict['alpha'].append((si, a, a))
+
+    newcmap = mpl.colors.LinearSegmentedColormap(name, cdict)
+
+    return newcmap
