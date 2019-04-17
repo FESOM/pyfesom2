@@ -47,9 +47,13 @@ def transect_get_mask(nodes, mesh, lonlat, max_distance):
     return mask2d
 
 def transect_get_data(data3d, nodes, mask2d=None):
+    nlevels = data3d.shape[1]
     transect_data = data3d[nodes,:]
     transect_data = np.ma.masked_where(transect_data==0, transect_data)
     if (type(mask2d) is np.ndarray):
+        mask_nlev = mask2d.shape[1]
+        if nlevels > mask_nlev:
+            mask2d = np.hstack((mask2d, mask2d[:,-1:]))
         transect_data = np.ma.masked_where(mask2d, transect_data)
     return transect_data
 
