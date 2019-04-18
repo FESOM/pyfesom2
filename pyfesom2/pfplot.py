@@ -136,7 +136,7 @@ def pfplot():
          inds_path  = None,
          qhull_path = None,
          basepath   = None)
-    fig.show()
+    plt.show()
 
 
 
