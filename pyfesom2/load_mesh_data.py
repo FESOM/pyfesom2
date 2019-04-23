@@ -406,7 +406,7 @@ def get_data(result_path, variable, years, mesh, runid='fesom',
     records: int
         number of time steps to be considered for aggregation
         If 1 - only the first record will be taken, if, for example, 5 then
-        five time steps will be taken for aggregation. De
+        five time steps will be taken for aggregation.
     depth: float
         The model depth closest to provided depth will be taken.
         If None, 3d field will be returned. Default = None.
@@ -455,8 +455,10 @@ def get_data(result_path, variable, years, mesh, runid='fesom',
     dataset = xr.open_mfdataset(paths, **kwargs)
     if records == -1:
         data = dataset[variable]
+    elif isinstance(records, slice):
+        data = dataset[variable].isel(time=records)
     else:
-        data = dataset[variable].isel(time=slice(0,records))
+        raise ValueError('Records should be ether -1 or instance of slice.')
     
     if ('nz1' in dataset.dims) and (depth != None):
         data = data.isel(nz1=dind)

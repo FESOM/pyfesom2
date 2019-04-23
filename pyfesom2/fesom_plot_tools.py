@@ -416,7 +416,7 @@ def plot(mesh, data, cmap=None, influence=80000, box=[-180,180,-89,90],
     else:
         pass
 
-    return fig
+    return ax
 
 def plot_transect_map(lon_start, lat_start, lon_end, lat_end, 
                       mesh, npoints=30, view = 'w', stock_img=False):

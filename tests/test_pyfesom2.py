@@ -7,9 +7,11 @@ import pytest
 import os
 import numpy as np
 import xarray as xr
-import matplotlib
+import matplotlib.pylab as plt
+# import matplotlib
 from matplotlib.testing.compare import compare_images
 from matplotlib.testing.decorators import _image_directories
+
 
 from pyfesom2 import pyfesom2
 from pyfesom2 import load_mesh
@@ -74,7 +76,7 @@ def test_get_data():
     assert mmean == pytest.approx(8.5541878)
 
     # get one record from multiple files
-    temp = get_data(data_path, 'temp', [1948, 1949], mesh, records=1, depth=0)
+    temp = get_data(data_path, 'temp', [1948, 1949], mesh, records=slice(0,1), depth=0)
     mmean = temp.mean()
     assert mmean == pytest.approx(8.4580183)
 
@@ -154,41 +156,41 @@ def test_plot():
     data = get_data(data_path, 'temp', 1948, mesh, depth=0)
 
     # standard plot
-    fig = plot(mesh,data, influence=800000)
-    fig.savefig('./out.png')
+    ax = plot(mesh,data, influence=800000)
+    plt.savefig('./out.png')
     baseline_image = os.path.join(figure_path, 'plot_temp_basic.png')
     compare_images('./out.png', baseline_image, tol=10)
     os.remove('./out.png')
 
     # inverce distance interpolation
-    fig = plot(mesh,data, influence=800000, interp='idist')
-    fig.savefig('./out.png')
+    ax = plot(mesh,data, influence=800000, interp='idist')
+    plt.savefig('./out.png')
     baseline_image = os.path.join(figure_path, 'plot_temp_idist.png')
     compare_images('./out.png', baseline_image, tol=10)
     os.remove('./out.png')
 
     # pc projection
-    fig = plot(mesh,data, influence=800000, mapproj = 'pc')
-    fig.savefig('./out.png')
+    ax = plot(mesh,data, influence=800000, mapproj = 'pc')
+    plt.savefig('./out.png')
     baseline_image = os.path.join(figure_path, 'plot_temp_pc.png')
     compare_images('./out.png', baseline_image, tol=10)
     os.remove('./out.png')
 
     # pc projection
-    fig = plot(mesh,data, influence=800000, mapproj = 'pc')
-    fig.savefig('./out.png')
+    ax = plot(mesh,data, influence=800000, mapproj = 'pc')
+    plt.savefig('./out.png')
     baseline_image = os.path.join(figure_path, 'plot_temp_pc.png')
     compare_images('./out.png', baseline_image, tol=10)
     os.remove('./out.png')
 
     # np projection
-    fig = plot(mesh,data, influence=800000, mapproj = 'np')
-    fig.savefig('./out.png')
+    ax = plot(mesh,data, influence=800000, mapproj = 'np')
+    plt.savefig('./out.png')
     baseline_image = os.path.join(figure_path, 'plot_temp_np.png')
     compare_images('./out.png', baseline_image, tol=10)
     os.remove('./out.png')
 
-    assert isinstance(fig, matplotlib.figure.Figure)
+    #assert isinstance(fig, matplotlib.figure.Figure)
 
 @pytest.fixture
 def response():
