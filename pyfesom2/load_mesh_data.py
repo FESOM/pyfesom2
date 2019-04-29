@@ -460,8 +460,10 @@ def get_data(result_path, variable, years, mesh, runid='fesom',
     else:
         raise ValueError('Records should be ether -1 or instance of slice.')
     
-    if ( ('nz1' or 'nz') in dataset.dims) and (depth != None):
+    if ('nz1' in dataset.dims) and (depth != None):
         data = data.isel(nz1=dind)
+    elif ('nz' in dataset.dims) and (depth != None):
+        data = data.isel(nz=dind)
     
     
     if how=='mean':
