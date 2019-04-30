@@ -17,7 +17,7 @@ import joblib
 import xarray as xr
 
 def load_mesh(path, abg = [0, 0, 0], usepickle = True,
-              usejoblib = False):
+              usejoblib = False, protocol=4):
     ''' Loads FESOM mesh 
 
     Parameters
@@ -30,7 +30,8 @@ def load_mesh(path, abg = [0, 0, 0], usepickle = True,
         use pickle file to store or load mesh data
     usejoblib: bool
         use joblib file to store or load mesh data
-        
+    protocol: int
+        used for pickle, only way to save data more than 4 Gb
     Returns
     -------
     mesh : object
@@ -66,7 +67,7 @@ def load_mesh(path, abg = [0, 0, 0], usepickle = True,
         logging.info('Use pickle to save the mesh information')
         print('Save mesh to binary format')
         outfile = open(pickle_file, 'wb')
-        pickle.dump(mesh, outfile)
+        pickle.dump(mesh, outfile, protocol=protocol)
         outfile.close()
         return mesh
     
