@@ -3,7 +3,6 @@
 import argparse
 
 def pfinterp():
-     
     parser = argparse.ArgumentParser()
     parser.add_argument('name')
     args = parser.parse_args()
@@ -12,10 +11,7 @@ def pfinterp():
 
 
 
-# parser.set_defaults(func=pfinterp)  
-
-
-                 
+# parser.set_defaults(func=pfinterp)
 
 
 
