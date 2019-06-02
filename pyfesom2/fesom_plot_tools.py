@@ -273,7 +273,7 @@ def plot(
         FESOM 2 data on nodes (for u,v,u_ice and v_ice one have to first interpolate from elements to nodes).
         Can be ether one np.ndarray or list of np.ndarrays.
     cmap: str
-        Name of the colormap from cmocean package or from the standard matplotlib set. 
+        Name of the colormap from cmocean package or from the standard matplotlib set.
         By default `Spectral_r` will be used.
     influence: float
         Radius of influence for interpolation, in meters.
@@ -393,22 +393,24 @@ def plot(
             )
             interpolated.append(ofesom)
 
-    nearth = cfeature.NaturalEarthFeature("physical", "ocean", "50m")
-    main_geom = [contour for contour in nearth.geometries()][0]
+    # nearth = cfeature.NaturalEarthFeature("physical", "ocean", "50m")
+    # main_geom = [contour for contour in nearth.geometries()][0]
 
-    mask = shapely.vectorized.contains(main_geom, lonreg2, latreg2)
-    m2 = np.where(((lonreg2 == -180.0) & (latreg2 > 71.5)), True, mask)
-    m2 = np.where(
-        ((lonreg2 == -180.0) & (latreg2 < 70.95) & (latreg2 > 68.96)), True, m2
-    )
-    m2 = np.where(((lonreg2 == -180.0) & (latreg2 < 65.33)), True, m2)
+    # mask = shapely.vectorized.contains(main_geom, lonreg2, latreg2)
+    # m2 = np.where(((lonreg2 == -180.0) & (latreg2 > 71.5)), True, mask)
+    # m2 = np.where(
+    #     ((lonreg2 == -180.0) & (latreg2 < 70.95) & (latreg2 > 68.96)), True, m2
+    # )
+    # m2 = np.where(((lonreg2 == -180.0) & (latreg2 < 65.33)), True, m2)
+
+    m2 = mask_ne(lonreg2, latreg2)
 
     #     m2 = np.where(((lonreg2 == 180.)&(latreg2>71.5)), True, m2)
     #     m2 = np.where(((lonreg2 == 180.)&(latreg2<70.95)&(latreg2>68.96)), True, m2)
     #     m2 = np.where(((lonreg2 == 180.)&(latreg2<65.33)), True, m2)
 
     for i, interpolated_instance in enumerate(interpolated):
-        interpolated[i] = np.ma.masked_where(~m2, interpolated[i])
+        interpolated[i] = np.ma.masked_where(m2, interpolated[i])
         interpolated[i] = np.ma.masked_equal(interpolated[i], 0)
 
     if mapproj == "merc":

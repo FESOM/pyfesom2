@@ -12,6 +12,10 @@
 
 import numpy as np
 import math as mt
+import cartopy.feature as cfeature
+import shapely
+from collections import OrderedDict
+import xarray as xr
 
 
 def scalar_r2g(al, be, ga, rlon, rlat):
@@ -353,3 +357,54 @@ def shiftedColorMap(cmap, start=0, midpoint=0.5, stop=1.0, name="shiftedcmap"):
     newcmap = mpl.colors.LinearSegmentedColormap(name, cdict)
 
     return newcmap
+
+def mask_ne(lonreg2, latreg2):
+    nearth = cfeature.NaturalEarthFeature("physical", "ocean", "50m")
+    main_geom = [contour for contour in nearth.geometries()][0]
+
+    mask = shapely.vectorized.contains(main_geom, lonreg2, latreg2)
+    m2 = np.where(((lonreg2 == -180.0) & (latreg2 > 71.5)), True, mask)
+    m2 = np.where(
+        ((lonreg2 == -180.0) & (latreg2 < 70.95) & (latreg2 > 68.96)), True, m2
+    )
+    m2 = np.where(((lonreg2 == -180.0) & (latreg2 < 65.33)), True, m2)
+
+    return ~m2
+
+def set_standard_attrs(da):
+    da.coords['lat'].attrs = OrderedDict([("standard_name", "latitude"),
+                                 ("units", "degrees_north"),
+                                 ("axis", "Y"),
+                                 ("long_name", "latitude"),
+                                 ("out_name" ,"lat"),
+                                 ("stored_direction","increasing"),
+                                 ("type" , "double"),
+                                 ("valid_max", "90.0"),
+                                 ("valid_min", "-90.0")])
+    da.coords['lon'].attrs = OrderedDict([("standard_name", "longitude"),
+                                 ("units", "degrees_east"),
+                                 ("axis", "X"),
+                                 ("long_name", "longitude"),
+                                 ("out_name" ,"lon"),
+                                 ("stored_direction","increasing"),
+                                 ("type" , "double"),
+                                 ("valid_max", "180.0"),
+                                 ("valid_min", "-180.0")])
+    da.coords['depth_coord'].attrs = OrderedDict([("standard_name", "depth"),
+                                 ("units", "m"),
+                                 ("axis", "Z"),
+                                 ("long_name", "ocean depth coordinate"),
+                                 ("out_name" ,"lev"),
+                                 ("positive" ,"down"),
+                                 ("stored_direction","increasing"),
+                                 ("valid_max", "12000.0"),
+                                 ("valid_min", "0.0")])
+    da.coords['time'].attrs = OrderedDict([("standard_name", "time"),
+                                 ("axis", "T"),
+                                 ("long_name", "time"),
+                                 ("out_name" ,"time"),
+                                 ("stored_direction","increasing"),
+                               ])
+    da.coords['time'].encoding['units'] = "days since '1900-01-01'"
+
+    return da
