@@ -48,6 +48,7 @@ from cartopy.util import add_cyclic_point
 import shapely.vectorized
 import joblib
 from .transect import *
+from .ut import mask_ne
 
 
 def ftriplot(
