@@ -25,7 +25,11 @@ def pfinterp():
         help="Years as a string. Options are one year, coma separated years, range in a form of 1948:2000 or * for everything.",
     )
     parser.add_argument(
-        "--depths", "-d", default="0", type=str, help="Depth in meters."
+        "--depths", "-d", default="0", type=str, help="Depths in meters. \
+            Closest values from model levels will be taken.\
+            Several options available: number - e.g. '100',\
+                                       coma separated list - e.g. '0,10,100,200',\
+                                       -1 - all levels will be selected."
     )
     parser.add_argument(
         "--box",
@@ -58,7 +62,7 @@ def pfinterp():
         default="-1",
         type=str,
         help="Explicitly define timesteps of the input fields. There are several oprions:\
-            '-1' - all time steps, number - one time step (e.g. '5'), slice - e.g. '5:10',\
+            '-1' - all time steps, number - one time step (e.g. '5'), numbers - coma separated (e.g. '0, 3, 8, 10'), slice - e.g. '5:10',\
             slice with steps - e.g. '8:-1:12'.",
     )
     parser.add_argument(
@@ -141,9 +145,16 @@ def pfinterp():
 
     mesh = load_mesh(args.meshpath, abg=args.abg, usepickle=True, usejoblib=False)
 
-    depths = str(args.depths)
-    depths = np.array(depths.split(" "), dtype="float32")
+    depths = args.depths
+
+    if len(depths.split(",")) > 1:
+        depths = list(map(int, depths.split(",")))
+    elif int(depths) == -1:
+        depths = [-1]
+    else:
+        depths = [int(depths)]
     print(depths)
+
     if depths[0] == -1:
         dind = range(mesh.zlev.shape[0])
         realdepth = mesh.zlev
