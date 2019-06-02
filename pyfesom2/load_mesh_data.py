@@ -534,8 +534,10 @@ def get_data(
         data = dataset[variable]
     elif isinstance(records, slice):
         data = dataset[variable].isel(time=records)
+    elif isinstance(records, list):
+        data = dataset[variable].isel(time=records)
     else:
-        raise ValueError("Records should be ether -1 or instance of a slice.")
+        raise ValueError("Records should be ether -1 or instance of a list or a slice.")
 
     if ("nz1" in dataset.dims) and (depth != None):
         data = data.isel(nz1=dind)

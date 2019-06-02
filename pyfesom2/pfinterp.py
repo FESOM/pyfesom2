@@ -57,7 +57,9 @@ def pfinterp():
         "-t",
         default="-1",
         type=str,
-        help="Should be ether -1 or instance of a slice.",
+        help="Explicitly define timesteps of the input fields. There are several oprions:\
+            '-1' - all time steps, number - one time step (e.g. '5'), slice - e.g. '5:10',\
+            slice with steps - e.g. '8:-1:12'.",
     )
     parser.add_argument(
         "--quiet",
@@ -110,6 +112,7 @@ def pfinterp():
         print("Euler angles of mesh rotation: {}".format(args.abg))
         print("Interpolation method:          {}".format(args.interp))
 
+
     years = args.years
     if len(years.split(":")) == 2:
         y = range(int(years.split(":")[0]), int(years.split(":")[1]))
@@ -118,6 +121,23 @@ def pfinterp():
     else:
         y = [int(years)]
     years = y
+    # args.timesteps = [0,1]
+
+    timesteps = args.timesteps
+    if len(timesteps.split(":")) == 2:
+        y = slice(int(timesteps.split(":")[0]), int(timesteps.split(":")[1]))
+    if len(timesteps.split(":")) == 3:
+        y = slice(int(timesteps.split(":")[0]),
+                  int(timesteps.split(":")[1]),
+                  int(timesteps.split(":")[2]))
+    elif len(timesteps.split(",")) > 1:
+        y = list(map(int, timesteps.split(",")))
+    elif int(timesteps) == -1:
+        y = -1
+    else:
+        y = [int(timesteps)]
+    timesteps = y
+    print("timesteps {}".format(timesteps))
 
     mesh = load_mesh(args.meshpath, abg=args.abg, usepickle=True, usejoblib=False)
 
@@ -143,7 +163,7 @@ def pfinterp():
         years=years,
         mesh=mesh,
         runid="fesom",
-        records=args.timesteps,
+        records=timesteps,
         depth=None,
         how=None,
         ncfile=None,
