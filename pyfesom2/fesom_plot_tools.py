@@ -43,6 +43,7 @@ from cartopy.util import add_cyclic_point
 import shapely.vectorized
 import joblib
 from .transect import *
+import matplotlib
 
 def ftriplot(mesh, data2, contours, cmap=[], oce='global', do_cbar=True, mlabels=[0,0,0,0], plabels=[0,0,0,0], extend='both', data_on_elem=0):
     if (cmap==[]):
@@ -275,7 +276,9 @@ def plot(mesh, data, cmap=None, influence=80000, box=[-180,180,-89,90],
                          
             
     if cmap:
-        if cmap in cmo.cmapnames:
+        if isinstance(cmap, (matplotlib.colors.Colormap)):
+            colormap = cmap
+        elif cmap in cmo.cmapnames:
             colormap = cmo.cmap_d[cmap]
         elif cmap in plt.cm.datad:
             colormap = plt.get_cmap(cmap)
