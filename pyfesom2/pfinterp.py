@@ -179,6 +179,7 @@ def pfinterp():
         how=None,
         ncfile=None,
         compute=False,
+        combine='by_coords'
     )
     if len(dind) <= data.shape[2]:
         data = data.isel(nz1=dind)
