@@ -454,7 +454,10 @@ def cut_region(mesh, nlevels, box=[13, 30, 53, 66], depth=0):
     return elem_no_nan, no_nan_triangles
 
 def select_slices(dataset, variable,  mesh, records, depth, continuous=False):
-    dind = ind_for_depth(depth, mesh)
+
+    if depth != None:
+        dind = ind_for_depth(depth, mesh)
+
     if records == -1:
         data = dataset[variable]
     elif isinstance(records, slice):
