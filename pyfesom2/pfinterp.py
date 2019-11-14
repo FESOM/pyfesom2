@@ -4,9 +4,159 @@ import argparse
 from collections import OrderedDict
 import numpy as np
 from .load_mesh_data import get_data, load_mesh, ind_for_depth
-from .regriding import fesom2regular
-from .ut import mask_ne, set_standard_attrs
+from .regriding import fesom2regular, tonodes
+from .ut import mask_ne, set_standard_attrs, vec_rotate_r2g
 import xarray as xr
+
+
+def parse_years(years):
+
+    if len(years.split(":")) == 2:
+        y = range(int(years.split(":")[0]), int(years.split(":")[1]))
+    elif len(years.split(",")) > 1:
+        y = list(map(int, years.split(",")))
+    else:
+        y = [int(years)]
+    years = y
+    return years
+
+
+def parse_timesteps(timesteps):
+
+    if len(timesteps.split(":")) == 2:
+        y = range(int(timesteps.split(":")[0]), int(timesteps.split(":")[1]))
+        # y = slice(int(timesteps.split(":")[0]), int(timesteps.split(":")[1]))
+    elif len(timesteps.split(":")) == 3:
+        y = range(
+            int(timesteps.split(":")[0]),
+            int(timesteps.split(":")[1]),
+            int(timesteps.split(":")[2]),
+        )
+        # y = slice(int(timesteps.split(":")[0]),
+        #           int(timesteps.split(":")[1]),
+        #           int(timesteps.split(":")[2]))
+    elif len(timesteps.split(",")) > 1:
+        y = list(map(int, timesteps.split(",")))
+    elif int(timesteps) == -1:
+        y = -1
+    else:
+        y = [int(timesteps)]
+    timesteps = y
+    print("timesteps {}".format(timesteps))
+    return timesteps
+
+
+def parse_depths(depths, mesh, vertical_type="nz1"):
+
+    if len(depths.split(",")) > 1:
+        depths = list(map(int, depths.split(",")))
+    elif int(depths) == -1:
+        depths = [-1]
+    else:
+        depths = [int(depths)]
+    print(depths)
+
+    if depths[0] == -1:
+        if vertical_type == "nz":
+            dind = range(mesh.zlev.shape[0])
+            realdepth = mesh.zlev
+        elif vertical_type == "nz1":
+            dind = range(mesh.zlev.shape[0] - 1)
+            realdepth = mesh.zlev[:-1]
+        # 2d data, ignoring -1 option for depth
+        else:
+            dind = [0]
+            realdepth = [0]
+    else:
+        dind = []
+        realdepth = []
+        for depth in depths:
+            ddepth = ind_for_depth(depth, mesh)
+            dind.append(ddepth)
+            realdepth.append(mesh.zlev[ddepth])
+    print(dind)
+    print(realdepth)
+    return dind, realdepth
+
+
+def get_data_forint(result_path, variable, years, mesh, depth, timestep):
+    vector_vars = {}
+    vector_vars["u"] = ["u", "v"]
+    vector_vars["v"] = ["u", "v"]
+    vector_vars["u_ice"] = ["u_ice", "v_ice"]
+    vector_vars["v_ice"] = ["u_ice", "v_ice"]
+
+    if variable not in vector_vars:
+        # usuall scalar variable, things as usual
+        data = get_data(
+            result_path=result_path,
+            variable=variable,
+            years=years,
+            mesh=mesh,
+            runid="fesom",
+            records=-1,
+            depth=depth,
+            how=None,
+            ncfile=None,
+            compute=False,
+            combine="by_coords",
+        )
+        data_forint = data[timestep, :].values
+
+    else:
+        # vector variabel, should be rotated.
+        data_u = get_data(
+            result_path=result_path,
+            variable=vector_vars[variable][0],
+            years=years,
+            mesh=mesh,
+            runid="fesom",
+            records=-1,
+            depth=depth,
+            how=None,
+            ncfile=None,
+            compute=False,
+            combine="by_coords",
+        )
+        data_v = get_data(
+            result_path=result_path,
+            variable=vector_vars[variable][1],
+            years=years,
+            mesh=mesh,
+            runid="fesom",
+            records=-1,
+            depth=depth,
+            how=None,
+            ncfile=None,
+            compute=False,
+            combine="by_coords",
+        )
+        data_u_int = data_u[timestep, :].values
+        data_v_int = data_v[timestep, :].values
+
+        u_nodes = tonodes(
+            data_u_int.astype('float32'), mesh.n2d, mesh.voltri, mesh.elem, mesh.e2d, mesh.lump2
+        )
+        v_nodes = tonodes(
+            data_v_int.astype('float32'), mesh.n2d, mesh.voltri, mesh.elem, mesh.e2d, mesh.lump2
+        )
+
+        uu, vv = vec_rotate_r2g(
+            mesh.alpha,
+            mesh.beta,
+            mesh.gamma,
+            mesh.x2,
+            mesh.y2,
+            u_nodes,
+            v_nodes,
+            flag=1,
+        )
+        if variable in ["u", "u_ice"]:
+            data_forint = uu
+        else:
+            data_forint = vv
+    return data_forint
+
 
 def pfinterp():
     parser = argparse.ArgumentParser(
@@ -25,11 +175,15 @@ def pfinterp():
         help="Years as a string. Options are one year, coma separated years, range in a form of 1948:2000 or * for everything.",
     )
     parser.add_argument(
-        "--depths", "-d", default="0", type=str, help="Depths in meters. \
+        "--depths",
+        "-d",
+        default="0",
+        type=str,
+        help="Depths in meters. \
             Closest values from model levels will be taken.\
             Several options available: number - e.g. '100',\
                                        coma separated list - e.g. '0,10,100,200',\
-                                       -1 - all levels will be selected."
+                                       -1 - all levels will be selected.",
     )
     parser.add_argument(
         "--box",
@@ -116,78 +270,12 @@ def pfinterp():
         print("Euler angles of mesh rotation: {}".format(args.abg))
         print("Interpolation method:          {}".format(args.interp))
 
-
-    years = args.years
-    if len(years.split(":")) == 2:
-        y = range(int(years.split(":")[0]), int(years.split(":")[1]))
-    elif len(years.split(",")) > 1:
-        y = list(map(int, years.split(",")))
-    else:
-        y = [int(years)]
-    years = y
-    # args.timesteps = [0,1]
-
-    timesteps = args.timesteps
-    if len(timesteps.split(":")) == 2:
-        y = slice(int(timesteps.split(":")[0]), int(timesteps.split(":")[1]))
-    if len(timesteps.split(":")) == 3:
-        y = slice(int(timesteps.split(":")[0]),
-                  int(timesteps.split(":")[1]),
-                  int(timesteps.split(":")[2]))
-    elif len(timesteps.split(",")) > 1:
-        y = list(map(int, timesteps.split(",")))
-    elif int(timesteps) == -1:
-        y = -1
-    else:
-        y = [int(timesteps)]
-    timesteps = y
-    print("timesteps {}".format(timesteps))
-
     mesh = load_mesh(args.meshpath, abg=args.abg, usepickle=True, usejoblib=False)
 
-    depths = args.depths
+    years = parse_years(args.years)
+    timesteps = parse_timesteps(args.timesteps)
 
-    if len(depths.split(",")) > 1:
-        depths = list(map(int, depths.split(",")))
-    elif int(depths) == -1:
-        depths = [-1]
-    else:
-        depths = [int(depths)]
-    print(depths)
-
-    if depths[0] == -1:
-        dind = range(mesh.zlev.shape[0])
-        realdepth = mesh.zlev
-    else:
-        dind = []
-        realdepth = []
-        for depth in depths:
-            ddepth = ind_for_depth(depth, mesh)
-            dind.append(ddepth)
-            realdepth.append(mesh.zlev[ddepth])
-    print(dind)
-    print(realdepth)
-
-    data = get_data(
-        result_path=args.result_path,
-        variable=args.variable,
-        years=years,
-        mesh=mesh,
-        runid="fesom",
-        records=timesteps,
-        depth=None,
-        how=None,
-        ncfile=None,
-        compute=False,
-        combine='by_coords'
-    )
-    if len(dind) <= data.shape[2]:
-        data = data.isel(nz1=dind)
-    elif len(dind) > data.shape[2]:
-        dind = dind[:-1]
-        realdepth = realdepth[:-1]
-        data = data.isel(nz1=dind)
-
+    # prepear mesh for interpolation
     left, right, down, up = args.box
     lonNumber, latNumber = args.res
 
@@ -195,44 +283,85 @@ def pfinterp():
     latreg = np.linspace(down, up, latNumber)
     lonreg2, latreg2 = np.meshgrid(lonreg, latreg)
 
-    dshape = data.shape
-    empty_data = np.empty((dshape[0], dshape[2], latNumber, lonNumber ))
+    # first load the metadata to get more information
+    data = get_data(
+        result_path=args.result_path,
+        variable=args.variable,
+        years=years,
+        mesh=mesh,
+        runid="fesom",
+        records=-1,
+        depth=None,
+        how=None,
+        ncfile=None,
+        compute=False,
+        combine="by_coords",
+    )
 
-    da = xr.DataArray(empty_data, dims=['time', 'depth_coord', 'lat', 'lon'],
-                          coords={'time':data.time,
-                                  'depth_coord':realdepth,
-                                  'lat':latreg2[:,0].flatten(),
-                                  'lon':lonreg2[0,:].flatten()},
-                                  name=args.variable,
-                                  attrs=data.attrs)
+    time_shape = data.time.shape[0]
+
+    # select all timesteps
+    if timesteps == -1:
+        timesteps = range(time_shape)
+    # set timestep to 0 if data have only one time step
+    if time_shape == 1:
+        timesteps = [0]
+
+    if "nz" in data.dims:
+        dind, realdepth = parse_depths(args.depths, mesh, "nz")
+    elif "nz1" in data.dims:
+        dind, realdepth = parse_depths(args.depths, mesh, "nz1")
+    else:
+        dind, realdepth = parse_depths(args.depths, mesh, "2d")
+
+    empty_data = np.empty((len(timesteps), len(dind), latNumber, lonNumber))
+
+    da = xr.DataArray(
+        empty_data,
+        dims=["time", "depth_coord", "lat", "lon"],
+        coords={
+            "time": data.time[timesteps],
+            "depth_coord": realdepth,
+            "lat": latreg2[:, 0].flatten(),
+            "lon": lonreg2[0, :].flatten(),
+        },
+        name=args.variable,
+        attrs=data.attrs,
+    )
     da = set_standard_attrs(da)
     m2 = mask_ne(lonreg2, latreg2)
 
-    for timestep in range(da.time.shape[0]):
-        for depth_ind in range(da.depth_coord.shape[0]):
+    for timestep_index, timestep in enumerate(timesteps):
+        for depth_index, depth_model in enumerate(realdepth):
+            data = get_data_forint(
+                result_path=args.result_path,
+                variable=args.variable,
+                years=years,
+                mesh=mesh,
+                depth=depth_model,
+                timestep=timestep,
+            )
+
             interp_data = fesom2regular(
-                                        data[timestep,:,depth_ind].values,
-                                        mesh,
-                                        lonreg2,
-                                        latreg2,
-                                        distances_path=None,
-                                        inds_path=None,
-                                        qhull_path=None,
-                                        how=args.interp,
-                                        k=args.k,
-                                        radius_of_influence=args.influence,
-                                        n_jobs=2,
-                                        dumpfile=True,
-                                        basepath=None,
-                                    )
+                data,
+                mesh,
+                lonreg2,
+                latreg2,
+                distances_path=None,
+                inds_path=None,
+                qhull_path=None,
+                how=args.interp,
+                k=args.k,
+                radius_of_influence=args.influence,
+                n_jobs=2,
+                dumpfile=True,
+                basepath=None,
+            )
             interp_data = np.ma.masked_where(m2, interp_data)
             interp_data = np.ma.masked_equal(interp_data, 0)
-            da[timestep, depth_ind,:,:] = interp_data[:]
+            da[timestep_index, depth_index, :, :] = interp_data[:]
 
     da.to_netcdf(args.ofile)
-
-
-# parser.set_defaults(func=pfinterp)
 
 
 if __name__ == "__main__":
