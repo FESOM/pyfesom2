@@ -1,22 +1,11 @@
-========
 pyfesom2
 ========
 
 
-.. image:: https://img.shields.io/pypi/v/pyfesom2.svg
-        :target: https://pypi.python.org/pypi/pyfesom2
+[![Build Status](https://travis-ci.org/koldunovn/pyfesom2.svg?branch=master)](https://travis-ci.org/koldunovn/pyfesom2)
 
-.. image:: https://img.shields.io/travis/koldunovn/pyfesom2.svg
-        :target: https://travis-ci.org/koldunovn/pyfesom2
+[![Documentation Status](https://readthedocs.org/projects/pyfesom2/badge/?version=latest)](https://pyfesom2.readthedocs.io/en/latest/?badge=latest)
 
-.. image:: https://readthedocs.org/projects/pyfesom2/badge/?version=latest
-        :target: https://pyfesom2.readthedocs.io/en/latest/?badge=latest
-        :alt: Documentation Status
-
-
-.. image:: https://pyup.io/repos/github/koldunovn/pyfesom2/shield.svg
-     :target: https://pyup.io/repos/github/koldunovn/pyfesom2/
-     :alt: Updates
 
 FESOM2 tools
 
@@ -31,10 +20,10 @@ Installation
 For now we recomend "development" installation. The easiest way is to use `conda` environment.
 Clone the source code:
 
-```
-git clone https://github.com/FESOM/pyfesom2.git
 
-```
+    git clone https://github.com/FESOM/pyfesom2.git
+
+
 
 Create pyfesom2 environment by:
 
