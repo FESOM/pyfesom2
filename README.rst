@@ -31,13 +31,15 @@ Installation
 For now we recomend "development" installation. The easiest way is to use `conda` environment.
 Clone the source code:
 
+```
+git clone https://github.com/FESOM/pyfesom2.git
 
-    git clone https://github.com/FESOM/pyfesom2.git
-
+```
 
 Create pyfesom2 environment by:
 
     conda env create -f ./pyfesom2/ci/requirements-py36.yml
+
 
 
 Activate the environment
