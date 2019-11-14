@@ -525,7 +525,7 @@ def clim2regular(
 
 
 @jit(
-    "float64[:](float64[:],int64, float64[:], int64[:,:], int64, float64[:])",
+    "float64[:](float32[:],int64, float64[:], int64[:,:], int64, float64[:])",
     nopython=True,
 )
 def tonodes(component, n2d, voltri, elem, e2d, lump2):
@@ -547,7 +547,7 @@ def tonodes3d(component, mesh):
     levels = component.shape[1]
     out_data = np.zeros((mesh.n2d, levels))
     for level in range(levels):
-        component_level = component[:, level].astype("float64")
+        component_level = component[:, level].astype("float32")
         onnodes = tonodes(
             component_level, mesh.n2d, mesh.voltri, mesh.elem, mesh.e2d, mesh.lump2
         )

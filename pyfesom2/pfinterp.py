@@ -4,8 +4,8 @@ import argparse
 from collections import OrderedDict
 import numpy as np
 from .load_mesh_data import get_data, load_mesh, ind_for_depth
-from .regriding import fesom2regular
-from .ut import mask_ne, set_standard_attrs
+from .regriding import fesom2regular, tonodes
+from .ut import mask_ne, set_standard_attrs, vec_rotate_r2g
 import xarray as xr
 
 
@@ -22,6 +22,7 @@ def parse_years(years):
 
 
 def parse_timesteps(timesteps):
+
     if len(timesteps.split(":")) == 2:
         y = range(int(timesteps.split(":")[0]), int(timesteps.split(":")[1]))
         # y = slice(int(timesteps.split(":")[0]), int(timesteps.split(":")[1]))
@@ -76,6 +77,85 @@ def parse_depths(depths, mesh, vertical_type="nz1"):
     print(dind)
     print(realdepth)
     return dind, realdepth
+
+
+def get_data_forint(result_path, variable, years, mesh, depth, timestep):
+    vector_vars = {}
+    vector_vars["u"] = ["u", "v"]
+    vector_vars["v"] = ["u", "v"]
+    vector_vars["u_ice"] = ["u_ice", "v_ice"]
+    vector_vars["v_ice"] = ["u_ice", "v_ice"]
+
+    if variable not in vector_vars:
+        # usuall scalar variable, things as usual
+        data = get_data(
+            result_path=result_path,
+            variable=variable,
+            years=years,
+            mesh=mesh,
+            runid="fesom",
+            records=-1,
+            depth=depth,
+            how=None,
+            ncfile=None,
+            compute=False,
+            combine="by_coords",
+        )
+        data_forint = data[timestep, :].values
+
+    else:
+        # vector variabel, should be rotated.
+        data_u = get_data(
+            result_path=result_path,
+            variable=vector_vars[variable][0],
+            years=years,
+            mesh=mesh,
+            runid="fesom",
+            records=-1,
+            depth=depth,
+            how=None,
+            ncfile=None,
+            compute=False,
+            combine="by_coords",
+        )
+        data_v = get_data(
+            result_path=result_path,
+            variable=vector_vars[variable][1],
+            years=years,
+            mesh=mesh,
+            runid="fesom",
+            records=-1,
+            depth=depth,
+            how=None,
+            ncfile=None,
+            compute=False,
+            combine="by_coords",
+        )
+        data_u_int = data_u[timestep, :].values
+        data_v_int = data_v[timestep, :].values
+
+        u_nodes = tonodes(
+            data_u_int.astype('float32'), mesh.n2d, mesh.voltri, mesh.elem, mesh.e2d, mesh.lump2
+        )
+        v_nodes = tonodes(
+            data_v_int.astype('float32'), mesh.n2d, mesh.voltri, mesh.elem, mesh.e2d, mesh.lump2
+        )
+
+        uu, vv = vec_rotate_r2g(
+            mesh.alpha,
+            mesh.beta,
+            mesh.gamma,
+            mesh.x2,
+            mesh.y2,
+            u_nodes,
+            v_nodes,
+            flag=1,
+        )
+        if variable in ["u", "u_ice"]:
+            data_forint = uu
+        else:
+            data_forint = vv
+    return data_forint
 
 
 def pfinterp():
@@ -202,7 +282,7 @@ def pfinterp():
     lonreg = np.linspace(left, right, lonNumber)
     latreg = np.linspace(down, up, latNumber)
     lonreg2, latreg2 = np.meshgrid(lonreg, latreg)
-    
+
     # first load the metadata to get more information
     data = get_data(
         result_path=args.result_path,
@@ -253,22 +333,17 @@ def pfinterp():
 
     for timestep_index, timestep in enumerate(timesteps):
         for depth_index, depth_model in enumerate(realdepth):
-            data = get_data(
+            data = get_data_forint(
                 result_path=args.result_path,
                 variable=args.variable,
                 years=years,
                 mesh=mesh,
-                runid="fesom",
-                records=-1,
                 depth=depth_model,
-                how=None,
-                ncfile=None,
-                compute=False,
-                combine="by_coords",
+                timestep=timestep,
             )
 
             interp_data = fesom2regular(
-                data[timestep, :].values,
+                data,
                 mesh,
                 lonreg2,
                 latreg2,
@@ -287,6 +362,7 @@ def pfinterp():
             da[timestep_index, depth_index, :, :] = interp_data[:]
 
     da.to_netcdf(args.ofile)
+
 
 if __name__ == "__main__":
     # args = parser.parse_args()
