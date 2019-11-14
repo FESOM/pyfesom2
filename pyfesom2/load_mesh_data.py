@@ -453,6 +453,39 @@ def cut_region(mesh, nlevels, box=[13, 30, 53, 66], depth=0):
 
     return elem_no_nan, no_nan_triangles
 
+def select_slices(dataset, variable,  mesh, records, depth, continuous=False):
+    dind = ind_for_depth(depth, mesh)
+    if records == -1:
+        data = dataset[variable]
+    elif isinstance(records, slice):
+        if (records.step == None) and (continuous==True):
+            data = dataset[variable][records,:]
+        elif (records.step != None) and (continuous == False):
+            data = dataset[variable].isel(time=records)
+        elif (records.step != None) and (continuous==True):
+            raise ValueError("You set `continuous` to True, but the step in the slice is not None.")
+    elif isinstance(records, list):
+        if continuous==True:
+            raise ValueError("You set `continuous` to True, lists are not allowed.")
+        data = dataset[variable].isel(time=records)
+    else:
+        raise ValueError("Records should be ether -1 or instance of a list or a slice.")
+
+    if ("nz1" in dataset.dims) and (depth != None):
+        if (continuous==True) and len(data.dims == 3) and (dind.step == None):
+            data = data[:,:,dind]
+        elif (continuous==True) and len(data.dims == 2) and (dind.step == None):
+            data = data[:,dind]
+        elif (continuous==False):
+            data = data.isel(nz1=dind)
+    elif ("nz" in dataset.dims) and (depth != None):
+        if (continuous==True) and len(data.dims == 3) and (dind.step == None):
+            data = data[:,:,dind]
+        elif (continuous==True) and len(data.dims == 2) and (dind.step == None):
+            data = data[:,dind]
+        elif (continuous==False):
+            data = data.isel(nz=dind)
+    return data
 
 def get_data(
     result_path,
@@ -465,6 +498,7 @@ def get_data(
     how="mean",
     ncfile=None,
     compute=True,
+    continuous = False,
     **kwargs
 ):
     """
@@ -530,19 +564,7 @@ def get_data(
         print("Depth is None, 3d field will be returned")
 
     dataset = xr.open_mfdataset(paths, **kwargs)
-    if records == -1:
-        data = dataset[variable]
-    elif isinstance(records, slice):
-        data = dataset[variable].isel(time=records)
-    elif isinstance(records, list):
-        data = dataset[variable].isel(time=records)
-    else:
-        raise ValueError("Records should be ether -1 or instance of a list or a slice.")
-
-    if ("nz1" in dataset.dims) and (depth != None):
-        data = data.isel(nz1=dind)
-    elif ("nz" in dataset.dims) and (depth != None):
-        data = data.isel(nz=dind)
+    data = select_slices(dataset, variable, mesh, records, depth)
 
     if how == "mean":
         data = data.mean(dim="time")
@@ -558,6 +580,8 @@ def get_data(
         data = data.std(dim="time")
     elif how == "var":
         data = data.var(dim="time")
+    elif how == "original":
+        data = data
     else:
         pass
 
