@@ -8,6 +8,7 @@ from .regriding import fesom2regular
 from .ut import mask_ne, set_standard_attrs
 import xarray as xr
 
+
 def parse_years(years):
 
     if len(years.split(":")) == 2:
@@ -19,15 +20,17 @@ def parse_years(years):
     years = y
     return years
 
-def parse_timesteps(timesteps):
 
+def parse_timesteps(timesteps):
     if len(timesteps.split(":")) == 2:
-        y = range(int(timesteps.split(":")[0], int(timesteps.split(":")[1])))
+        y = range(int(timesteps.split(":")[0]), int(timesteps.split(":")[1]))
         # y = slice(int(timesteps.split(":")[0]), int(timesteps.split(":")[1]))
-    if len(timesteps.split(":")) == 3:
-        y = range(int(timesteps.split(":")[0]),
-                  int(timesteps.split(":")[1]),
-                  int(timesteps.split(":")[2]))
+    elif len(timesteps.split(":")) == 3:
+        y = range(
+            int(timesteps.split(":")[0]),
+            int(timesteps.split(":")[1]),
+            int(timesteps.split(":")[2]),
+        )
         # y = slice(int(timesteps.split(":")[0]),
         #           int(timesteps.split(":")[1]),
         #           int(timesteps.split(":")[2]))
@@ -41,7 +44,8 @@ def parse_timesteps(timesteps):
     print("timesteps {}".format(timesteps))
     return timesteps
 
-def parse_depths(depths, mesh, vertical_type='nz1'):
+
+def parse_depths(depths, mesh, vertical_type="nz1"):
 
     if len(depths.split(",")) > 1:
         depths = list(map(int, depths.split(",")))
@@ -52,11 +56,11 @@ def parse_depths(depths, mesh, vertical_type='nz1'):
     print(depths)
 
     if depths[0] == -1:
-        if vertical_type=='nz':
+        if vertical_type == "nz":
             dind = range(mesh.zlev.shape[0])
             realdepth = mesh.zlev
-        elif vertical_type=='nz1':
-            dind = range(mesh.zlev.shape[0]-1)
+        elif vertical_type == "nz1":
+            dind = range(mesh.zlev.shape[0] - 1)
             realdepth = mesh.zlev[:-1]
         # 2d data, ignoring -1 option for depth
         else:
@@ -91,11 +95,15 @@ def pfinterp():
         help="Years as a string. Options are one year, coma separated years, range in a form of 1948:2000 or * for everything.",
     )
     parser.add_argument(
-        "--depths", "-d", default="0", type=str, help="Depths in meters. \
+        "--depths",
+        "-d",
+        default="0",
+        type=str,
+        help="Depths in meters. \
             Closest values from model levels will be taken.\
             Several options available: number - e.g. '100',\
                                        coma separated list - e.g. '0,10,100,200',\
-                                       -1 - all levels will be selected."
+                                       -1 - all levels will be selected.",
     )
     parser.add_argument(
         "--box",
@@ -182,7 +190,6 @@ def pfinterp():
         print("Euler angles of mesh rotation: {}".format(args.abg))
         print("Interpolation method:          {}".format(args.interp))
 
-
     mesh = load_mesh(args.meshpath, abg=args.abg, usepickle=True, usejoblib=False)
 
     years = parse_years(args.years)
@@ -195,7 +202,8 @@ def pfinterp():
     lonreg = np.linspace(left, right, lonNumber)
     latreg = np.linspace(down, up, latNumber)
     lonreg2, latreg2 = np.meshgrid(lonreg, latreg)
-
+    
+    # first load the metadata to get more information
     data = get_data(
         result_path=args.result_path,
         variable=args.variable,
@@ -207,83 +215,78 @@ def pfinterp():
         how=None,
         ncfile=None,
         compute=False,
-        combine='by_coords'
+        combine="by_coords",
     )
 
     time_shape = data.time.shape[0]
+
+    # select all timesteps
     if timesteps == -1:
         timesteps = range(time_shape)
+    # set timestep to 0 if data have only one time step
+    if time_shape == 1:
+        timesteps = [0]
 
     if "nz" in data.dims:
-        dind, realdepth = parse_depths(args.depths, mesh, 'nz')
+        dind, realdepth = parse_depths(args.depths, mesh, "nz")
     elif "nz1" in data.dims:
-        dind, realdepth = parse_depths(args.depths, mesh, 'nz1')
+        dind, realdepth = parse_depths(args.depths, mesh, "nz1")
     else:
-        dind, realdepth = parse_depths(args.depths, mesh, '2d')
+        dind, realdepth = parse_depths(args.depths, mesh, "2d")
 
+    empty_data = np.empty((len(timesteps), len(dind), latNumber, lonNumber))
 
-    print(data.time.shape)
-    # if len(dind) <= data.shape[2]:
-    #     data = data.isel(nz1=dind)
-    # elif len(dind) > data.shape[2]:
-    #     dind = dind[:-1]
-    #     realdepth = realdepth[:-1]
-    #     data = data.isel(nz1=dind)
-
-
-    # dshape = data.shape
-    empty_data = np.empty((time_shape, len(dind), latNumber, lonNumber ))
-
-    da = xr.DataArray(empty_data, dims=['time', 'depth_coord', 'lat', 'lon'],
-                          coords={'time':data.time,
-                                  'depth_coord':realdepth,
-                                  'lat':latreg2[:,0].flatten(),
-                                  'lon':lonreg2[0,:].flatten()},
-                                  name=args.variable,
-                                  attrs=data.attrs)
+    da = xr.DataArray(
+        empty_data,
+        dims=["time", "depth_coord", "lat", "lon"],
+        coords={
+            "time": data.time[timesteps],
+            "depth_coord": realdepth,
+            "lat": latreg2[:, 0].flatten(),
+            "lon": lonreg2[0, :].flatten(),
+        },
+        name=args.variable,
+        attrs=data.attrs,
+    )
     da = set_standard_attrs(da)
     m2 = mask_ne(lonreg2, latreg2)
 
-    for timestep in timesteps:
+    for timestep_index, timestep in enumerate(timesteps):
         for depth_index, depth_model in enumerate(realdepth):
             data = get_data(
-                            result_path=args.result_path,
-                            variable=args.variable,
-                            years=years,
-                            mesh=mesh,
-                            runid="fesom",
-                            records=-1,
-                            depth=depth_model,
-                            how=None,
-                            ncfile=None,
-                            compute=False,
-                            combine='by_coords'
-                        )
+                result_path=args.result_path,
+                variable=args.variable,
+                years=years,
+                mesh=mesh,
+                runid="fesom",
+                records=-1,
+                depth=depth_model,
+                how=None,
+                ncfile=None,
+                compute=False,
+                combine="by_coords",
+            )
 
             interp_data = fesom2regular(
-                                        data[timestep,:].values,
-                                        mesh,
-                                        lonreg2,
-                                        latreg2,
-                                        distances_path=None,
-                                        inds_path=None,
-                                        qhull_path=None,
-                                        how=args.interp,
-                                        k=args.k,
-                                        radius_of_influence=args.influence,
-                                        n_jobs=2,
-                                        dumpfile=True,
-                                        basepath=None,
-                                    )
+                data[timestep, :].values,
+                mesh,
+                lonreg2,
+                latreg2,
+                distances_path=None,
+                inds_path=None,
+                qhull_path=None,
+                how=args.interp,
+                k=args.k,
+                radius_of_influence=args.influence,
+                n_jobs=2,
+                dumpfile=True,
+                basepath=None,
+            )
             interp_data = np.ma.masked_where(m2, interp_data)
             interp_data = np.ma.masked_equal(interp_data, 0)
-            da[timestep, depth_index,:,:] = interp_data[:]
+            da[timestep_index, depth_index, :, :] = interp_data[:]
 
     da.to_netcdf(args.ofile)
-
-
-# parser.set_defaults(func=pfinterp)
-
 
 if __name__ == "__main__":
     # args = parser.parse_args()
