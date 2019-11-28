@@ -431,7 +431,7 @@ def cut_region(mesh, nlevels, box=[13, 30, 53, 66], depth=0):
     elem_no_nan : array
         elements that belong to the region defined by `box`.
     no_nan_triangles : array
-        boolian array of size elem2d with True for elements 
+        boolian array of size elem2d with True for elements
         that belong to the region defines by `box`.
     """
 
@@ -453,42 +453,87 @@ def cut_region(mesh, nlevels, box=[13, 30, 53, 66], depth=0):
 
     return elem_no_nan, no_nan_triangles
 
-def select_slices(dataset, variable,  mesh, records, depth, continuous=False):
+
+def select_slices(dataset, variable, mesh, records, depth, continuous=False):
+    """Select slices from data.
+
+    The xarray isel function can be very slow, so in order to use arbitrary
+    selection, we add an option to acces to data directly by index.
+
+    To use it the `continuous` argument should be True. That mean you
+    provide as record a slice with step 1. In other cases you should rely on
+    xarray isel.
+
+    Parameters
+    ----------
+    dataset: xarray.DataSet
+        input data
+    variable: str
+        name of the variable
+    mesh: mesh object
+        FESOM2 mesh object.
+    records: int, slice, list
+        number of time steps to be considered for aggregation.
+        If -1 (default), all timesteps will be taken in to account.
+        If 0, only the first record will be taken
+        If [0,5,7], only time steps with indexes 0,5 and 7 will be taken
+        If slice(2,120,12), every 12th time step starting from the third one will be selected.
+    depth: float
+        The model depth closest to provided depth will be taken.
+        If None, 3d field will be returned. Default = None.
+    continuous: bool
+        If True the time steps will be selected by directly accesing indexes,
+            this only possible if records is a slice with step 1
+        If False, data will be selected with xarray isel
+
+    Returns
+    -------
+    data: xarray.DataArray
+        data selected over time and depth.
+     """
 
     if depth != None:
         dind = ind_for_depth(depth, mesh)
 
+    data = None
     if records == -1:
         data = dataset[variable]
     elif isinstance(records, slice):
-        if (records.step == None) and (continuous==True):
-            data = dataset[variable][records,:]
+        if (records.step == None) and (continuous == True):
+            data = dataset[variable][records, :]
         elif (records.step != None) and (continuous == False):
             data = dataset[variable].isel(time=records)
-        elif (records.step != None) and (continuous==True):
-            raise ValueError("You set `continuous` to True, but the step in the slice is not None.")
+        elif (records.step == None) and (continuous == False):
+            data = dataset[variable].isel(time=records)
+        elif (records.step != None) and (continuous == True):
+            raise ValueError(
+                "You set `continuous` to True, but the step in the slice is not None."
+            )
+    # lists are not allowed if continuous == True
     elif isinstance(records, list):
-        if continuous==True:
+        if continuous == True:
             raise ValueError("You set `continuous` to True, lists are not allowed.")
-        data = dataset[variable].isel(time=records)
+        else:
+            data = dataset[variable].isel(time=records)
     else:
         raise ValueError("Records should be ether -1 or instance of a list or a slice.")
 
     if ("nz1" in dataset.dims) and (depth != None):
-        if (continuous==True) and len(data.dims == 3) and (dind.step == None):
-            data = data[:,:,dind]
-        elif (continuous==True) and len(data.dims == 2) and (dind.step == None):
-            data = data[:,dind]
-        elif (continuous==False):
+        if (continuous == True) and len(data.dims == 3) and (dind.step == None):
+            data = data[:, :, dind]
+        elif (continuous == True) and len(data.dims == 2) and (dind.step == None):
+            data = data[:, dind]
+        elif continuous == False:
             data = data.isel(nz1=dind)
     elif ("nz" in dataset.dims) and (depth != None):
-        if (continuous==True) and len(data.dims == 3) and (dind.step == None):
-            data = data[:,:,dind]
-        elif (continuous==True) and len(data.dims == 2) and (dind.step == None):
-            data = data[:,dind]
-        elif (continuous==False):
+        if (continuous == True) and len(data.dims == 3) and (dind.step == None):
+            data = data[:, :, dind]
+        elif (continuous == True) and len(data.dims == 2) and (dind.step == None):
+            data = data[:, dind]
+        elif continuous == False:
             data = data.isel(nz=dind)
     return data
+
 
 def get_data(
     result_path,
@@ -501,7 +546,7 @@ def get_data(
     how="mean",
     ncfile=None,
     compute=True,
-    continuous = False,
+    continuous=False,
     **kwargs
 ):
     """
@@ -517,10 +562,12 @@ def get_data(
         year or list of years to open
     mesh: mesh object
         FESOM2 mesh object.
-    records: int
-        number of time steps to be considered for aggregation
-        If 1 - only the first record will be taken, if, for example, 5 then
-        five time steps will be taken for aggregation.
+    records: int, slice, list
+        number of time steps to be considered for aggregation.
+        If -1 (default), all timesteps will be taken in to account.
+        If 0, only the first record will be taken
+        If [0,5,7], only time steps with indexes 0,5 and 7 will be taken
+        If slice(2,120,12), every 12th time step starting from the third one will be selected.
     depth: float
         The model depth closest to provided depth will be taken.
         If None, 3d field will be returned. Default = None.
@@ -542,8 +589,8 @@ def get_data(
         aggregated data at some depth level.
 
     """
-    if records == 0:
-        records = 1
+    # if records == 0:
+    #     records = 1
 
     paths = []
     if ncfile:
@@ -566,7 +613,7 @@ def get_data(
     else:
         print("Depth is None, 3d field will be returned")
 
-    dataset = xr.open_mfdataset(paths, combine='by_coords',  **kwargs)
+    dataset = xr.open_mfdataset(paths, combine="by_coords", **kwargs)
     data = select_slices(dataset, variable, mesh, records, depth)
 
     if how == "mean":
