@@ -230,3 +230,42 @@ def hovm_data(data, mesh, meshdiag=None, runid="fesom"):
 
     return hdg_variable
 
+
+def select_depths(uplow, mesh):
+    if not uplow:
+        indexes = range(mesh.nlev - 1)
+        return indexes
+    elif uplow[1] == "bottom":
+        upper = pf.ind_for_depth(uplow[0], mesh)
+        lower = mesh.nlev - 1
+        print(f"Upper depth: {mesh.zlev[upper]}, Lower depth: bottom")
+        indexes = range(upper, lower)
+        return indexes
+    else:
+        upper = pf.ind_for_depth(uplow[0], mesh)
+        lower = pf.ind_for_depth(uplow[1], mesh)
+        if lower >= mesh.nlev - 2:
+            lower = mesh.nlev - 2
+        print(f"Upper depth: {mesh.zlev[upper]}, Lower depth: {mesh.zlev[lower]}")
+        indexes = range(upper, lower + 1)
+        return indexes
+
+
+def volume_int(data, mesh, meshdiag=None, runid="fesom", uplow=None):
+    if len(data.shape) == 2:
+        data = pf.add_timedim(data)
+
+    diag = pf.get_meshdiag(mesh, meshdiag)
+    nod_area = diag.rename_dims({"nl": "nz1", "nod_n": "nod2"}).nod_area
+
+    indexes = select_depths(uplow, mesh)
+
+    totalT = 0.0
+    totalV = 0.0
+    for i in indexes:
+        aux = (data[:, :, i] * nod_area[i, :].data).sum(axis=1)
+        totalT = totalT + aux * dz[i]
+        totalV = totalV + nod_area[i, :].data.sum() * dz[i]
+
+    return totalT / totalV
+
