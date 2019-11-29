@@ -14,6 +14,8 @@ from pyfesom2 import get_data
 from pyfesom2 import ice_ext
 from pyfesom2 import ice_vol
 from pyfesom2 import ice_area
+from pyfesom2 import get_meshdiag
+from pyfesom2 import hovm_data
 
 THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 my_data_folder = os.path.join(THIS_DIR, "data")
@@ -67,4 +69,61 @@ def test_ice_integrals():
     data = get_data(data_path, "m_ice", 1948, mesh, depth=0, how="ori", compute=True)
     vol = ice_vol(data, mesh)
     assert vol.data[0] == pytest.approx(13403821068217.506)
+
+
+def test_get_meshdiag():
+    mesh_path = os.path.join(my_data_folder, "pi-grid")
+    mesh = load_mesh(mesh_path, usepickle=False, usejoblib=False)
+    diag = get_meshdiag(mesh)
+    assert isinstance(diag, xr.Dataset)
+
+    diag = get_meshdiag(mesh, meshdiag=os.path.join(mesh_path, "fesom.mesh.diag.nc"))
+    assert isinstance(diag, xr.Dataset)
+
+
+def test_hovm_data():
+    mesh_path = os.path.join(my_data_folder, "pi-grid")
+    data_path = os.path.join(my_data_folder, "pi-results")
+    mesh = load_mesh(mesh_path, usepickle=False, usejoblib=False)
+
+    # work on xarray
+
+    # mean first, the hovm
+    data = get_data(data_path, "temp", [1948, 1949], mesh, how="mean", compute=False)
+    hovm = hovm_data(data, mesh)
+    assert hovm.shape == (1, 47)
+    assert np.nanmean(hovm) == pytest.approx(7.446110751429013)
+    # hovm first, then mean
+    data = get_data(data_path, "temp", [1948, 1949], mesh, how="ori", compute=False)
+    hovm = hovm_data(data, mesh)
+    assert hovm.shape == (2, 47)
+    assert np.nanmean(hovm) == pytest.approx(7.446110751429013)
+
+    # work on numpy array
+    # mean first, the hovm
+    data = get_data(data_path, "temp", [1948, 1949], mesh, how="mean", compute=True)
+    hovm = hovm_data(data, mesh)
+    assert hovm.shape == (1, 47)
+    assert np.nanmean(hovm) == pytest.approx(7.446110751429013)
+    # hovm first, then mean
+    data = get_data(data_path, "temp", [1948, 1949], mesh, how="ori", compute=True)
+    hovm = hovm_data(data, mesh)
+    assert hovm.shape == (2, 47)
+    assert np.nanmean(hovm) == pytest.approx(7.446110751429013)
+
+    # test when only 1 time step of 3d field is in input
+    data = get_data(data_path, "temp", [1948], mesh, how="mean", compute=False)
+    hovm = hovm_data(data, mesh)
+    assert hovm.shape == (1, 47)
+    assert np.nanmean(hovm) == pytest.approx(7.440160989229884)
+
+    data = get_data(data_path, "temp", [1948], mesh, how="mean", compute=True)
+    hovm = hovm_data(data, mesh)
+    assert hovm.shape == (1, 47)
+    assert np.nanmean(hovm) == pytest.approx(7.440160989229884)
+
+    # if we try to supplu 2d variable
+    with pytest.raises(ValueError):
+        data = get_data(data_path, "a_ice", [1948, 1949], mesh, how="mean", compute=True)
+        hovm = hovm_data(data, mesh)
 

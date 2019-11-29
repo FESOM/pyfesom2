@@ -5,11 +5,18 @@
 
 import numpy as np
 import xarray as xr
+import os
 
 
 def add_timedim(data, date="1970-01-01"):
     """Add a dummy time dimension."""
     if isinstance(data, xr.DataArray):
+        if "time" in data.dims:
+            raise ValueError(
+                "You trying to add time dimension to the DataArray that already have it. \
+The reason migh be that you trying to use 2d variable (e.g. `a_ice`) \
+in a function that accepts only 3d variables (e.g. `volume_hovm`)"
+            )
         timestamp = [np.array(np.datetime64(date, "ns"))]
         data = data.expand_dims({"time": timestamp}, axis=0)
         return data
@@ -159,4 +166,67 @@ def ice_area(data, mesh, hemisphere="N", attrs={}):
     else:
         area = (data[:, hemis_mask] * mesh.lump2[hemis_mask]).sum(axis=1)
         return area
+
+
+def get_meshdiag(mesh, meshdiag=None, runid="fesom"):
+    """Get mesh diagnostic file.
+
+    If the name is not provided, search in the mesh direcrory.
+    """
+    if meshdiag:
+        if os.path.exists(meshdiag):
+            diag = xr.open_dataset(meshdiag)
+            return diag
+        else:
+            raise Exception("File {} does not exist.".format(meshdiag))
+    elif not meshdiag:
+        path_to_meshdiag = os.path.join(mesh.path, "{}.mesh.diag.nc".format(runid))
+        if os.path.exists(path_to_meshdiag):
+            diag = xr.open_dataset(path_to_meshdiag)
+            return diag
+        else:
+            raise Exception(
+                "File {} does not exist. Please provide explicit path\
+                             to diag file (e.g. fesom.mesh.diag), or put it to the mesh directory.\
+                            ".format(
+                    path_to_meshdiag
+                )
+            )
+
+
+def hovm_data(data, mesh, meshdiag=None, runid="fesom"):
+    """Calculate data for hovmoller diagram.
+
+    Use 3d tracer variable (on nodes) to calculate weighted
+     mean value for each vertical layer for every time step.
+
+     Parameters
+     ----------
+     data: xarray.DataArray, numpy.array
+        Input data, that can be ether xarray data, or just numpy array,
+        with values of 3d tracer variable (on nodes).
+        Input shouls be 3d (time, nodes, levels(nz1))
+        The 2D input in form of (nodes, levels(nz1)) is possible, but not recomended :)
+    mesh: mesh object
+        FESOM2 mesh object.
+    meshdiag: str
+        path to *mesh.diag.nc file, that is created during fesom cold start.
+    runid: str
+        name of the run. Usually just `fesom`.
+    """
+
+    if len(data.shape) == 2:
+        data = add_timedim(data)
+
+    diag = get_meshdiag(mesh, meshdiag)
+    nod_area = diag.rename_dims({"nl": "nz1", "nod_n": "nod2"}).nod_area
+    if isinstance(data, xr.DataArray):
+        hdg_total = (data * nod_area[:-1, :].T).sum(dim="nod2")
+        hdg_variable = hdg_total / (nod_area[:-1, :].T).sum(axis=0)
+        hdg_variable = hdg_variable.compute()
+    else:
+        hdg_total = (data * nod_area[:-1, :].T.data).sum(axis=1)
+        hdg_variable = hdg_total / (nod_area[:-1, :].T).sum(axis=0).data
+
+    return hdg_variable
 
