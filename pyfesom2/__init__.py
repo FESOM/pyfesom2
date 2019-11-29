@@ -11,4 +11,4 @@ from .fesom_plot_tools import *
 from .climatology import *
 from .regriding import *
 from .transect import *
-
+from .diagnostics import *

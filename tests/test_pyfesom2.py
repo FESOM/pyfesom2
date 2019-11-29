@@ -52,7 +52,7 @@ def test_get_data():
 
     mmax = temp.max()
     assert  mmax == pytest.approx(28.816469)
-    
+
     # variable on elements
     u = get_data(data_path, 'u', 1948, mesh, depth=0)
     assert type(u) == np.ndarray
@@ -148,6 +148,7 @@ def test_regriding():
 
     os.remove(os.path.join(mesh_path, 'qhull_3140'))
 
+# @pytest.mark.skip(reason="slow")
 def test_plot():
     mesh_path = os.path.join(my_data_folder, 'pi-grid')
     data_path = os.path.join(my_data_folder, 'pi-results')
