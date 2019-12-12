@@ -10,4 +10,5 @@ dependencies:
   - netcdf4
   - cartopy
   - sphinx
+  - xarray
   
