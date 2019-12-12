@@ -1,7 +1,7 @@
 build:
     image: latest
 conda:
-    file: ci/requirements_doc.yml
+    file: ci/requirements-py37.yml
 python:
     version: 3.7
     setup_py_install: false
