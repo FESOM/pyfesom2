@@ -4,15 +4,16 @@ channels:
   - conda-forge
 dependencies:
   - python=3.7
-  - nbsphinx
-  - numpydoc
-  - pandas
-  - netcdf4
   - cartopy
-  - sphinx
-  - xarray
-  - pyresample
-  - joblib
-  - shapely
-  - cmocean
+  - pip
+  - pip:
+      - nbsphinx
+      - numpydoc
+      - pandas
+      - netcdf4
+      - sphinx
+      - xarray
+      - pyresample
+      - joblib
+      - cmocean
   
