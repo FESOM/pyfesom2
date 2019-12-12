@@ -1,0 +1,10 @@
+name: pyfesom-docs
+channels:
+  # Don't change to pkgs/main, as it causes random timeouts in readthedocs
+  - conda-forge
+dependencies:
+  - python=3.7
+  - nbsphinx
+  - numpydoc
+  - sphinx
+  
