@@ -8,5 +8,6 @@ dependencies:
   - numpydoc
   - pandas
   - netcdf4
+  - cartopy
   - sphinx
   
