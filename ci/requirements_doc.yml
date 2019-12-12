@@ -7,5 +7,6 @@ dependencies:
   - nbsphinx
   - numpydoc
   - pandas
+  - netcd4
   - sphinx
   
