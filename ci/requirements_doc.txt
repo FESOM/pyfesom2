@@ -1,3 +1,4 @@
+pandas
 netcdf4
 cartopy
 sphinx
@@ -6,4 +7,4 @@ pyresample
 joblib
 shapely
 cmocean
-pandas
+
