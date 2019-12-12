@@ -11,4 +11,5 @@ dependencies:
   - cartopy
   - sphinx
   - xarray
+  - pyresample
   
