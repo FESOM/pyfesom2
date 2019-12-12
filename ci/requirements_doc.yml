@@ -12,4 +12,7 @@ dependencies:
   - sphinx
   - xarray
   - pyresample
+  - joblib
+  - shapely
+  - cmocean
   
