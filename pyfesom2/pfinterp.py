@@ -21,15 +21,19 @@ def parse_years(years):
     return years
 
 
-def parse_timesteps(timesteps):
+def parse_timesteps(timesteps, time_shape):
 
     if len(timesteps.split(":")) == 2:
         y = range(int(timesteps.split(":")[0]), int(timesteps.split(":")[1]))
         # y = slice(int(timesteps.split(":")[0]), int(timesteps.split(":")[1]))
     elif len(timesteps.split(":")) == 3:
+        if timesteps.split(":")[1] == 'end':
+            stop = time_shape
+        else:
+            stop = int(timesteps.split(":")[1])
         y = range(
             int(timesteps.split(":")[0]),
-            int(timesteps.split(":")[1]),
+            stop,
             int(timesteps.split(":")[2]),
         )
         # y = slice(int(timesteps.split(":")[0]),
@@ -214,7 +218,8 @@ def pfinterp():
         type=str,
         help="Explicitly define timesteps of the input fields. There are several oprions:\
             '-1' - all time steps, number - one time step (e.g. '5'), numbers - coma separated (e.g. '0, 3, 8, 10'), slice - e.g. '5:10',\
-            slice with steps - e.g. '8:-1:12'.",
+            slice with steps - e.g. '8:120:12'.\
+            slice untill the end of time series - e.g. '8:end:12'.",
     )
     parser.add_argument(
         "--quiet",
@@ -270,7 +275,6 @@ def pfinterp():
     mesh = load_mesh(args.meshpath, abg=args.abg, usepickle=True, usejoblib=False)
 
     years = parse_years(args.years)
-    timesteps = parse_timesteps(args.timesteps)
 
     # prepear mesh for interpolation
     left, right, down, up = args.box
@@ -295,6 +299,7 @@ def pfinterp():
     )
 
     time_shape = data.time.shape[0]
+    timesteps = parse_timesteps(args.timesteps, time_shape)
 
     # select all timesteps
     if timesteps == -1:
