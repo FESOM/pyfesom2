@@ -6,3 +6,4 @@ pyresample
 joblib
 shapely
 cmocean
+pandas
