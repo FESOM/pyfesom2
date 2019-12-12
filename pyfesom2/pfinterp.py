@@ -12,7 +12,7 @@ import xarray as xr
 def parse_years(years):
 
     if len(years.split(":")) == 2:
-        y = range(int(years.split(":")[0]), int(years.split(":")[1]))
+        y = range(int(years.split(":")[0]), int(years.split(":")[1])+1)
     elif len(years.split(",")) > 1:
         y = list(map(int, years.split(",")))
     else:
@@ -98,8 +98,7 @@ def get_data_forint(result_path, variable, years, mesh, depth, timestep):
             depth=depth,
             how=None,
             ncfile=None,
-            compute=False,
-            combine="by_coords",
+            compute=False
         )
         data_forint = data[timestep, :].values
 
@@ -115,8 +114,7 @@ def get_data_forint(result_path, variable, years, mesh, depth, timestep):
             depth=depth,
             how=None,
             ncfile=None,
-            compute=False,
-            combine="by_coords",
+            compute=False
         )
         data_v = get_data(
             result_path=result_path,
@@ -128,8 +126,7 @@ def get_data_forint(result_path, variable, years, mesh, depth, timestep):
             depth=depth,
             how=None,
             ncfile=None,
-            compute=False,
-            combine="by_coords",
+            compute=False
         )
         data_u_int = data_u[timestep, :].values
         data_v_int = data_v[timestep, :].values
@@ -294,8 +291,7 @@ def pfinterp():
         depth=None,
         how=None,
         ncfile=None,
-        compute=False,
-        combine="by_coords",
+        compute=False
     )
 
     time_shape = data.time.shape[0]
