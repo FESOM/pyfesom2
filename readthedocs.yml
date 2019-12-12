@@ -1,7 +1,6 @@
-conda:
-    file: ci/requirements_doc.yml
 
 python:
     version: 3.7
     pip_install: true
+    requirements: ci/requirements.txt
     
