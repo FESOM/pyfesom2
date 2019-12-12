@@ -2,7 +2,6 @@ build:
     image: latest
 python:
     version: 3.7
-    system_packages: true
     install:
     - requirements: ci/requirements_doc.txt
     - method: pip
