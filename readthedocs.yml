@@ -1,8 +1,10 @@
 build:
     image: latest
-conda:
-    file: ci/requirements_doc.yml
 python:
     version: 3.7
     setup_py_install: false
+    system_packages: true
+    install:
+    - requirements: ci/requirements_doc.txt
+    - method: pip
 formats: []
