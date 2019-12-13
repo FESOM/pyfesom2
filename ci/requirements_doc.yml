@@ -16,5 +16,5 @@ dependencies:
       - pyresample
       - joblib
       - cmocean
-      - git+https://github.com/matplotlib/basemap.git
+  - basemap
   
