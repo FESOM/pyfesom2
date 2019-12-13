@@ -13,5 +13,5 @@ dependencies:
       - pyresample
       - joblib
       - cmocean
-  - basemap=1.2.1
+  - basemap
   
