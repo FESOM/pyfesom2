@@ -250,7 +250,7 @@ def pfinterp():
     parser.add_argument(
         "-k",
         type=int,
-        default=1,
+        default=5,
         help="k-th nearest neighbors to use. Only used when interpolation method (--interp) is idist",
     )
 
