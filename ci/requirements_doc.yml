@@ -1,7 +1,7 @@
 name: pyfesom-docs
 dependencies:
   - python=3.7
-  - cartopy=0.17
+  - cartopy
   - pip
   - pip:
       - nbsphinx
