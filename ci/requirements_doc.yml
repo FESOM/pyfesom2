@@ -4,7 +4,7 @@ channels:
   - conda-forge
 dependencies:
   - python=3.7
-  - cartopy
+  - cartopy=0.17
   - pip
   - pip:
       - nbsphinx
@@ -16,5 +16,5 @@ dependencies:
       - pyresample
       - joblib
       - cmocean
-  - basemap
+  - basemap=1.2.1
   
