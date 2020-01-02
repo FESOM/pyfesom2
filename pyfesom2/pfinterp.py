@@ -173,7 +173,7 @@ def pfinterp():
         "-y",
         default="1948",
         type=str,
-        help="Years as a string. Options are one year, coma separated years, range in a form of 1948:2000 or * for everything.",
+        help="Years as a string. Options are one year, coma separated years, or range in a form of 1948:2000.",
     )
     parser.add_argument(
         "--depths",
@@ -250,7 +250,7 @@ def pfinterp():
     parser.add_argument(
         "-k",
         type=int,
-        default=1,
+        default=5,
         help="k-th nearest neighbors to use. Only used when interpolation method (--interp) is idist",
     )
 

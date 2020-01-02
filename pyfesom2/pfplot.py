@@ -9,6 +9,7 @@ import numpy as np
 # mpl.use('Qt5Agg')
 from .fesom_plot_tools import plot
 from .load_mesh_data import get_data, load_mesh
+from .pfinterp import parse_years, parse_timesteps, parse_depths
 
 
 def pfplot():
@@ -25,7 +26,7 @@ def pfplot():
         "-y",
         default="1948",
         type=str,
-        help="Years as a string. Options are one year, coma separated years, range in a form of 1948:2000 or * for everything.",
+        help="Years as a string. Options are one year, coma separated years, or range in a form of 1948:2000.",
     )
     parser.add_argument("--depth", "-d", default=0, type=float, help="Depth in meters.")
     parser.add_argument(
@@ -96,12 +97,12 @@ def pfplot():
         default=(0.0, 0.0, 0.0),
         help="Alpha, beta and gamma Euler angles. If you plots look rotated, you use wrong abg values. Usually nessesary only during the first use of the mesh.",
     )
-    parser.add_argument(
-        "--clim",
-        "-c",
-        type=str,
-        help="Path to the file with climatology. If option is set the model bias to climatology will be shown.",
-    )
+    # parser.add_argument(
+    #     "--clim",
+    #     "-c",
+    #     type=str,
+    #     help="Path to the file with climatology. If option is set the model bias to climatology will be shown.",
+    # )
     parser.add_argument(
         "--cmap",
         default="Spectral_r",
@@ -122,7 +123,7 @@ def pfplot():
     parser.add_argument(
         "-k",
         type=int,
-        default=1,
+        default=5,
         help="k-th nearest neighbors to use. Only used when interpolation method (--interp) is idist",
     )
 
@@ -144,7 +145,7 @@ def pfplot():
         print("Output file for image:         {}".format(args.ofile))
         print("Map projection:                {}".format(args.mapproj))
         print("Euler angles of mesh rotation: {}".format(args.abg))
-        print("File with climatology:         {}".format(args.clim))
+        # print("File with climatology:         {}".format(args.clim))
         print("Name of the color map:         {}".format(args.cmap))
         print("Interpolation method:          {}".format(args.interp))
         print("Plot type:                     {}".format(args.ptype))
@@ -153,7 +154,7 @@ def pfplot():
     if args.cmap:
         colormap = args.cmap
     else:
-        colormap = " Spectral_r"
+        colormap = "Spectral_r"
 
     #     if args.cmap in cmo.cmapnames:
     #         colormap = cmo.cmap_d[args.cmap]
@@ -172,16 +173,9 @@ def pfplot():
     #     else:
     #         colormap = plt.get_cmap('Spectral_r')
 
-    years = args.years
-    if len(years.split(":")) == 2:
-        y = range(int(years.split(":")[0]), int(years.split(":")[1]))
-    elif len(years.split(",")) > 1:
-        y = list(map(int, years.split(",")))
-    else:
-        y = [int(years)]
-    years = y
-
     mesh = load_mesh(args.meshpath, abg=args.abg, usepickle=True, usejoblib=False)
+
+    years = parse_years(args.years)
 
     data = get_data(
         result_path=args.result_path,
@@ -217,7 +211,7 @@ def pfplot():
         levels=args.levels,
         ptype=args.ptype,
         units=None,
-        figsize=(10, 10),
+        figsize=(10, 5),
         rowscol=(1, 1),
         titles=None,
         distances_path=None,
