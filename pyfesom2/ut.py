@@ -370,7 +370,15 @@ def mask_ne(lonreg2, latreg2):
     m2 = np.where(
         ((lonreg2 == -180.0) & (latreg2 < 70.95) & (latreg2 > 68.96)), True, m2
     )
+    m2 = np.where(((lonreg2 == 180.0) & (latreg2 > 71.5)), True, mask)
+    m2 = np.where(
+            ((lonreg2 == 180.0) & (latreg2 < 70.95) & (latreg2 > 68.96)), True, m2
+        )
+    #m2 = np.where(
+    #        ((lonreg2 == 180.0) & (latreg2 > -75.0) & (latreg2 < 0)), True, m2
+    #    )
     m2 = np.where(((lonreg2 == -180.0) & (latreg2 < 65.33)), True, m2)
+    m2 = np.where(((lonreg2 == 180.0) & (latreg2 < 65.33)), True, m2)
 
     return ~m2
 
