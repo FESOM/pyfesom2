@@ -22,6 +22,10 @@ In the following we just going to replace paths by shell variables::
 
 to make examples more consise. It is also a good practice to setup such variables for yourself, so the commands are shorter.
 
+You can get help with list of all available options by executing::
+
+    pfinterp --help
+
 The resolution of the target grid is controlled by `-r` option, that accepts 2 arguments - number of longitudes and number of latitudes. For example to interpolate to the 1/4 degree grid for the box in the North Atlantic (defined by `-b` option), you should do the following::
 
     pfinterp $MESH $DATA temp -b -90 0 20 60 -r 360 160
