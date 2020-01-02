@@ -87,8 +87,8 @@ def get_data_forint(result_path, variable, years, mesh, depth, timestep):
     vector_vars = {}
     vector_vars["u"] = ["u", "v"]
     vector_vars["v"] = ["u", "v"]
-    vector_vars["u_ice"] = ["u_ice", "v_ice"]
-    vector_vars["v_ice"] = ["u_ice", "v_ice"]
+    vector_vars["uice"] = ["uice", "vice"]
+    vector_vars["vice"] = ["uice", "vice"]
 
     if variable not in vector_vars:
         # usuall scalar variable, things as usual
@@ -152,7 +152,7 @@ def get_data_forint(result_path, variable, years, mesh, depth, timestep):
             v_nodes,
             flag=1,
         )
-        if variable in ["u", "u_ice"]:
+        if variable in ["u", "uice"]:
             data_forint = uu
         else:
             data_forint = vv
