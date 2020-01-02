@@ -135,17 +135,22 @@ def get_data_forint(result_path, variable, years, mesh, depth, timestep):
         data_u_int = data_u[timestep, :].values
         data_v_int = data_v[timestep, :].values
 
-        u_nodes = tonodes(
+        if variable in ['u','v']:
+
+            u_nodes = tonodes(
             data_u_int.astype('float32'), mesh.n2d, mesh.voltri, mesh.elem, mesh.e2d, mesh.lump2
         )
-        v_nodes = tonodes(
+            v_nodes = tonodes(
             data_v_int.astype('float32'), mesh.n2d, mesh.voltri, mesh.elem, mesh.e2d, mesh.lump2
         )
+        else:
+            u_nodes = data_u_int.astype('float32')
+            v_nodes = data_v_int.astype('float32')
 
         uu, vv = vec_rotate_r2g(
-            mesh.alpha,
-            mesh.beta,
-            mesh.gamma,
+            50,
+            15,
+            -90,
             mesh.x2,
             mesh.y2,
             u_nodes,
