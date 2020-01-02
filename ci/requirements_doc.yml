@@ -1,0 +1,17 @@
+name: pyfesom-docs
+dependencies:
+  - python=3.7
+  - cartopy
+  - pip
+  - pip:
+      - nbsphinx
+      - numpydoc
+      - pandas
+      - netcdf4
+      - sphinx
+      - xarray
+      - pyresample
+      - joblib
+      - cmocean
+  - basemap
+  

@@ -1,0 +1,12 @@
+
+pandas
+netcdf4
+sphinx
+xarray
+pyresample
+joblib
+shapely
+cmocean
+
+
+

@@ -12,7 +12,7 @@ import xarray as xr
 def parse_years(years):
 
     if len(years.split(":")) == 2:
-        y = range(int(years.split(":")[0]), int(years.split(":")[1]))
+        y = range(int(years.split(":")[0]), int(years.split(":")[1])+1)
     elif len(years.split(",")) > 1:
         y = list(map(int, years.split(",")))
     else:
@@ -21,15 +21,19 @@ def parse_years(years):
     return years
 
 
-def parse_timesteps(timesteps):
+def parse_timesteps(timesteps, time_shape):
 
     if len(timesteps.split(":")) == 2:
         y = range(int(timesteps.split(":")[0]), int(timesteps.split(":")[1]))
         # y = slice(int(timesteps.split(":")[0]), int(timesteps.split(":")[1]))
     elif len(timesteps.split(":")) == 3:
+        if timesteps.split(":")[1] == 'end':
+            stop = time_shape
+        else:
+            stop = int(timesteps.split(":")[1])
         y = range(
             int(timesteps.split(":")[0]),
-            int(timesteps.split(":")[1]),
+            stop,
             int(timesteps.split(":")[2]),
         )
         # y = slice(int(timesteps.split(":")[0]),
@@ -98,8 +102,7 @@ def get_data_forint(result_path, variable, years, mesh, depth, timestep):
             depth=depth,
             how=None,
             ncfile=None,
-            compute=False,
-            combine="by_coords",
+            compute=False
         )
         data_forint = data[timestep, :].values
 
@@ -115,8 +118,7 @@ def get_data_forint(result_path, variable, years, mesh, depth, timestep):
             depth=depth,
             how=None,
             ncfile=None,
-            compute=False,
-            combine="by_coords",
+            compute=False
         )
         data_v = get_data(
             result_path=result_path,
@@ -128,8 +130,7 @@ def get_data_forint(result_path, variable, years, mesh, depth, timestep):
             depth=depth,
             how=None,
             ncfile=None,
-            compute=False,
-            combine="by_coords",
+            compute=False
         )
         data_u_int = data_u[timestep, :].values
         data_v_int = data_v[timestep, :].values
@@ -172,7 +173,7 @@ def pfinterp():
         "-y",
         default="1948",
         type=str,
-        help="Years as a string. Options are one year, coma separated years, range in a form of 1948:2000 or * for everything.",
+        help="Years as a string. Options are one year, coma separated years, or range in a form of 1948:2000.",
     )
     parser.add_argument(
         "--depths",
@@ -217,7 +218,8 @@ def pfinterp():
         type=str,
         help="Explicitly define timesteps of the input fields. There are several oprions:\
             '-1' - all time steps, number - one time step (e.g. '5'), numbers - coma separated (e.g. '0, 3, 8, 10'), slice - e.g. '5:10',\
-            slice with steps - e.g. '8:-1:12'.",
+            slice with steps - e.g. '8:120:12'.\
+            slice untill the end of time series - e.g. '8:end:12'.",
     )
     parser.add_argument(
         "--quiet",
@@ -248,7 +250,7 @@ def pfinterp():
     parser.add_argument(
         "-k",
         type=int,
-        default=1,
+        default=5,
         help="k-th nearest neighbors to use. Only used when interpolation method (--interp) is idist",
     )
 
@@ -273,7 +275,6 @@ def pfinterp():
     mesh = load_mesh(args.meshpath, abg=args.abg, usepickle=True, usejoblib=False)
 
     years = parse_years(args.years)
-    timesteps = parse_timesteps(args.timesteps)
 
     # prepear mesh for interpolation
     left, right, down, up = args.box
@@ -294,11 +295,11 @@ def pfinterp():
         depth=None,
         how=None,
         ncfile=None,
-        compute=False,
-        combine="by_coords",
+        compute=False
     )
 
     time_shape = data.time.shape[0]
+    timesteps = parse_timesteps(args.timesteps, time_shape)
 
     # select all timesteps
     if timesteps == -1:

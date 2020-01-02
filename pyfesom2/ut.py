@@ -12,7 +12,10 @@
 
 import numpy as np
 import math as mt
-import cartopy.feature as cfeature
+try:
+    import cartopy.feature as cfeature
+except KeyError:
+    print('Cartopy is not installed, plotting is not available.')
 import shapely
 from collections import OrderedDict
 import xarray as xr

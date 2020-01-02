@@ -16,6 +16,8 @@ from pyfesom2 import ice_vol
 from pyfesom2 import ice_area
 from pyfesom2 import get_meshdiag
 from pyfesom2 import hovm_data
+from pyfesom2 import select_depths
+from pyfesom2 import volmean_data
 
 THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 my_data_folder = os.path.join(THIS_DIR, "data")
@@ -126,4 +128,66 @@ def test_hovm_data():
     with pytest.raises(ValueError):
         data = get_data(data_path, "a_ice", [1948, 1949], mesh, how="mean", compute=True)
         hovm = hovm_data(data, mesh)
+
+def test_selec_depths():
+    mesh_path = os.path.join(my_data_folder, "pi-grid")
+    # data_path = os.path.join(my_data_folder, "pi-results")
+    mesh = load_mesh(mesh_path, usepickle=False, usejoblib=False)
+
+    assert select_depths(None, mesh) == range(0, 47)
+    assert select_depths([0, 'bottom'], mesh) == range(0, 47)
+    assert select_depths([0, 100], mesh) == range(0, 12)
+    assert select_depths([0, 10000], mesh) == range(0, 47)
+    assert select_depths([0, 0], mesh) == range(0, 1)
+    assert select_depths([500, 500], mesh) == range(20, 21)
+
+def test_volmean_data():
+    mesh_path = os.path.join(my_data_folder, "pi-grid")
+    data_path = os.path.join(my_data_folder, "pi-results")
+    mesh = load_mesh(mesh_path, usepickle=False, usejoblib=False)
+
+    # xarray as input
+    # time series
+    data = get_data(data_path, "temp", [1948, 1949], mesh, how="ori", compute=False)
+    result = volmean_data(data, mesh)
+    assert np.nanmean(result) == pytest.approx(3.3736459180632776)
+
+    # one point
+    data = get_data(data_path, "temp", [1948], mesh, how="ori", compute=False)
+    result = volmean_data(data, mesh)
+    assert np.nanmean(result) == pytest.approx(3.4039440198518953)
+
+    data = get_data(data_path, "temp", [1948, 1949], mesh, how="mean", compute=False)
+    result = volmean_data(data, mesh)
+    assert np.nanmean(result) == pytest.approx(3.3736459180632776)
+
+    # numpy array as input
+    # time series
+    data = get_data(data_path, "temp", [1948, 1949], mesh, how="ori", compute=True)
+    result = volmean_data(data, mesh)
+    assert np.nanmean(result) == pytest.approx(3.3736459180632776)
+
+    # one point
+    data = get_data(data_path, "temp", [1948], mesh, how="ori", compute=True)
+    result = volmean_data(data, mesh)
+    assert np.nanmean(result) == pytest.approx(3.4039440198518953)
+
+    data = get_data(data_path, "temp", [1948, 1949], mesh, how="mean", compute=True)
+    result = volmean_data(data, mesh)
+    assert np.nanmean(result) == pytest.approx(3.3736459180632776)
+
+    # different depth ranges
+    data = get_data(data_path, "temp", [1948], mesh, how="ori", compute=False)
+    result = volmean_data(data, mesh, [0, 100])
+    assert np.nanmean(result) == pytest.approx(16.26645462001221)
+
+    data = get_data(data_path, "temp", [1948], mesh, how="ori", compute=False)
+    result = volmean_data(data, mesh, [0, 'bottom'])
+    assert np.nanmean(result) == pytest.approx(3.4039440198518953)
+
+    data = get_data(data_path, "temp", [1948], mesh, how="ori", compute=False)
+    result = volmean_data(data, mesh, [500, 500])
+    assert np.nanmean(result) == pytest.approx(6.339069486142839)
+
+
 

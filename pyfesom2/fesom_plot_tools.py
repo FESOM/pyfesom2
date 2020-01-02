@@ -29,8 +29,11 @@ import matplotlib as mpl
 # %matplotlib inline
 import matplotlib.pylab as plt
 import numpy as np
-import cartopy.crs as ccrs
-import cartopy.feature as cfeature
+try:
+    import cartopy.crs as ccrs
+    import cartopy.feature as cfeature
+except KeyError:
+    print('Cartopy is not installed, plotting is not available.')
 from cmocean import cm as cmo
 from matplotlib import cm
 import sys, os
