@@ -12,4 +12,5 @@ dependencies:
       - pyresample
       - joblib
       - cmocean
+      - shapely
   
