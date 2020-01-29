@@ -1,7 +1,6 @@
 name: pyfesom-docs
 dependencies:
   - python=3.7
-  - cartopy
   - pip
   - pip:
       - nbsphinx
@@ -13,5 +12,4 @@ dependencies:
       - pyresample
       - joblib
       - cmocean
-  - basemap
   
