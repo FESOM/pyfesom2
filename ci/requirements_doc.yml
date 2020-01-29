@@ -13,4 +13,5 @@ dependencies:
       - joblib
       - cmocean
       - shapely
+      - matplotlib
   
