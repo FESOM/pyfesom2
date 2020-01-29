@@ -20,6 +20,8 @@ except KeyError:
     os.environ["PROJ_LIB"] = proj_lib
 
     from mpl_toolkits.basemap import Basemap
+except ImportError:
+    print('Basemap is not installed, some plotting is not available.')
 from matplotlib.colors import LinearSegmentedColormap
 from .regriding import fesom2regular
 from netCDF4 import Dataset, MFDataset, num2date
@@ -32,7 +34,7 @@ import numpy as np
 try:
     import cartopy.crs as ccrs
     import cartopy.feature as cfeature
-except KeyError:
+except ImportError:
     print('Cartopy is not installed, plotting is not available.')
 from cmocean import cm as cmo
 from matplotlib import cm

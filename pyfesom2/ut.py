@@ -14,7 +14,7 @@ import numpy as np
 import math as mt
 try:
     import cartopy.feature as cfeature
-except KeyError:
+except ImportError:
     print('Cartopy is not installed, plotting is not available.')
 import shapely
 from collections import OrderedDict
