@@ -16,4 +16,5 @@ dependencies:
       - cmocean
       - shapely
       - matplotlib
+      - seawater
 
