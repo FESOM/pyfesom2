@@ -522,15 +522,30 @@ def plot(
     return ax
 
 
-def plot_transect_map(
-    lon_start, lat_start, lon_end, lat_end, mesh, npoints=30, view="w", stock_img=False
-):
-    # plt.figure(figsize=(10,10))
-    lonlat = transect_get_lonlat(
-        lon_start, lat_start, lon_end, lat_end, npoints=npoints
-    )
+def plot_transect_map(lonlat, mesh, view="w", stock_img=False):
+    """Plot map of the transect.
+    
+    Parameters
+    ----------
+    lonlat : np.array
+        2 dimentional np. array that contains longitudea and latitudes.
+        Can be constructed from vectors as lonlat = np.vstack((lon, lat))
+    mesh: mesj object
+    view: str
+        Projection to use for the map:
+        w - global (Mercator)
+        np - North Polar Stereo
+        sp - South Polar Stereo
+    stock_imd: bool
+        Show stock backgroung image. Usually makes things slower.
+    
+    Returns
+    -------
+    ax: cartopy axis object
+    
+    """
+    
     nodes = transect_get_nodes(lonlat, mesh)
-    # dist   = transect_get_distance(lonlat)
 
     if view == "w":
         ax = plt.subplot(111, projection=ccrs.Mercator(central_longitude=0))
@@ -546,7 +561,7 @@ def plot_transect_map(
             'The "{}" is not recognized as valid view option.'.format(view)
         )
 
-    ax.scatter(lonlat[:, 0], lonlat[:, 1], s=30, c="b", transform=ccrs.PlateCarree())
+    ax.scatter(lonlat[0, :], lonlat[1, :], s=30, c="b", transform=ccrs.PlateCarree())
     ax.scatter(
         mesh.x2[nodes], mesh.y2[nodes], s=30, c="r", transform=ccrs.PlateCarree()
     )
@@ -559,11 +574,7 @@ def plot_transect_map(
 def plot_transect(
     data3d,
     mesh,
-    lon_start,
-    lat_start,
-    lon_end,
-    lat_end,
-    npoints=30,
+    lonlat,
     maxdepth=1000,
     label="$^{\circ}$C",
     title="",
@@ -587,15 +598,9 @@ def plot_transect(
             oneplot = False
         if (type(dist) is np.ndarray) and (type(nodes) is np.ndarray):
             if not (type(transect_data) is np.ma.core.MaskedArray):
-                lonlat = transect_get_lonlat(
-                    lon_start, lat_start, lon_end, lat_end, npoints=npoints
-                )
                 mask2d = transect_get_mask(nodes, mesh, lonlat, max_distance)
                 transect_data = transect_get_data(data3d, nodes, mask2d)
         else:
-            lonlat = transect_get_lonlat(
-                lon_start, lat_start, lon_end, lat_end, npoints=npoints
-            )
             nodes = transect_get_nodes(lonlat, mesh)
             dist = transect_get_distance(lonlat)
             # profile = transect_get_profile(nodes, mesh)
