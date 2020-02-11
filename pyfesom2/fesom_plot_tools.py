@@ -20,6 +20,8 @@ except KeyError:
     os.environ["PROJ_LIB"] = proj_lib
 
     from mpl_toolkits.basemap import Basemap
+except ImportError:
+    print('Basemap is not installed, some plotting is not available.')
 from matplotlib.colors import LinearSegmentedColormap
 from .regriding import fesom2regular
 from netCDF4 import Dataset, MFDataset, num2date
@@ -32,7 +34,8 @@ import numpy as np
 try:
     import cartopy.crs as ccrs
     import cartopy.feature as cfeature
-except KeyError:
+    from cartopy.util import add_cyclic_point
+except ImportError:
     print('Cartopy is not installed, plotting is not available.')
 from cmocean import cm as cmo
 from matplotlib import cm
@@ -40,12 +43,11 @@ import sys, os
 
 # sys.path.append(os.path.join(os.path.dirname(__file__), "../"))
 # import pyfesom2 as pf
-from cartopy.util import add_cyclic_point
+
 
 # from scipy.interpolate import griddata
 # import scipy.spatial.qhull as qhull
 # from scipy.interpolate import LinearNDInterpolator, CloughTocher2DInterpolator
-from cartopy.util import add_cyclic_point
 
 # import xarray as xr
 import shapely.vectorized
