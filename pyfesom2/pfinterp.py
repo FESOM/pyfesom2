@@ -12,7 +12,7 @@ import xarray as xr
 def parse_years(years):
 
     if len(years.split(":")) == 2:
-        y = range(int(years.split(":")[0]), int(years.split(":")[1])+1)
+        y = range(int(years.split(":")[0]), int(years.split(":")[1]) + 1)
     elif len(years.split(",")) > 1:
         y = list(map(int, years.split(",")))
     else:
@@ -27,15 +27,11 @@ def parse_timesteps(timesteps, time_shape):
         y = range(int(timesteps.split(":")[0]), int(timesteps.split(":")[1]))
         # y = slice(int(timesteps.split(":")[0]), int(timesteps.split(":")[1]))
     elif len(timesteps.split(":")) == 3:
-        if timesteps.split(":")[1] == 'end':
+        if timesteps.split(":")[1] == "end":
             stop = time_shape
         else:
             stop = int(timesteps.split(":")[1])
-        y = range(
-            int(timesteps.split(":")[0]),
-            stop,
-            int(timesteps.split(":")[2]),
-        )
+        y = range(int(timesteps.split(":")[0]), stop, int(timesteps.split(":")[2]))
         # y = slice(int(timesteps.split(":")[0]),
         #           int(timesteps.split(":")[1]),
         #           int(timesteps.split(":")[2]))
@@ -102,9 +98,18 @@ def get_data_forint(result_path, variable, years, mesh, depth, timestep):
             depth=depth,
             how=None,
             ncfile=None,
-            compute=False
+            compute=False,
         )
         data_forint = data[timestep, :].values
+        if data_forint.shape[0] == mesh.e2d:
+            data_forint = tonodes(
+                data_forint.astype("float32"),
+                mesh.n2d,
+                mesh.voltri,
+                mesh.elem,
+                mesh.e2d,
+                mesh.lump2,
+            )
 
     else:
         # vector variabel, should be rotated.
@@ -118,7 +123,7 @@ def get_data_forint(result_path, variable, years, mesh, depth, timestep):
             depth=depth,
             how=None,
             ncfile=None,
-            compute=False
+            compute=False,
         )
         data_v = get_data(
             result_path=result_path,
@@ -130,33 +135,34 @@ def get_data_forint(result_path, variable, years, mesh, depth, timestep):
             depth=depth,
             how=None,
             ncfile=None,
-            compute=False
+            compute=False,
         )
         data_u_int = data_u[timestep, :].values
         data_v_int = data_v[timestep, :].values
 
-        if variable in ['u','v']:
+        if variable in ["u", "v"]:
 
             u_nodes = tonodes(
-            data_u_int.astype('float32'), mesh.n2d, mesh.voltri, mesh.elem, mesh.e2d, mesh.lump2
-        )
+                data_u_int.astype("float32"),
+                mesh.n2d,
+                mesh.voltri,
+                mesh.elem,
+                mesh.e2d,
+                mesh.lump2,
+            )
             v_nodes = tonodes(
-            data_v_int.astype('float32'), mesh.n2d, mesh.voltri, mesh.elem, mesh.e2d, mesh.lump2
-        )
+                data_v_int.astype("float32"),
+                mesh.n2d,
+                mesh.voltri,
+                mesh.elem,
+                mesh.e2d,
+                mesh.lump2,
+            )
         else:
-            u_nodes = data_u_int.astype('float32')
-            v_nodes = data_v_int.astype('float32')
+            u_nodes = data_u_int.astype("float32")
+            v_nodes = data_v_int.astype("float32")
 
-        uu, vv = vec_rotate_r2g(
-            50,
-            15,
-            -90,
-            mesh.x2,
-            mesh.y2,
-            u_nodes,
-            v_nodes,
-            flag=1,
-        )
+        uu, vv = vec_rotate_r2g(50, 15, -90, mesh.x2, mesh.y2, u_nodes, v_nodes, flag=1)
         if variable in ["u", "uice"]:
             data_forint = uu
         else:
@@ -300,7 +306,7 @@ def pfinterp():
         depth=None,
         how=None,
         ncfile=None,
-        compute=False
+        compute=False,
     )
 
     time_shape = data.time.shape[0]
