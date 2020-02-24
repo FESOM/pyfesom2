@@ -144,7 +144,7 @@ def get_data_forint(result_path, variable, years, mesh, depth, timestep):
         data_u_int = data_u[timestep, :].values
         data_v_int = data_v[timestep, :].values
 
-        if variable in ["u", "v"]:
+        if variable in ["u", "v", "u100", "v100", "u30", "v30"]:
 
             u_nodes = tonodes(
                 data_u_int.astype("float32"),
