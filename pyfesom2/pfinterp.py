@@ -85,10 +85,10 @@ def get_data_forint(result_path, variable, years, mesh, depth, timestep):
     vector_vars["v"] = ["u", "v"]
     vector_vars["uice"] = ["uice", "vice"]
     vector_vars["vice"] = ["uice", "vice"]
-    vector_vars["u_100"] = ["u_100", "v_100"]
-    vector_vars["v_100"] = ["u_100", "v_100"]
-    vector_vars["u_30"] = ["u_30", "v_30"]
-    vector_vars["v_30"] = ["u_100", "v_30"]
+    vector_vars["u100"] = ["u100", "v100"]
+    vector_vars["v100"] = ["u100", "v100"]
+    vector_vars["u30"] = ["u30", "v30"]
+    vector_vars["v30"] = ["u30", "v30"]
 
     if variable not in vector_vars:
         # usuall scalar variable, things as usual
