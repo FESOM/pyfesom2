@@ -19,7 +19,7 @@ except ImportError:
 import shapely
 from collections import OrderedDict
 import xarray as xr
-
+import matplotlib as mpl
 
 def scalar_r2g(al, be, ga, rlon, rlat):
     """
