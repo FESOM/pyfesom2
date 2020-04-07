@@ -30,6 +30,7 @@ def transect_get_nodes(lonlat, mesh):
     for i in range(lonlat.shape[1]):
         nn = tunnel_fast1d(mesh.y2, mesh.x2, lonlat[1, i], lonlat[0, i])
         nodes.append(nn[0])
+    nodes = np.array(nodes)
     return nodes
 
 
