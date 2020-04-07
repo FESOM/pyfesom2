@@ -55,6 +55,10 @@ import joblib
 from .transect import *
 import matplotlib
 from .ut import mask_ne
+from matplotlib import ticker
+
+sfmt=ticker.ScalarFormatter(useMathText=True) 
+sfmt.set_powerlimits((-3, 4))
 
 
 def ftriplot(
@@ -626,7 +630,7 @@ def plot_transect(
         ax.set_facecolor(facecolor)
 
         if oneplot:
-            cb = plt.colorbar(image)
+            cb = plt.colorbar(image, format = sfmt)
             cb.set_label(label)
 
         return image
@@ -684,7 +688,7 @@ def plot_transect(
             ax[ind].set_ylabel("m")
             ax[ind].set_facecolor(facecolor)
 
-            cb = fig.colorbar(image, orientation="horizontal", ax=ax[ind], pad=0.11)
+            cb = fig.colorbar(image, orientation="horizontal", ax=ax[ind], pad=0.11, format = sfmt)
             cb.set_label(label)
         for delind in range(ind + 1, len(ax)):
 
