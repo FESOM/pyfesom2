@@ -589,6 +589,7 @@ def plot_transect(
     figsize=None,
     transect_data=[],
     max_distance=1e6,
+    facecolor='lightgray'
 ):
 
     depth_index = ind_for_depth(maxdepth, mesh)
@@ -622,6 +623,7 @@ def plot_transect(
         ax.set_title(title)
         ax.set_xlabel("km")
         ax.set_ylabel("m")
+        ax.set_facecolor(facecolor)
 
         if oneplot:
             cb = plt.colorbar(image)
@@ -641,17 +643,29 @@ def plot_transect(
         fig, ax = plt.subplots(nrows, ncols, figsize=figsize)
         ax = ax.flatten()
         for ind, data in enumerate(data3d):
-            if (type(dist) is np.ndarray) and (type(nodes) is np.ndarray):
-                transect_data = transect_get_data(data, nodes)
+            if (type(data) is np.ndarray) and (type(nodes) is np.ndarray):
+                if not (type(transect_data) is np.ma.core.MaskedArray):
+                    mask2d = transect_get_mask(nodes, mesh, lonlat, max_distance)
+                    transect_data = transect_get_data(data, nodes, mask2d)
             else:
-                lonlat = transect_get_lonlat(
-                    lon_start, lat_start, lon_end, lat_end, npoints=npoints
-                )
                 nodes = transect_get_nodes(lonlat, mesh)
                 dist = transect_get_distance(lonlat)
-                # profile = transect_get_profile(nodes, mesh)
-                mask2d = transect_get_mask(nodes, mesh, lonlat, max_distance)
-                transect_data = transect_get_data(data3d, nodes, max_distance)
+            # profile = transect_get_profile(nodes, mesh)
+                if not (type(transect_data) is np.ma.core.MaskedArray):
+                    mask2d = transect_get_mask(nodes, mesh, lonlat, max_distance)
+                    transect_data = transect_get_data(data, nodes, mask2d)
+                
+#             if (type(dist) is np.ndarray) and (type(nodes) is np.ndarray):
+#                 transect_data = transect_get_data(data, nodes)
+#             else:
+#                 lonlat = transect_get_lonlat(
+#                     lon_start, lat_start, lon_end, lat_end, npoints=npoints
+#                 )
+#                 nodes = transect_get_nodes(lonlat, mesh)
+#                 dist = transect_get_distance(lonlat)
+#                 # profile = transect_get_profile(nodes, mesh)
+#                 mask2d = transect_get_mask(nodes, mesh, lonlat, max_distance)
+#                 transect_data = transect_get_data(data3d, nodes, max_distance)
 
             image = ax[ind].contourf(
                 dist,
@@ -668,6 +682,7 @@ def plot_transect(
                 ax[ind].set_title(title[ind])
             ax[ind].set_xlabel("km")
             ax[ind].set_ylabel("m")
+            ax[ind].set_facecolor(facecolor)
 
             cb = fig.colorbar(image, orientation="horizontal", ax=ax[ind], pad=0.11)
             cb.set_label(label)

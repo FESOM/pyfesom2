@@ -22,7 +22,7 @@ g = pyproj.Geod(ellps="WGS84")
 def transect_get_lonlat(lon_start, lat_start, lon_end, lat_end, npoints=30):
     lonlat = g.npts(lon_start, lat_start, lon_end, lat_end, npoints)
     lonlat = np.array(lonlat)
-    return lonlat
+    return lonlat.T
 
 
 def transect_get_nodes(lonlat, mesh):
