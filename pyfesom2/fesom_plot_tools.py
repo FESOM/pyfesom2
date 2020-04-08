@@ -261,7 +261,7 @@ def plot(
     box=[-180, 180, -89, 90],
     res=[360, 180],
     interp="nn",
-    mapproj="merc",
+    mapproj="pc",
     levels=None,
     ptype="cf",
     units=None,
@@ -332,7 +332,7 @@ def plot(
 
     if (rowscol[0] * rowscol[1]) < len(data):
         raise ValueError(
-            "Number of rows*columns is smaller than number of data fields, please adjust rowcol.")
+            "Number of rows*columns is smaller than number of data fields, please adjust rowscol.")
 
     if cmap:
         if isinstance(cmap, (matplotlib.colors.Colormap)):
