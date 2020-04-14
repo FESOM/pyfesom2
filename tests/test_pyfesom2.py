@@ -140,11 +140,11 @@ def test_regriding():
     assert isinstance(data_inter, np.ma.core.MaskedArray)
 
     # clean up
-    os.remove(os.path.join(mesh_path, 'distances_3140_0_359_-90_-90_360_180_1'))
-    os.remove(os.path.join(mesh_path, 'distances_3140_0_359_-90_-90_360_180_5'))
+    os.remove(os.path.join(mesh_path, 'distances_3140_0_359_-90_89_360_180_1'))
+    os.remove(os.path.join(mesh_path, 'distances_3140_0_359_-90_89_360_180_5'))
 
-    os.remove(os.path.join(mesh_path, 'inds_3140_0_359_-90_-90_360_180_1'))
-    os.remove(os.path.join(mesh_path, 'inds_3140_0_359_-90_-90_360_180_5'))
+    os.remove(os.path.join(mesh_path, 'inds_3140_0_359_-90_89_360_180_1'))
+    os.remove(os.path.join(mesh_path, 'inds_3140_0_359_-90_89_360_180_5'))
 
     os.remove(os.path.join(mesh_path, 'qhull_3140'))
 

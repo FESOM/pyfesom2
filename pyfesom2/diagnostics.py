@@ -229,8 +229,9 @@ def hovm_data(data, mesh, meshdiag=None, runid="fesom"):
 
     diag = get_meshdiag(mesh, meshdiag, runid)
     nod_area = diag.rename_dims({"nl": "nz1", "nod_n": "nod2"}).nod_area
-    nod_area = nod_area.where(nod_area != 0)
+    
     if isinstance(data, xr.DataArray):
+        nod_area = nod_area.where(nod_area != 0)
         hdg_total = (data * nod_area[:-1, :].T).sum(dim="nod2")
         hdg_variable = hdg_total / (nod_area[:-1, :].T).sum(axis=0)
         hdg_variable = hdg_variable.compute()
@@ -322,8 +323,9 @@ def volmean_data(data, mesh, uplow=None, meshdiag=None, runid="fesom", ):
     for i in indexes:
         nod_area_at_level = np.ma.masked_equal(nod_area[i, :].data,0)
         aux = (data[:, :, i] * nod_area_at_level[:]).sum(axis=1)
-        total_t = total_t + aux * delta_z[i]
-        total_v = total_v + nod_area_at_level[:].sum() * delta_z[i]
-
+        if not np.ma.is_masked(nod_area_at_level[:].sum()):
+            total_t = total_t + aux * delta_z[i]
+            total_v = total_v + nod_area_at_level[:].sum() * delta_z[i]
+    
     return total_t / total_v
 
