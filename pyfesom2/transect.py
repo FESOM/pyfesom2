@@ -26,12 +26,8 @@ def transect_get_lonlat(lon_start, lat_start, lon_end, lat_end, npoints=30):
 
 
 def transect_get_nodes(lonlat, mesh):
-    nodes = []
-    for i in range(lonlat.shape[1]):
-        nn = tunnel_fast1d(mesh.y2, mesh.x2, lonlat[1, i], lonlat[0, i])
-        nodes.append(nn[0])
-    nodes = np.array(nodes)
-    return nodes
+    nodes = tunnel_fast1d(mesh.y2, mesh.x2, lonlat)
+    return nodes.astype('int')
 
 
 def transect_get_distance(lonlat):
