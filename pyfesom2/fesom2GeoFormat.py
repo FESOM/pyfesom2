@@ -1,16 +1,19 @@
 from pyfesom2 import fesom2regular
-from osgeo import osr, gdal
 import numpy as np
+try:
+    from osgeo import osr, gdal
+except ImportError:
+    print('osgeo is not installed, conversion to Geo formats like Geotiff (fesom2GeoFormat) will not work.')
 
 
-def fesom2GeoFormat(data, mesh, outName, radius_of_influence=100000, methode='nn', driver='Gtiff'):
-    """ Returns Fesom as Gdal Geotiff or Gdal NetCDF .
+def fesom2GeoFormat(data, mesh, outName, radius_of_influence=100000, method='nn', driver='Gtiff'):
+    """ 
 
     Parameters:
         data (array): which is come from select_slices().
         mesh (fesom mesh): which is come from load_mesh().
         outName (str): output Name.
-        methode : interpolation methode for Fesom2Regular().
+        method : interpolation method for Fesom2Regular().
         driver(str): driver name for Gdal ( Gtiff or NetCDF).
 
     Returns:
@@ -30,23 +33,23 @@ def fesom2GeoFormat(data, mesh, outName, radius_of_influence=100000, methode='nn
         distances_path=None,
         inds_path=None,
         qhull_path=None,
-        how=methode,
+        how=method,
         k=5,
         radius_of_influence=radius_of_influence,
         n_jobs=2,
         dumpfile=True,
         basepath=None,
     )
-
-    reversed_arr = array[::-1]  # reverse array so the tif looks like the array
-
+    # reverse array so the tif looks like the array
+    reversed_arr = array[::-1]
+    # convert array to raster
     array2raster(
         outputName,
         rasterOrigin,
         pixelWidth,
         pixelHeight,
         reversed_arr,
-        driver)  # convert array to raster
+        driver)
 
 
 def dataShape(data):
@@ -59,6 +62,14 @@ def dataShape(data):
 
 
 def grid(mesh):
+    """ 
+    Parameters:
+        Fesom mesh
+
+    Returns:
+        Regular grid and raster Origin.   
+
+    """
     xmin, ymin, xmax, ymax = [
         mesh.x2.min(), mesh.y2.min(), mesh.x2.max(), mesh.y2.max()]
     res = [int(round(abs(xmin)+abs(xmax))), int(round(abs(ymin)+abs(ymax)))]
@@ -70,8 +81,11 @@ def grid(mesh):
     return lonreg, latreg, rasterOrigin
 
 
+# Converting array to Raster
 def array2raster(outputName, rasterOrigin, pixelWidth, pixelHeight, array, driver='NetCDF'):
-
+    """
+    Write a numpuy array as a raster band 
+    """
     cols = array.shape[1]
     rows = array.shape[0]
     originX = rasterOrigin[0]
