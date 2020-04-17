@@ -118,8 +118,8 @@ def fesom2regular(
 
     """
 
-    left, right, down, up = np.min(lons), np.max(lons), np.min(lats), np.min(lats)
-    lonNumber, latNumber = lons.shape[1], lons.shape[0]
+    left, right, down, up = np.min(lons), np.max(lons), np.min(lats), np.max(lats)
+    lonNumber, latNumber = lons.shape[1], lats.shape[0]
 
     if how == "nn":
         kk = 1

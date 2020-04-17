@@ -55,6 +55,10 @@ import joblib
 from .transect import *
 import matplotlib
 from .ut import mask_ne
+from matplotlib import ticker
+
+sfmt=ticker.ScalarFormatter(useMathText=True) 
+sfmt.set_powerlimits((-3, 4))
 
 
 def ftriplot(
@@ -257,7 +261,7 @@ def plot(
     box=[-180, 180, -89, 90],
     res=[360, 180],
     interp="nn",
-    mapproj="merc",
+    mapproj="pc",
     levels=None,
     ptype="cf",
     units=None,
@@ -328,7 +332,7 @@ def plot(
 
     if (rowscol[0] * rowscol[1]) < len(data):
         raise ValueError(
-            "Number of rows*columns is smaller than number of data fields, please adjust rowcol.")
+            "Number of rows*columns is smaller than number of data fields, please adjust rowscol.")
 
     if cmap:
         if isinstance(cmap, (matplotlib.colors.Colormap)):
@@ -524,15 +528,30 @@ def plot(
     return ax
 
 
-def plot_transect_map(
-    lon_start, lat_start, lon_end, lat_end, mesh, npoints=30, view="w", stock_img=False
-):
-    # plt.figure(figsize=(10,10))
-    lonlat = transect_get_lonlat(
-        lon_start, lat_start, lon_end, lat_end, npoints=npoints
-    )
+def plot_transect_map(lonlat, mesh, view="w", stock_img=False):
+    """Plot map of the transect.
+    
+    Parameters
+    ----------
+    lonlat : np.array
+        2 dimentional np. array that contains longitudea and latitudes.
+        Can be constructed from vectors as lonlat = np.vstack((lon, lat))
+    mesh: mesj object
+    view: str
+        Projection to use for the map:
+        w - global (Mercator)
+        np - North Polar Stereo
+        sp - South Polar Stereo
+    stock_imd: bool
+        Show stock backgroung image. Usually makes things slower.
+    
+    Returns
+    -------
+    ax: cartopy axis object
+    
+    """
+    
     nodes = transect_get_nodes(lonlat, mesh)
-    # dist   = transect_get_distance(lonlat)
 
     if view == "w":
         ax = plt.subplot(111, projection=ccrs.Mercator(central_longitude=0))
@@ -548,7 +567,7 @@ def plot_transect_map(
             'The "{}" is not recognized as valid view option.'.format(view)
         )
 
-    ax.scatter(lonlat[:, 0], lonlat[:, 1], s=30, c="b", transform=ccrs.PlateCarree())
+    ax.scatter(lonlat[0, :], lonlat[1, :], s=30, c="b", transform=ccrs.PlateCarree())
     ax.scatter(
         mesh.x2[nodes], mesh.y2[nodes], s=30, c="r", transform=ccrs.PlateCarree()
     )
@@ -561,11 +580,7 @@ def plot_transect_map(
 def plot_transect(
     data3d,
     mesh,
-    lon_start,
-    lat_start,
-    lon_end,
-    lat_end,
-    npoints=30,
+    lonlat,
     maxdepth=1000,
     label="$^{\circ}$C",
     title="",
@@ -578,6 +593,7 @@ def plot_transect(
     figsize=None,
     transect_data=[],
     max_distance=1e6,
+    facecolor='lightgray'
 ):
 
     depth_index = ind_for_depth(maxdepth, mesh)
@@ -589,15 +605,9 @@ def plot_transect(
             oneplot = False
         if (type(dist) is np.ndarray) and (type(nodes) is np.ndarray):
             if not (type(transect_data) is np.ma.core.MaskedArray):
-                lonlat = transect_get_lonlat(
-                    lon_start, lat_start, lon_end, lat_end, npoints=npoints
-                )
                 mask2d = transect_get_mask(nodes, mesh, lonlat, max_distance)
                 transect_data = transect_get_data(data3d, nodes, mask2d)
         else:
-            lonlat = transect_get_lonlat(
-                lon_start, lat_start, lon_end, lat_end, npoints=npoints
-            )
             nodes = transect_get_nodes(lonlat, mesh)
             dist = transect_get_distance(lonlat)
             # profile = transect_get_profile(nodes, mesh)
@@ -617,9 +627,10 @@ def plot_transect(
         ax.set_title(title)
         ax.set_xlabel("km")
         ax.set_ylabel("m")
+        ax.set_facecolor(facecolor)
 
         if oneplot:
-            cb = plt.colorbar(image)
+            cb = plt.colorbar(image, format = sfmt)
             cb.set_label(label)
 
         return image
@@ -636,17 +647,29 @@ def plot_transect(
         fig, ax = plt.subplots(nrows, ncols, figsize=figsize)
         ax = ax.flatten()
         for ind, data in enumerate(data3d):
-            if (type(dist) is np.ndarray) and (type(nodes) is np.ndarray):
-                transect_data = transect_get_data(data, nodes)
+            if (type(data) is np.ndarray) and (type(nodes) is np.ndarray):
+                if not (type(transect_data) is np.ma.core.MaskedArray):
+                    mask2d = transect_get_mask(nodes, mesh, lonlat, max_distance)
+                    transect_data = transect_get_data(data, nodes, mask2d)
             else:
-                lonlat = transect_get_lonlat(
-                    lon_start, lat_start, lon_end, lat_end, npoints=npoints
-                )
                 nodes = transect_get_nodes(lonlat, mesh)
                 dist = transect_get_distance(lonlat)
-                # profile = transect_get_profile(nodes, mesh)
-                mask2d = transect_get_mask(nodes, mesh, lonlat, max_distance)
-                transect_data = transect_get_data(data3d, nodes, max_distance)
+            # profile = transect_get_profile(nodes, mesh)
+                if not (type(transect_data) is np.ma.core.MaskedArray):
+                    mask2d = transect_get_mask(nodes, mesh, lonlat, max_distance)
+                    transect_data = transect_get_data(data, nodes, mask2d)
+                
+#             if (type(dist) is np.ndarray) and (type(nodes) is np.ndarray):
+#                 transect_data = transect_get_data(data, nodes)
+#             else:
+#                 lonlat = transect_get_lonlat(
+#                     lon_start, lat_start, lon_end, lat_end, npoints=npoints
+#                 )
+#                 nodes = transect_get_nodes(lonlat, mesh)
+#                 dist = transect_get_distance(lonlat)
+#                 # profile = transect_get_profile(nodes, mesh)
+#                 mask2d = transect_get_mask(nodes, mesh, lonlat, max_distance)
+#                 transect_data = transect_get_data(data3d, nodes, max_distance)
 
             image = ax[ind].contourf(
                 dist,
@@ -663,8 +686,9 @@ def plot_transect(
                 ax[ind].set_title(title[ind])
             ax[ind].set_xlabel("km")
             ax[ind].set_ylabel("m")
+            ax[ind].set_facecolor(facecolor)
 
-            cb = fig.colorbar(image, orientation="horizontal", ax=ax[ind], pad=0.11)
+            cb = fig.colorbar(image, orientation="horizontal", ax=ax[ind], pad=0.11, format = sfmt)
             cb.set_label(label)
         for delind in range(ind + 1, len(ax)):
 

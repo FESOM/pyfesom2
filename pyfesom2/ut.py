@@ -19,7 +19,7 @@ except ImportError:
 import shapely
 from collections import OrderedDict
 import xarray as xr
-
+import matplotlib as mpl
 
 def scalar_r2g(al, be, ga, rlon, rlat):
     """
@@ -273,19 +273,20 @@ def vec_rotate_r2g(al, be, ga, lon, lat, urot, vrot, flag):
     return (u, v)
 
 
-def tunnel_fast1d(latvar, lonvar, lat0, lon0):
+
+def tunnel_fast1d(latvar, lonvar, lonlat):
     """
-    Find closest point in a set of (lat,lon) points to specified point.abs
+    Find closest point in a set of (lat,lon) points to specified pointd.
+    
     Parameters:
     -----------
         latvar : ndarray
             1d array with lats
         lonvar : ndarray
             1d array with lons
-        lat : float
-            lat of the query point
-        lon : float
-            lon  of the query point
+        lonlat : ndarray
+            2d array with the shape of [2, number_of_point], 
+            that contain coordinates of the points
 
     Returns:
     --------
@@ -295,23 +296,37 @@ def tunnel_fast1d(latvar, lonvar, lat0, lon0):
     Taken from here http://www.unidata.ucar.edu/blogs/developer/en/entry/accessing_netcdf_data_by_coordinates
     and modifyed for 1d
     """
+        
     rad_factor = np.pi / 180.0  # for trignometry, need angles in radians
     # Read latitude and longitude from file into numpy arrays
     latvals = latvar[:] * rad_factor
     lonvals = lonvar[:] * rad_factor
-    # ny,nx = latvals.shape
-    lat0_rad = lat0 * rad_factor
-    lon0_rad = lon0 * rad_factor
+
     # Compute numpy arrays for all values, no loops
     clat, clon = np.cos(latvals), np.cos(lonvals)
     slat, slon = np.sin(latvals), np.sin(lonvals)
-    delX = np.cos(lat0_rad) * np.cos(lon0_rad) - clat * clon
-    delY = np.cos(lat0_rad) * np.sin(lon0_rad) - clat * slon
-    delZ = np.sin(lat0_rad) - slat
-    dist_sq = delX ** 2 + delY ** 2 + delZ ** 2
-    minindex_1d = dist_sq.argmin()  # 1D index of minimum element
-    node = np.unravel_index(minindex_1d, latvals.shape)
-    return node
+    
+    clat_clon = clat * clon
+    clat_slon = clat * slon
+    
+    lat0_rad = lonlat[1, :] * rad_factor
+    lon0_rad = lonlat[0, :] * rad_factor
+
+    delX_pre = np.cos(lat0_rad) * np.cos(lon0_rad)
+    delY_pre = np.cos(lat0_rad) * np.sin(lon0_rad)
+    delZ_pre = np.sin(lat0_rad)
+    
+    nodes = np.zeros((lonlat.shape[1]))
+    for i in range(lonlat.shape[1]):
+        delX = delX_pre[i] - clat_clon
+        delY = delY_pre[i] - clat_slon
+        delZ = delZ_pre[i] - slat
+        dist_sq = delX ** 2 + delY ** 2 + delZ ** 2
+        minindex_1d = dist_sq.argmin()  # 1D index of minimum element
+        node = np.unravel_index(minindex_1d, latvals.shape)
+        nodes[i] = node[0]
+        
+    return nodes
 
 
 def shiftedColorMap(cmap, start=0, midpoint=0.5, stop=1.0, name="shiftedcmap"):

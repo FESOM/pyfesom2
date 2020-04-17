@@ -22,20 +22,17 @@ g = pyproj.Geod(ellps="WGS84")
 def transect_get_lonlat(lon_start, lat_start, lon_end, lat_end, npoints=30):
     lonlat = g.npts(lon_start, lat_start, lon_end, lat_end, npoints)
     lonlat = np.array(lonlat)
-    return lonlat
+    return lonlat.T
 
 
 def transect_get_nodes(lonlat, mesh):
-    nodes = []
-    for i in range(lonlat.shape[0]):
-        nn = tunnel_fast1d(mesh.y2, mesh.x2, lonlat[i, 1], lonlat[i, 0])
-        nodes.append(nn[0])
-    return nodes
+    nodes = tunnel_fast1d(mesh.y2, mesh.x2, lonlat)
+    return nodes.astype('int')
 
 
 def transect_get_distance(lonlat):
     (az12, az21, dist) = g.inv(
-        lonlat[:, 0][0:-1], lonlat[:, 1][0:-1], lonlat[:, 0][1:], lonlat[:, 1][1:]
+        lonlat[0, :][0:-1], lonlat[1, :][0:-1], lonlat[0, :][1:], lonlat[1, :][1:]
     )
     dist = dist.cumsum() / 1000
     dist = np.insert(dist, 0, 0)
@@ -49,7 +46,7 @@ def transect_get_distance(lonlat):
 
 def transect_get_mask(nodes, mesh, lonlat, max_distance):
     (az12, az21, point_dist) = g.inv(
-        lonlat[:, 0], lonlat[:, 1], mesh.x2[nodes], mesh.y2[nodes]
+        lonlat[0, :], lonlat[1, :], mesh.x2[nodes], mesh.y2[nodes]
     )
     mask = ~(point_dist < max_distance)
     mask2d = np.repeat(mask, mesh.zlev.shape[0] - 1).reshape(
