@@ -13,3 +13,4 @@ from .regriding import *
 from .transect import *
 from .diagnostics import *
 from .ut import *
+from .fesom2GeoFormat import *
