@@ -68,7 +68,7 @@ setup(
     test_suite="tests",
     tests_require=test_requirements,
     url="https://github.com/koldunovn/pyfesom2",
-    download_url = "https://github.com/FESOM/pyfesom2/archive/v_0.1.0.zip",
+    download_url = "https://github.com/FESOM/pyfesom2/archive/0.1.0.tar.gz",
     version="0.1.0",
     zip_safe=False,
 )
