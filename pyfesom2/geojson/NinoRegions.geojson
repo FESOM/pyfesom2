@@ -1,0 +1,146 @@
+{
+    "type": "FeatureCollection",
+    "groupName": "NinoRegionsGroup",
+    "features": [
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "Nino 3.4",
+                "tags": "Nino",
+                "object": "region",
+                "component": "ocean",
+                "author": "Anne Berres, Xylar Asay-Davis",
+                "history": "05/05/20 18:57 : vpn-172-26-0-35.awi.de : koldunovn : /Users/koldunovn/PYHTON/pyfesom2/notebooks_devel : /Users/koldunovn/miniconda3/envs/pyfesom2/lib/python3.6/site-packages/ipykernel_launcher.py -f /Users/koldunovn/Library/Jupyter/runtime/kernel-77910519-b48b-4e5b-b684-bdb8e170d2d2.json;"
+            },
+            "geometry": {
+                "type": "Polygon",
+                "coordinates": [
+                    [
+                        [
+                            -170.0,
+                            5.0
+                        ],
+                        [
+                            -170.0,
+                            -5.0
+                        ],
+                        [
+                            -120.0,
+                            -5.0
+                        ],
+                        [
+                            -120.0,
+                            5.0
+                        ],
+                        [
+                            -170.0,
+                            5.0
+                        ]
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "Nino 3",
+                "tags": "Nino",
+                "object": "region",
+                "component": "ocean",
+                "author": "Anne Berres, Xylar Asay-Davis",
+                "history": "05/05/20 18:57 : vpn-172-26-0-35.awi.de : koldunovn : /Users/koldunovn/PYHTON/pyfesom2/notebooks_devel : /Users/koldunovn/miniconda3/envs/pyfesom2/lib/python3.6/site-packages/ipykernel_launcher.py -f /Users/koldunovn/Library/Jupyter/runtime/kernel-77910519-b48b-4e5b-b684-bdb8e170d2d2.json;"
+            },
+            "geometry": {
+                "type": "Polygon",
+                "coordinates": [
+                    [
+                        [
+                            -150.0,
+                            5.0
+                        ],
+                        [
+                            -150.0,
+                            -5.0
+                        ],
+                        [
+                            -90.0,
+                            -5.0
+                        ],
+                        [
+                            -90.0,
+                            5.0
+                        ],
+                        [
+                            -150.0,
+                            5.0
+                        ]
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "Nino 4",
+                "tags": "Nino",
+                "object": "region",
+                "component": "ocean",
+                "author": "Anne Berres, Xylar Asay-Davis",
+                "history": "05/05/20 18:57 : vpn-172-26-0-35.awi.de : koldunovn : /Users/koldunovn/PYHTON/pyfesom2/notebooks_devel : /Users/koldunovn/miniconda3/envs/pyfesom2/lib/python3.6/site-packages/ipykernel_launcher.py -f /Users/koldunovn/Library/Jupyter/runtime/kernel-77910519-b48b-4e5b-b684-bdb8e170d2d2.json;"
+            },
+            "geometry": {
+                "type": "MultiPolygon",
+                "coordinates": [
+                    [
+                        [
+                            [
+                                160.0,
+                                5.0
+                            ],
+                            [
+                                160.0,
+                                -5.0
+                            ],
+                            [
+                                180.0,
+                                -5.0
+                            ],
+                            [
+                                180.0,
+                                5.0
+                            ],
+                            [
+                                160.0,
+                                5.0
+                            ]
+                        ]
+                    ],
+                    [
+                        [
+                            [
+                                -180.0,
+                                5.0
+                            ],
+                            [
+                                -180.0,
+                                -5.0
+                            ],
+                            [
+                                -150.0,
+                                -5.0
+                            ],
+                            [
+                                -150.0,
+                                5.0
+                            ],
+                            [
+                                -180.0,
+                                5.0
+                            ]
+                        ]
+                    ]
+                ]
+            }
+        }
+    ]
+}
