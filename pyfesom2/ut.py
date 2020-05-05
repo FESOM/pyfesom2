@@ -12,14 +12,18 @@
 
 import numpy as np
 import math as mt
+
 try:
     import cartopy.feature as cfeature
 except ImportError:
-    print('Cartopy is not installed, plotting is not available.')
+    print("Cartopy is not installed, plotting is not available.")
 import shapely
 from collections import OrderedDict
 import xarray as xr
 import matplotlib as mpl
+import json
+import pkg_resources
+
 
 def scalar_r2g(al, be, ga, rlon, rlat):
     """
@@ -273,11 +277,10 @@ def vec_rotate_r2g(al, be, ga, lon, lat, urot, vrot, flag):
     return (u, v)
 
 
-
 def tunnel_fast1d(latvar, lonvar, lonlat):
     """
     Find closest point in a set of (lat,lon) points to specified pointd.
-    
+
     Parameters:
     -----------
         latvar : ndarray
@@ -296,7 +299,7 @@ def tunnel_fast1d(latvar, lonvar, lonlat):
     Taken from here http://www.unidata.ucar.edu/blogs/developer/en/entry/accessing_netcdf_data_by_coordinates
     and modifyed for 1d
     """
-        
+
     rad_factor = np.pi / 180.0  # for trignometry, need angles in radians
     # Read latitude and longitude from file into numpy arrays
     latvals = latvar[:] * rad_factor
@@ -305,17 +308,17 @@ def tunnel_fast1d(latvar, lonvar, lonlat):
     # Compute numpy arrays for all values, no loops
     clat, clon = np.cos(latvals), np.cos(lonvals)
     slat, slon = np.sin(latvals), np.sin(lonvals)
-    
+
     clat_clon = clat * clon
     clat_slon = clat * slon
-    
+
     lat0_rad = lonlat[1, :] * rad_factor
     lon0_rad = lonlat[0, :] * rad_factor
 
     delX_pre = np.cos(lat0_rad) * np.cos(lon0_rad)
     delY_pre = np.cos(lat0_rad) * np.sin(lon0_rad)
     delZ_pre = np.sin(lat0_rad)
-    
+
     nodes = np.zeros((lonlat.shape[1]))
     for i in range(lonlat.shape[1]):
         delX = delX_pre[i] - clat_clon
@@ -325,7 +328,7 @@ def tunnel_fast1d(latvar, lonvar, lonlat):
         minindex_1d = dist_sq.argmin()  # 1D index of minimum element
         node = np.unravel_index(minindex_1d, latvals.shape)
         nodes[i] = node[0]
-        
+
     return nodes
 
 
@@ -376,6 +379,7 @@ def shiftedColorMap(cmap, start=0, midpoint=0.5, stop=1.0, name="shiftedcmap"):
 
     return newcmap
 
+
 def mask_ne(lonreg2, latreg2):
     nearth = cfeature.NaturalEarthFeature("physical", "ocean", "50m")
     main_geom = [contour for contour in nearth.geometries()][0]
@@ -387,9 +391,9 @@ def mask_ne(lonreg2, latreg2):
     )
     m2 = np.where(((lonreg2 == 180.0) & (latreg2 > 71.5)), True, mask)
     m2 = np.where(
-            ((lonreg2 == 180.0) & (latreg2 < 70.95) & (latreg2 > 68.96)), True, m2
-        )
-    #m2 = np.where(
+        ((lonreg2 == 180.0) & (latreg2 < 70.95) & (latreg2 > 68.96)), True, m2
+    )
+    # m2 = np.where(
     #        ((lonreg2 == 180.0) & (latreg2 > -75.0) & (latreg2 < 0)), True, m2
     #    )
     m2 = np.where(((lonreg2 == -180.0) & (latreg2 < 65.33)), True, m2)
@@ -397,40 +401,173 @@ def mask_ne(lonreg2, latreg2):
 
     return ~m2
 
+
+def mask_from_file(filename, name, mesh):
+    """Create mask from geojson file
+
+    Parameters:
+    ----------=
+        filename: str
+            path to the geojson file.
+            File should have several features
+        name: str
+            name of the feature, that will be our mask
+        mesh: mesh object
+            pyfesom2 mesh object
+
+    Returns:
+    --------
+        mask: numpy array
+            boolean vector of the shape of 2D data.
+
+    """
+    with open(filename) as f:
+        features = json.load(f)["features"]
+    for feature in features:
+        if feature["properties"]["name"] == name:
+            geom = shapely.geometry.shape(feature["geometry"])
+            mask = shapely.vectorized.contains(geom, mesh.x2, mesh.y2)
+    return mask
+
+
+def get_mask(mesh, region):
+    """Return mask.
+
+    Parameters:
+    -----------
+    mesh: mesh object
+        pyfesom2 mesh object
+    name: str
+        name of the region.
+        Available regions:
+            Ocean Basins:
+                "Atlantic_Basin"
+                "Pacific_Basin"
+                "Indian_Basin"
+                "Arctic_Basin"
+                "Southern_Ocean_Basin"
+                "Mediterranean_Basin"
+                "Global Ocean"
+                "Global Ocean 65N to 65S"
+                "Global Ocean 15S to 15N"
+            MOC Basins:
+                "Atlantic_MOC"
+                "IndoPacific_MOC"
+                "Pacific_MOC"
+                "Indian_MOC"
+            Nino Regions:
+                "Nino 3.4"
+                "Nino 3"
+                "Nino 4"
+            Arctic Ocean regions:
+                "Amerasian basin"
+                "Eurasian basin"
+    Returns:
+    --------
+        mask: numpy array
+            boolean or integer (for AO regions) vector of the shape of 2D data.
+    """
+
+    MOCBasins = ["Atlantic_MOC", "IndoPacific_MOC", "Pacific_MOC", "Indian_MOC"]
+    NinoRegions = ["Nino 3.4", "Nino 3", "Nino 4"]
+    oceanBasins = [
+        "Atlantic_Basin",
+        "Pacific_Basin",
+        "Indian_Basin",
+        "Arctic_Basin",
+        "Southern_Ocean_Basin",
+        "Mediterranean_Basin",
+        "Global Ocean",
+        "Global Ocean 65N to 65S",
+        "Global Ocean 15S to 15N",
+    ]
+
+    if region == "Amerasian basin":
+        ind_AB1 = np.where((mesh.x2 >= -100) & (mesh.x2 < -80) & (mesh.y2 >= 80))
+        ind_AB2 = np.where((mesh.x2 >= -180) & (mesh.x2 < -100) & (mesh.y2 > 66))
+        ind_AB3 = np.where((mesh.x2 < 180) & (mesh.x2 > 140) & (mesh.y2 > 66))
+
+        mask = np.hstack((ind_AB1[0], ind_AB2[0], ind_AB3[0]))
+
+    elif region == "Eurasian basin":
+        ind_EB1 = np.where((mesh.x2 > -80) & (mesh.x2 < 100) & (mesh.y2 > 80))
+        ind_EB2 = np.where((mesh.x2 > 100) & (mesh.x2 < 140) & (mesh.y2 > 66))
+
+        mask = np.hstack((ind_EB1[0], ind_EB2[0]))
+
+    elif region in MOCBasins:
+        filename = pkg_resources.resource_filename(
+            __name__, "geojson/MOCBasins.geojson"
+        )
+        mask = mask_from_file(filename, region, mesh)
+
+    elif region in NinoRegions:
+        filename = pkg_resources.resource_filename(
+            __name__, "geojson/NinoRegions.geojson"
+        )
+        mask = mask_from_file(filename, region, mesh)
+
+    elif region in oceanBasins:
+        filename = pkg_resources.resource_filename(
+            __name__, "geojson/oceanBasins.geojson"
+        )
+        mask = mask_from_file(filename, region, mesh)
+
+    else:
+        raise ValueError(f"Name {region} is not in the get_mask function.")
+
+    return mask
+
+
 def set_standard_attrs(da):
-    da.coords['lat'].attrs = OrderedDict([("standard_name", "latitude"),
-                                 ("units", "degrees_north"),
-                                 ("axis", "Y"),
-                                 ("long_name", "latitude"),
-                                 ("out_name" ,"lat"),
-                                 ("stored_direction","increasing"),
-                                 ("type" , "double"),
-                                 ("valid_max", "90.0"),
-                                 ("valid_min", "-90.0")])
-    da.coords['lon'].attrs = OrderedDict([("standard_name", "longitude"),
-                                 ("units", "degrees_east"),
-                                 ("axis", "X"),
-                                 ("long_name", "longitude"),
-                                 ("out_name" ,"lon"),
-                                 ("stored_direction","increasing"),
-                                 ("type" , "double"),
-                                 ("valid_max", "180.0"),
-                                 ("valid_min", "-180.0")])
-    da.coords['depth_coord'].attrs = OrderedDict([("standard_name", "depth"),
-                                 ("units", "m"),
-                                 ("axis", "Z"),
-                                 ("long_name", "ocean depth coordinate"),
-                                 ("out_name" ,"lev"),
-                                 ("positive" ,"down"),
-                                 ("stored_direction","increasing"),
-                                 ("valid_max", "12000.0"),
-                                 ("valid_min", "0.0")])
-    da.coords['time'].attrs = OrderedDict([("standard_name", "time"),
-                                 ("axis", "T"),
-                                 ("long_name", "time"),
-                                 ("out_name" ,"time"),
-                                 ("stored_direction","increasing"),
-                               ])
-    da.coords['time'].encoding['units'] = "days since '1900-01-01'"
+    da.coords["lat"].attrs = OrderedDict(
+        [
+            ("standard_name", "latitude"),
+            ("units", "degrees_north"),
+            ("axis", "Y"),
+            ("long_name", "latitude"),
+            ("out_name", "lat"),
+            ("stored_direction", "increasing"),
+            ("type", "double"),
+            ("valid_max", "90.0"),
+            ("valid_min", "-90.0"),
+        ]
+    )
+    da.coords["lon"].attrs = OrderedDict(
+        [
+            ("standard_name", "longitude"),
+            ("units", "degrees_east"),
+            ("axis", "X"),
+            ("long_name", "longitude"),
+            ("out_name", "lon"),
+            ("stored_direction", "increasing"),
+            ("type", "double"),
+            ("valid_max", "180.0"),
+            ("valid_min", "-180.0"),
+        ]
+    )
+    da.coords["depth_coord"].attrs = OrderedDict(
+        [
+            ("standard_name", "depth"),
+            ("units", "m"),
+            ("axis", "Z"),
+            ("long_name", "ocean depth coordinate"),
+            ("out_name", "lev"),
+            ("positive", "down"),
+            ("stored_direction", "increasing"),
+            ("valid_max", "12000.0"),
+            ("valid_min", "0.0"),
+        ]
+    )
+    da.coords["time"].attrs = OrderedDict(
+        [
+            ("standard_name", "time"),
+            ("axis", "T"),
+            ("long_name", "time"),
+            ("out_name", "time"),
+            ("stored_direction", "increasing"),
+        ]
+    )
+    da.coords["time"].encoding["units"] = "days since '1900-01-01'"
 
     return da

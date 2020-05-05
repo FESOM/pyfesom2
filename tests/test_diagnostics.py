@@ -198,3 +198,4 @@ def test_volmean_data():
     data = get_data(data_path, "temp", [1948], mesh, how="ori", compute=False)
     result = volmean_data(data, mesh, [500, 500])
     assert np.nanmean(result) == pytest.approx(6.339069486142839)
+

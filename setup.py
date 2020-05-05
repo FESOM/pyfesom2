@@ -64,6 +64,8 @@ setup(
     keywords="pyfesom2",
     name="pyfesom2",
     packages=find_packages(include=["pyfesom2"]),
+    package_dir={'pyfesom2': 'pyfesom2'},
+    package_data={'': ['*.geojson']},
     setup_requires=setup_requirements,
     test_suite="tests",
     tests_require=test_requirements,
