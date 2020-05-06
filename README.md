@@ -15,19 +15,25 @@ FESOM2 tools
 
 Installation
 ------------
+The only supported way now it to use `conda`. The short guide how to install it can be found for [Linux/Mac](https://github.com/koldunovn/python_for_geosciences/blob/master/README.md#getting-started-for-linuxmac) and [Windows](https://github.com/koldunovn/python_for_geosciences/blob/master/README.md#getting-started-for-windows). For now we are not testing for Windows, and there is no garantee that pyfesom2 will work on this OS. 
 
-For now we recomend "development" installation. The easiest way is to use `conda` environment.
-Clone the source code:
+The easiest way is to install latest stable version from `conda-forge`:
+
+    conda config --add channels conda-forge
+    conda install pyfesom2
+
+Development Installation
+------------------------
+If you plan to change the code inside the package, you have to install it in "development" mode.
+After you install `conda` (python 3.7 environment is recomendes), clone the source code:
 
 
     git clone https://github.com/FESOM/pyfesom2.git
 
 
-
 Create pyfesom2 environment by:
 
     conda env create -f ./pyfesom2/ci/requirements-py36.yml
-
 
 
 Activate the environment

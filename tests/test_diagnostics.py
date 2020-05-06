@@ -89,12 +89,14 @@ def test_hovm_data():
     mesh = load_mesh(mesh_path, usepickle=False, usejoblib=False)
 
     # work on xarray
-
     # mean first, the hovm
     data = get_data(data_path, "temp", [1948, 1949], mesh, how="mean", compute=False)
     hovm = hovm_data(data, mesh)
+    hovm_masked = hovm_data(data, mesh, mask = mesh.y2 > 65)
     assert hovm.shape == (1, 47)
     assert np.nanmean(hovm) == pytest.approx(7.446110751429013)
+    assert np.nanmean(hovm_masked) == pytest.approx(1.5497698038738918)
+
     # hovm first, then mean
     data = get_data(data_path, "temp", [1948, 1949], mesh, how="ori", compute=False)
     hovm = hovm_data(data, mesh)
@@ -105,8 +107,11 @@ def test_hovm_data():
     # mean first, the hovm
     data = get_data(data_path, "temp", [1948, 1949], mesh, how="mean", compute=True)
     hovm = hovm_data(data, mesh)
+    hovm_masked = hovm_data(data, mesh, mask = mesh.y2 > 65)
     assert hovm.shape == (1, 47)
     assert np.nanmean(hovm) == pytest.approx(7.446110751429013)
+    assert np.nanmean(hovm_masked) == pytest.approx(1.5497698038738918)
+
     # hovm first, then mean
     data = get_data(data_path, "temp", [1948, 1949], mesh, how="ori", compute=True)
     hovm = hovm_data(data, mesh)
@@ -124,7 +129,7 @@ def test_hovm_data():
     assert hovm.shape == (1, 47)
     assert np.nanmean(hovm) == pytest.approx(7.440160989229884)
 
-    # if we try to supplu 2d variable
+    # if we try to supply 2d variable
     with pytest.raises(ValueError):
         data = get_data(data_path, "a_ice", [1948, 1949], mesh, how="mean", compute=True)
         hovm = hovm_data(data, mesh)
@@ -150,7 +155,9 @@ def test_volmean_data():
     # time series
     data = get_data(data_path, "temp", [1948, 1949], mesh, how="ori", compute=False)
     result = volmean_data(data, mesh)
+    result_masked = volmean_data(data, mesh, mask = mesh.y2>65)
     assert np.nanmean(result) == pytest.approx(3.3736459180632776)
+    assert np.nanmean(result_masked) == pytest.approx(1.417763437740272)
 
     # one point
     data = get_data(data_path, "temp", [1948], mesh, how="ori", compute=False)
@@ -165,7 +172,10 @@ def test_volmean_data():
     # time series
     data = get_data(data_path, "temp", [1948, 1949], mesh, how="ori", compute=True)
     result = volmean_data(data, mesh)
+    result_masked = volmean_data(data, mesh, mask = mesh.y2>65)
     assert np.nanmean(result) == pytest.approx(3.3736459180632776)
+    assert np.nanmean(result_masked) == pytest.approx(1.417763437740272)
+
 
     # one point
     data = get_data(data_path, "temp", [1948], mesh, how="ori", compute=True)
@@ -188,6 +198,4 @@ def test_volmean_data():
     data = get_data(data_path, "temp", [1948], mesh, how="ori", compute=False)
     result = volmean_data(data, mesh, [500, 500])
     assert np.nanmean(result) == pytest.approx(6.339069486142839)
-
-
 
