@@ -593,7 +593,8 @@ def plot_transect(
     figsize=None,
     transect_data=[],
     max_distance=1e6,
-    facecolor='lightgray'
+    facecolor='lightgray', 
+    fontsize=12
 ):
 
     depth_index = ind_for_depth(maxdepth, mesh)
@@ -624,14 +625,17 @@ def plot_transect(
             extend="both",
         )
         ax.invert_yaxis()
-        ax.set_title(title)
-        ax.set_xlabel("km")
-        ax.set_ylabel("m")
+        ax.set_title(title, size=fontsize)
+        ax.set_xlabel("km", size=fontsize)
+        ax.set_ylabel("m", size=fontsize)
         ax.set_facecolor(facecolor)
+        ax.tick_params(axis='both', which='major', labelsize=fontsize)
 
         if oneplot:
             cb = plt.colorbar(image, format = sfmt)
-            cb.set_label(label)
+            cb.set_label(label, size=fontsize)
+            cb.ax.tick_params(labelsize=fontsize)
+            cb.ax.yaxis.get_offset_text().set_fontsize(fontsize)
 
         return image
     else:
@@ -681,15 +685,20 @@ def plot_transect(
             )
             ax[ind].invert_yaxis()
             if not isinstance(title, list):
-                ax[ind].set_title(title)
+                ax[ind].set_title(title, size=fontsize)
             else:
-                ax[ind].set_title(title[ind])
-            ax[ind].set_xlabel("km")
-            ax[ind].set_ylabel("m")
+                ax[ind].set_title(title[ind], size=fontsize)
+
+            ax[ind].set_xlabel("km", size=fontsize)
+            ax[ind].set_ylabel("m", size=fontsize)
             ax[ind].set_facecolor(facecolor)
+            ax[ind].tick_params(axis='both', which='major', labelsize=fontsize)
 
             cb = fig.colorbar(image, orientation="horizontal", ax=ax[ind], pad=0.11, format = sfmt)
-            cb.set_label(label)
+            cb.set_label(label, size=fontsize)
+            cb.ax.tick_params(labelsize=fontsize)
+            cb.ax.xaxis.get_offset_text().set_fontsize(fontsize)
+
         for delind in range(ind + 1, len(ax)):
 
             fig.delaxes(ax[delind])
