@@ -21,7 +21,7 @@ except KeyError:
 
     from mpl_toolkits.basemap import Basemap
 except ImportError:
-    print('Basemap is not installed, some plotting is not available.')
+    print("Basemap is not installed, some plotting is not available.")
 from matplotlib.colors import LinearSegmentedColormap
 from .regriding import fesom2regular
 from netCDF4 import Dataset, MFDataset, num2date
@@ -31,33 +31,27 @@ import matplotlib as mpl
 # %matplotlib inline
 import matplotlib.pylab as plt
 import numpy as np
+
 try:
     import cartopy.crs as ccrs
     import cartopy.feature as cfeature
     from cartopy.util import add_cyclic_point
 except ImportError:
-    print('Cartopy is not installed, plotting is not available.')
+    print("Cartopy is not installed, plotting is not available.")
 from cmocean import cm as cmo
 from matplotlib import cm
 import sys, os
 
-# sys.path.append(os.path.join(os.path.dirname(__file__), "../"))
-# import pyfesom2 as pf
-
-
-# from scipy.interpolate import griddata
-# import scipy.spatial.qhull as qhull
-# from scipy.interpolate import LinearNDInterpolator, CloughTocher2DInterpolator
-
-# import xarray as xr
+import xarray as xr
 import shapely.vectorized
 import joblib
 from .transect import *
 import matplotlib
 from .ut import mask_ne
 from matplotlib import ticker
+import math
 
-sfmt=ticker.ScalarFormatter(useMathText=True) 
+sfmt = ticker.ScalarFormatter(useMathText=True)
 sfmt.set_powerlimits((-3, 4))
 
 
@@ -328,11 +322,13 @@ def plot(
             titles = [titles]
         if len(titles) != len(data):
             raise ValueError(
-                "The number of titles do not match the number of data fields, please adjust titles (or put to None)")
+                "The number of titles do not match the number of data fields, please adjust titles (or put to None)"
+            )
 
     if (rowscol[0] * rowscol[1]) < len(data):
         raise ValueError(
-            "Number of rows*columns is smaller than number of data fields, please adjust rowscol.")
+            "Number of rows*columns is smaller than number of data fields, please adjust rowscol."
+        )
 
     if cmap:
         if isinstance(cmap, (matplotlib.colors.Colormap)):
@@ -550,7 +546,7 @@ def plot_transect_map(lonlat, mesh, view="w", stock_img=False):
     ax: cartopy axis object
     
     """
-    
+
     nodes = transect_get_nodes(lonlat, mesh)
 
     if view == "w":
@@ -582,7 +578,7 @@ def plot_transect(
     mesh,
     lonlat,
     maxdepth=1000,
-    label="$^{\circ}$C",
+    label=r"$^{\circ}$C",
     title="",
     levels=None,
     cmap=cm.Spectral_r,
@@ -593,7 +589,7 @@ def plot_transect(
     figsize=None,
     transect_data=[],
     max_distance=1e6,
-    facecolor='lightgray'
+    facecolor="lightgray",
 ):
 
     depth_index = ind_for_depth(maxdepth, mesh)
@@ -630,7 +626,7 @@ def plot_transect(
         ax.set_facecolor(facecolor)
 
         if oneplot:
-            cb = plt.colorbar(image, format = sfmt)
+            cb = plt.colorbar(image, format=sfmt)
             cb.set_label(label)
 
         return image
@@ -654,22 +650,10 @@ def plot_transect(
             else:
                 nodes = transect_get_nodes(lonlat, mesh)
                 dist = transect_get_distance(lonlat)
-            # profile = transect_get_profile(nodes, mesh)
+                # profile = transect_get_profile(nodes, mesh)
                 if not (type(transect_data) is np.ma.core.MaskedArray):
                     mask2d = transect_get_mask(nodes, mesh, lonlat, max_distance)
                     transect_data = transect_get_data(data, nodes, mask2d)
-                
-#             if (type(dist) is np.ndarray) and (type(nodes) is np.ndarray):
-#                 transect_data = transect_get_data(data, nodes)
-#             else:
-#                 lonlat = transect_get_lonlat(
-#                     lon_start, lat_start, lon_end, lat_end, npoints=npoints
-#                 )
-#                 nodes = transect_get_nodes(lonlat, mesh)
-#                 dist = transect_get_distance(lonlat)
-#                 # profile = transect_get_profile(nodes, mesh)
-#                 mask2d = transect_get_mask(nodes, mesh, lonlat, max_distance)
-#                 transect_data = transect_get_data(data3d, nodes, max_distance)
 
             image = ax[ind].contourf(
                 dist,
@@ -688,10 +672,234 @@ def plot_transect(
             ax[ind].set_ylabel("m")
             ax[ind].set_facecolor(facecolor)
 
-            cb = fig.colorbar(image, orientation="horizontal", ax=ax[ind], pad=0.11, format = sfmt)
+            cb = fig.colorbar(
+                image, orientation="horizontal", ax=ax[ind], pad=0.11, format=sfmt
+            )
             cb.set_label(label)
         for delind in range(ind + 1, len(ax)):
 
             fig.delaxes(ax[delind])
 
         fig.tight_layout()
+
+
+def hofm_plot_one(
+    mesh,
+    data,
+    xvals,
+    levels=None,
+    maxdepth=1000,
+    label="$^{\circ}$C",
+    title="",
+    cmap=cm.Spectral_r,
+    ax=None,
+    facecolor="lightgray",
+    fontsize=12,
+    xlabel="Time",
+):
+    depth_index = ind_for_depth(maxdepth, mesh)
+
+    if ax is None:
+        ax = plt.gca()
+        oneplot = True
+    else:
+        oneplot = False
+
+    image = ax.contourf(
+        xvals,
+        np.abs(mesh.zlev[:depth_index]),
+        data[:, :depth_index].T,
+        levels=levels,
+        cmap=cmap,
+        extend="both",
+    )
+    ax.invert_yaxis()
+    ax.set_title(title, size=fontsize)
+    ax.set_xlabel(xlabel, size=fontsize)
+    ax.set_ylabel("Depth, m", size=fontsize)
+    ax.set_facecolor(facecolor)
+    ax.tick_params(axis="both", which="major", labelsize=fontsize)
+
+    if oneplot:
+        cb = plt.colorbar(image, format=sfmt)
+        cb.set_label(label, size=fontsize)
+        cb.ax.tick_params(labelsize=fontsize)
+        cb.ax.yaxis.get_offset_text().set_fontsize(fontsize)
+
+    return image
+
+
+def hofm_plot_many(
+    mesh,
+    data,
+    xvals,
+    levels=None,
+    maxdepth=1000,
+    label=r"$^{\circ}$C",
+    title="",
+    cmap=cm.Spectral_r,
+    ax=None,
+    facecolor="lightgray",
+    fontsize=12,
+    ncols=2,
+    figsize=None,
+    xlabel="Time",
+):
+    depth_index = ind_for_depth(maxdepth, mesh)
+
+    ncols = float(ncols)
+    nplots = len(data)
+    nrows = math.ceil(nplots / ncols)
+    ncols = int(ncols)
+    nrows = int(nrows)
+    nplot = 1
+
+    if not figsize:
+        figsize = (8 * ncols, 2 * nrows * ncols)
+    fig, ax = plt.subplots(nrows, ncols, figsize=figsize)
+    ax = ax.flatten()
+
+    for ind, data_one in enumerate(data):
+
+        image = ax[ind].contourf(
+            xvals,
+            np.abs(mesh.zlev[:depth_index]),
+            data_one[:, :depth_index].T,
+            levels=levels,
+            cmap=cmap,
+            extend="both",
+        )
+        ax[ind].invert_yaxis()
+
+        if not isinstance(title, list):
+            ax[ind].set_title(title, size=fontsize)
+        else:
+            ax[ind].set_title(title[ind], size=fontsize)
+
+        ax[ind].set_xlabel(xlabel, size=fontsize)
+        ax[ind].set_ylabel("Depth, m", size=fontsize)
+        ax[ind].set_facecolor(facecolor)
+        ax[ind].tick_params(axis="both", which="major", labelsize=fontsize)
+
+        cb = fig.colorbar(
+            image, orientation="horizontal", ax=ax[ind], pad=0.11, format=sfmt
+        )
+        cb.set_label(label, size=fontsize)
+        cb.ax.tick_params(labelsize=fontsize)
+        cb.ax.xaxis.get_offset_text().set_fontsize(fontsize)
+
+    for delind in range(ind + 1, len(ax)):
+
+        fig.delaxes(ax[delind])
+
+    fig.tight_layout()
+
+    return fig
+
+
+def hofm_plot(
+    mesh,
+    data,
+    xvals=None,
+    levels=None,
+    maxdepth=1000,
+    label=r"$^{\circ}$C",
+    title="",
+    cmap=cm.Spectral_r,
+    ax=None,
+    facecolor="lightgray",
+    fontsize=12,
+    ncols=2,
+    figsize=None,
+    xlabel="Time",
+):
+    """ Plot data on x (e.g. time, distance) / depth.
+
+    Parameters:
+    -----------
+    mesh: mesh object
+        pyfesom2 mesh object
+    data: 2D xarray, nd array or list of them
+        2D input data. Can be ether one or several (as a list)
+        numpy arrays or xarray DataArrays. If list of arrays is
+        provided, several plots will be ploted at once in a multipanel.
+    xvals: nd array
+        Values for the x axis (e.g. time, distance).
+        Deduced automatically if `data` is xarray DataArray.
+        Should be provided if `data` is nd array.
+    levels:
+        list of levels for contour plot
+    maxdepth:
+        maximum depth the plot will be limited to
+    label:
+        label for colorbar
+    title: str or list
+        Should be str if only one plot is expected.
+        For multipanel plots should be the list of strings.
+    cmap:
+        matplotlib colormap instance
+    ax: matplotlib ax
+        Only for single plot. It can be inserted to other figure.
+    facecolor: str
+        Used to fill aread with NaNs.
+        Should be the name of the color that matplotlib can understand.
+    fontsize: int
+        Font size of text elements (e.g. labeles)
+    ncols: int
+        Number of columns for multipanel plot.
+    figsize: tuple
+        ONLY works for multipanel plots.
+        For single plots use plt.figure(figsize=(10, 10))
+        before calling this function/
+    xlabel:
+        Label for x axis.
+    """
+
+    if not isinstance(data, list):
+        if isinstance(data, xr.DataArray):
+            xvals = data.time.data
+        else:
+            if xvals is None:
+                raise ValueError(
+                    "You provide np.array as an input, but did not provide xvals (e.g. time or distance)"
+                )
+
+        hofm_plot_one(
+            mesh=mesh,
+            data=data,
+            xvals=xvals,
+            levels=levels,
+            maxdepth=maxdepth,
+            label=label,
+            title=title,
+            cmap=cmap,
+            ax=ax,
+            facecolor=facecolor,
+            fontsize=fontsize,
+            xlabel=xlabel,
+        )
+    else:
+        if isinstance(data[0], xr.DataArray):
+            xvals = data[0].time.data
+        else:
+            if xvals is None:
+                raise ValueError(
+                    "You provide np.array as an input, but did not provide xvals (e.g. time or distance)"
+                )
+
+        hofm_plot_many(
+            mesh=mesh,
+            data=data,
+            xvals=xvals,
+            levels=levels,
+            maxdepth=maxdepth,
+            label=label,
+            title=title,
+            cmap=cmap,
+            ax=ax,
+            facecolor=facecolor,
+            fontsize=fontsize,
+            ncols=ncols,
+            figsize=figsize,
+            xlabel=xlabel,
+        )
