@@ -696,7 +696,7 @@ def hofm_plot_one(
     xvals,
     levels=None,
     maxdepth=1000,
-    label="$^{\circ}$C",
+    label=r"$^{\circ}$C",
     title="",
     cmap=cm.Spectral_r,
     ax=None,
