@@ -512,7 +512,7 @@ def plot(
     for delind in range(ind + 1, len(ax)):
         fig.delaxes(ax[delind])
 
-    cb = fig.colorbar(image, orientation="horizontal", ax=ax, pad=0.01, shrink=0.9)
+    cb = fig.colorbar(image, orientation="horizontal", ax=ax, pad=0.01, shrink=0.9, format = sfmt)
 
     cb.ax.tick_params(labelsize=15)
 
