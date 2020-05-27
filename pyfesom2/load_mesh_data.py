@@ -547,6 +547,7 @@ def get_data(
     ncfile=None,
     compute=True,
     continuous=False,
+    silent = False,
     **kwargs
 ):
     """
@@ -609,9 +610,11 @@ def get_data(
 
     if depth != None:
         dind = ind_for_depth(depth, mesh)
-        print("Model depth: {}".format(abs(mesh.zlev[dind])))
+        if not silent:
+            print("Model depth: {}".format(abs(mesh.zlev[dind])))
     else:
-        print("Depth is None, 3d field will be returned")
+        if not silent:
+            print("Depth is None, 3d field will be returned")
 
     dataset = xr.open_mfdataset(paths, combine="by_coords", **kwargs)
     data = select_slices(dataset, variable, mesh, records, depth)

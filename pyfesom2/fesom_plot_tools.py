@@ -507,6 +507,7 @@ def plot(
             cfeature.GSHHSFeature(levels=[1], scale="low", facecolor="lightgray")
         )
         if titles:
+            titles = titles.copy()
             ax[ind].set_title(titles.pop(0), size=20)
 
     for delind in range(ind + 1, len(ax)):
