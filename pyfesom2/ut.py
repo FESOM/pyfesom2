@@ -518,6 +518,31 @@ def get_mask(mesh, region):
 
     return mask
 
+def compute_face_coords(mesh):
+    """ Compute coordinates of elements (triangles)
+
+    Parameters:
+    -----------
+    mesh: mesh object
+        fesom mesh object
+
+    Returns:
+    --------
+    face_x: numpy array
+        x coordinates
+    face_y: numpy array
+        y coordinates
+    """
+    first_mean = mesh.x2[mesh.elem].mean(axis=1)
+    j = np.where(np.abs(mesh.x2[mesh.elem][:,0] - first_mean)>100)[0]
+    cyclic_elems = mesh.x2[mesh.elem][j].copy()
+    new_means = np.where(cyclic_elems>0, cyclic_elems, cyclic_elems+360).mean(axis=1)
+    new_means[new_means>180] = new_means[new_means>180] - 360
+    first_mean[j] = new_means
+    face_x = first_mean
+    face_y = mesh.y2[mesh.elem].mean(axis=1)
+    return face_x, face_y
+
 
 def set_standard_attrs(da):
     da.coords["lat"].attrs = OrderedDict(
