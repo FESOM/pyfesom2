@@ -18,6 +18,7 @@ from pyfesom2 import get_meshdiag
 from pyfesom2 import hovm_data
 from pyfesom2 import select_depths
 from pyfesom2 import volmean_data
+from pyfesom2 import xmoc_data
 
 THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 my_data_folder = os.path.join(THIS_DIR, "data")
@@ -198,4 +199,23 @@ def test_volmean_data():
     data = get_data(data_path, "temp", [1948], mesh, how="ori", compute=False)
     result = volmean_data(data, mesh, [500, 500])
     assert np.nanmean(result) == pytest.approx(6.339069486142839)
+
+def test_xmoc_data():
+    mesh_path = os.path.join(my_data_folder, "pi-grid")
+    data_path = os.path.join(my_data_folder, "pi-results")
+    mesh = load_mesh(mesh_path, usepickle=False, usejoblib=False)
+
+    # xarray as input
+    # time series
+    data = get_data(data_path, "w", [1948], mesh, how="mean", compute=False)
+    lats, dist, moc = xmoc_data(mesh, data)
+    assert moc.mean() == pytest.approx(-5.283107985611987)
+    assert moc.max() == pytest.approx(32.49306582121843)
+    assert moc.min() == pytest.approx(-79.29266240207812)
+
+    data = get_data(data_path, "w", [1948], mesh, how="mean", compute=True)
+    lats, dist, moc = xmoc_data(mesh, data)
+    assert moc.mean() == pytest.approx(-5.283107985611987)
+    assert moc.max() == pytest.approx(32.49306582121843)
+    assert moc.min() == pytest.approx(-79.29266240207812)
 

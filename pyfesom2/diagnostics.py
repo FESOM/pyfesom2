@@ -8,6 +8,7 @@ import numpy as np
 import xarray as xr
 from .load_mesh_data import ind_for_depth
 from pandas.plotting import register_matplotlib_converters
+from .ut import compute_face_coords, get_mask
 register_matplotlib_converters()
 
 
@@ -344,3 +345,53 @@ def volmean_data(data, mesh, uplow=None, meshdiag=None, runid="fesom", mask=None
 
     return total_t / total_v
 
+def xmoc_data(mesh, data, nlats=91, mask='Global Ocean',
+                 meshdiag=None, el_area=None, nlevels=None, face_x=None, face_y=None):
+
+    if len(data.shape) == 3:
+        raise ValueError("You have 3 dimensions in input data, xmoc_data \
+                          accepts only one 3D field of w(nodes, levels).")
+
+    # option to provide el_area and nlevelsm not to load them every time
+    if (el_area is None) or (nlevels is None):
+        meshdiag = get_meshdiag(mesh, meshdiag=meshdiag)
+        el_area = meshdiag['elem_area'][:]
+        nlevels = meshdiag['nlevels'][:]-1
+
+    # option to provide precomputed face_x and face_y
+    if (face_x is None) or (face_y is None):
+        face_x, face_y = compute_face_coords(mesh)
+
+    # can provide mask or mask name
+    if isinstance(mask, str):
+        mask = get_mask(mesh, mask)
+    else:
+        mask = mask
+
+    nlats=91
+    lats=np.linspace(-90, 90, nlats)
+    dlat=lats[1]-lats[0]
+    # allocate moc array
+    moc=np.zeros([mesh.nlev, nlats])
+    pos = ((face_y-lats[0])/dlat).astype('int')
+
+    for i in range(mesh.nlev):
+        # Should do something more clever here
+        if isinstance(data, xr.DataArray):
+            w = (data[:,i].values*mask)
+        else:
+            w = (data[:,i]*mask)
+
+        elem_mean = np.sum(w[mesh.elem.T], axis=0)/3.*1.e-6
+        elem_mean_weigh = el_area*elem_mean
+        toproc = np.where(i <=  nlevels-1)[0]
+        for k in range(pos.min(), pos.max()+1):
+            moc[i, k]=elem_mean_weigh[toproc][pos[toproc]==k].sum()
+
+    i, j = np.where(moc.T==0)
+    moc_cumsum = np.ma.cumsum(moc[:,::-1], axis=1)
+    moc_proper_order = moc_cumsum[:,::-1].T*-1
+    moc_proper_order[i,j] = 0
+    moc_masked=np.ma.masked_equal(moc_proper_order, 0)
+
+    return lats, dlat, moc_masked
