@@ -208,13 +208,13 @@ def test_xmoc_data():
     # xarray as input
     # time series
     data = get_data(data_path, "w", [1948], mesh, how="mean", compute=False)
-    lats, dist, moc = xmoc_data(mesh, data)
+    lats, moc = xmoc_data(mesh, data)
     assert moc.mean() == pytest.approx(-5.283107985611987)
     assert moc.max() == pytest.approx(32.49306582121843)
     assert moc.min() == pytest.approx(-79.29266240207812)
 
     data = get_data(data_path, "w", [1948], mesh, how="mean", compute=True)
-    lats, dist, moc = xmoc_data(mesh, data)
+    lats, moc = xmoc_data(mesh, data)
     assert moc.mean() == pytest.approx(-5.283107985611987)
     assert moc.max() == pytest.approx(32.49306582121843)
     assert moc.min() == pytest.approx(-79.29266240207812)

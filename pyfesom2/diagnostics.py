@@ -345,8 +345,44 @@ def volmean_data(data, mesh, uplow=None, meshdiag=None, runid="fesom", mask=None
 
     return total_t / total_v
 
-def xmoc_data(mesh, data, nlats=91, mask='Global Ocean',
-                 meshdiag=None, el_area=None, nlevels=None, face_x=None, face_y=None):
+def xmoc_data(mesh, data, nlats=91, mask='Global Ocean', return_masked=True,
+                 meshdiag=None, el_area=None,
+                  nlevels=None, face_x=None,
+                  face_y=None):
+    """ Compute moc for selected region.
+
+    Parameters:
+    -----------
+    mesh: mesh object
+        pyfesom mesh object
+    data: numpy array, xarray DataArray
+        3D field of w(nod2d, levels)
+    nlats: int
+        number of latitude bins
+    mask: str, numpy array
+        can be ether name of the mask from the list available in "pyfesom.get_mask"
+        function, or the mask itself as 1d array of the nod2d size.
+    return_masked: bool
+        control if we return masked or pure moc array.
+    meshdiag: str
+        path to the mesh diag file. If None try to find it in mesh folder.
+    el_area: numpy array
+        area of elements, size elem2d. If None, will be computed.
+    nlevels: numpu array
+        number of levels for each element, size elem2d. If None, will be extracted from mesh diag file.
+    face_x: numpy array
+        x coordinates of centers of elements, size elem2d. If None, will be computed.
+    face_y: numpy array
+        y coordinates of centers of elements, size elem2d. If None, will be computed.
+
+    Returns:
+    --------
+    lats: numpy array
+        latitude bins
+    moc_masked: numpy array
+       masked array with moc values.
+
+    """
 
     if len(data.shape) == 3:
         raise ValueError("You have 3 dimensions in input data, xmoc_data \
@@ -391,7 +427,11 @@ def xmoc_data(mesh, data, nlats=91, mask='Global Ocean',
     i, j = np.where(moc.T==0)
     moc_cumsum = np.ma.cumsum(moc[:,::-1], axis=1)
     moc_proper_order = moc_cumsum[:,::-1].T*-1
-    moc_proper_order[i,j] = 0
-    moc_masked=np.ma.masked_equal(moc_proper_order, 0)
+    if return_masked:
+        moc_proper_order[i,j] = 0
+        moc_masked=np.ma.masked_equal(moc_proper_order, 0)
+        moc_final = moc_masked
+    else:
+        moc_final = moc_proper_order
 
-    return lats, dlat, moc_masked
+    return lats, moc_final

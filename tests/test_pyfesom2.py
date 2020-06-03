@@ -17,7 +17,7 @@ from pyfesom2 import pyfesom2
 from pyfesom2 import load_mesh
 from pyfesom2 import get_data
 from pyfesom2 import fesom2regular
-from pyfesom2 import plot 
+from pyfesom2 import plot
 
 THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 my_data_folder = os.path.join(THIS_DIR, 'data')
