@@ -404,25 +404,27 @@ def xmoc_data(mesh, data, nlats=91, mask='Global Ocean', return_masked=True,
     else:
         mask = mask
 
-    nlats=91
+    nlats=nlats
     lats=np.linspace(-90, 90, nlats)
     dlat=lats[1]-lats[0]
     # allocate moc array
     moc=np.zeros([mesh.nlev, nlats])
     pos = ((face_y-lats[0])/dlat).astype('int')
 
-    for i in range(mesh.nlev):
-        # Should do something more clever here
-        if isinstance(data, xr.DataArray):
-            w = (data[:,i].values*mask)
-        else:
-            w = (data[:,i]*mask)
+    if isinstance(data, xr.DataArray):
+        w = (data[:,:].values*mask[:,None])
+    else:
+        w = (data[:,:]*mask[:,None])
 
-        elem_mean = np.sum(w[mesh.elem.T], axis=0)/3.*1.e-6
-        elem_mean_weigh = el_area*elem_mean
-        toproc = np.where(i <=  nlevels-1)[0]
-        for k in range(pos.min(), pos.max()+1):
-            moc[i, k]=elem_mean_weigh[toproc][pos[toproc]==k].sum()
+    elem_mean = np.sum(w[mesh.elem.T,:], axis=0)/3.*1.e-6
+    elem_mean_weigh = elem_mean*el_area.values[:, None]
+    for i in range(0,mesh.nlev):
+        not_calc = np.where(i>=nlevels)[0]
+        elem_mean_weigh[not_calc, i]=np.nan
+
+    for k in range(pos.min(), pos.max()+1):
+        moc[:, k]=np.nansum(elem_mean_weigh[pos[:]==k,:], axis=0)
+
 
     i, j = np.where(moc.T==0)
     moc_cumsum = np.ma.cumsum(moc[:,::-1], axis=1)
