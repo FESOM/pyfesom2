@@ -518,6 +518,7 @@ def get_mask(mesh, region):
 
     return mask
 
+
 def compute_face_coords(mesh):
     """ Compute coordinates of elements (triangles)
 
@@ -534,10 +535,12 @@ def compute_face_coords(mesh):
         y coordinates
     """
     first_mean = mesh.x2[mesh.elem].mean(axis=1)
-    j = np.where(np.abs(mesh.x2[mesh.elem][:,0] - first_mean)>100)[0]
+    j = np.where(np.abs(mesh.x2[mesh.elem][:, 0] - first_mean) > 100)[0]
     cyclic_elems = mesh.x2[mesh.elem][j].copy()
-    new_means = np.where(cyclic_elems>0, cyclic_elems, cyclic_elems+360).mean(axis=1)
-    new_means[new_means>180] = new_means[new_means>180] - 360
+    new_means = np.where(cyclic_elems > 0, cyclic_elems, cyclic_elems + 360).mean(
+        axis=1
+    )
+    new_means[new_means > 180] = new_means[new_means > 180] - 360
     first_mean[j] = new_means
     face_x = first_mean
     face_y = mesh.y2[mesh.elem].mean(axis=1)
@@ -596,3 +599,44 @@ def set_standard_attrs(da):
     da.coords["time"].encoding["units"] = "days since '1900-01-01'"
 
     return da
+
+
+def cut_region(mesh, box):
+    """
+    Cut region from the mesh.
+
+    Parameters
+    ----------
+    mesh : object
+        FESOM mesh object
+    box : list
+        Coordinates of the box in [-180 180 -90 90] format.
+        Default set to [13, 30, 53, 66], Baltic Sea.
+
+    Returns
+    -------
+    elem_no_nan : array
+        elements that belong to the region defined by `box`.
+    """
+    x_on_triangles = mesh.x2[mesh.elem]
+    y_on_triangles = mesh.y2[mesh.elem]
+
+    left, right, down, up = box
+
+    selection = (
+        (x_on_triangles >= left)
+        & (x_on_triangles <= right)
+        & (y_on_triangles >= down)
+        & (y_on_triangles <= up)
+    )
+    #     indd = np.where((mesh.x2>=left) & (mesh.x2<=right) & (mesh.y2>=down) & (mesh.y2<=up))
+    # vvv = ((dd>=0) & (xx>=7.5) & (xx<=8.2) & (yy>=54) & (yy<=54.5))
+    mask = selection.mean(axis=1)
+
+    mask[mask != 1] = np.nan
+
+    no_nan_triangles = np.invert(np.isnan(mask))
+
+    elem_no_nan = mesh.elem[no_nan_triangles, :]
+    
+    return elem_no_nan
