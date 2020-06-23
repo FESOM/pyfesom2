@@ -15,7 +15,7 @@ import pickle
 import pyresample
 import joblib
 import xarray as xr
-
+import sys
 
 def load_mesh(path, abg=[0, 0, 0], usepickle=True, usejoblib=False, protocol=4):
     """ Loads FESOM mesh
@@ -170,9 +170,15 @@ class fesom_mesh(object):
         self.voltri = []
 
         logging.info("load 2d part of the mesh")
-        start = time.clock()
+        if (sys.version_info.major, sys.version_info.minor) == (3, 8):
+            start = time.time()
+        else:
+            start = time.clock()
         self.read2d()
-        end = time.clock()
+        if (sys.version_info.major, sys.version_info.minor) == (3, 8):
+            end = time.time()
+        else:
+            end = time.clock()
         print("Load 2d part of the mesh in {} second(s)".format(str(int(end - start))))
 
     def read2d(self):
