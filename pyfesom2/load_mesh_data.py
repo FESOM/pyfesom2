@@ -170,12 +170,12 @@ class fesom_mesh(object):
         self.voltri = []
 
         logging.info("load 2d part of the mesh")
-        if (sys.version_info.major, sys.version_info.minor) == (3, 8):
+        if (sys.version_info.major, sys.version_info.minor) >= (3, 8):
             start = time.time()
         else:
             start = time.clock()
         self.read2d()
-        if (sys.version_info.major, sys.version_info.minor) == (3, 8):
+        if (sys.version_info.major, sys.version_info.minor) >= (3, 8):
             end = time.time()
         else:
             end = time.clock()
