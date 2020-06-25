@@ -47,12 +47,86 @@ import shapely.vectorized
 import joblib
 from .transect import *
 import matplotlib
-from .ut import mask_ne
+from .ut import mask_ne, cut_region, get_cmap, get_no_cyclic
 from matplotlib import ticker
 import math
 
 sfmt = ticker.ScalarFormatter(useMathText=True)
 sfmt.set_powerlimits((-3, 4))
+
+def create_proj_figure(mapproj, rowscol, figsize):
+    if mapproj == "merc":
+        fig, ax = plt.subplots(
+            rowscol[0],
+            rowscol[1],
+            subplot_kw=dict(projection=ccrs.Mercator()),
+            constrained_layout=True,
+            figsize=figsize,
+        )
+    elif mapproj == "pc":
+        fig, ax = plt.subplots(
+            rowscol[0],
+            rowscol[1],
+            subplot_kw=dict(projection=ccrs.PlateCarree()),
+            constrained_layout=True,
+            figsize=figsize,
+        )
+    elif mapproj == "np":
+        fig, ax = plt.subplots(
+            rowscol[0],
+            rowscol[1],
+            subplot_kw=dict(projection=ccrs.NorthPolarStereo()),
+            constrained_layout=True,
+            figsize=figsize,
+        )
+    elif mapproj == "sp":
+        fig, ax = plt.subplots(
+            rowscol[0],
+            rowscol[1],
+            subplot_kw=dict(projection=ccrs.SouthPolarStereo()),
+            constrained_layout=True,
+            figsize=figsize,
+        )
+    elif mapproj == "rob":
+        fig, ax = plt.subplots(
+            rowscol[0],
+            rowscol[1],
+            subplot_kw=dict(projection=ccrs.Robinson()),
+            constrained_layout=True,
+            figsize=figsize,
+        )
+    else:
+        raise ValueError(f'Projection {mapproj} is not supported.')
+    return fig, ax
+
+def get_plot_levels(levels, data, lev_to_data=False):
+    if levels:
+        if len(levels)==3:
+            mmin, mmax, nnum = levels
+            if lev_to_data:
+                mmin, mmax = levels_to_data(mmin, mmax, data)
+            nnum = int(nnum)
+            data_levels = np.linspace(mmin, mmax, nnum)
+        else:
+            data_levels = np.array(levels)
+    else:
+        mmin = np.nanmin(data)
+        mmax = np.nanmax(data)
+        nnum = 40
+        data_levels = np.linspace(mmin, mmax, nnum)
+    return data_levels
+
+def levels_to_data(mmin, mmax, data):
+    # this is needed to make cartopy happy
+    mmin_d = np.nanmin(data)
+    mmax_d = np.nanmax(data)
+    if mmin < mmin_d:
+        mmin = mmin_d
+        print("minimum level changed to make cartopy happy")
+    if mmax > mmax_d:
+        mmax = mmax_d
+        print("maximum level changed to make cartopy happy")
+    return mmin, mmax
 
 
 def ftriplot(
@@ -513,7 +587,9 @@ def plot(
     for delind in range(ind + 1, len(ax)):
         fig.delaxes(ax[delind])
 
-    cb = fig.colorbar(image, orientation="horizontal", ax=ax, pad=0.01, shrink=0.9, format = sfmt)
+    cb = fig.colorbar(
+        image, orientation="horizontal", ax=ax, pad=0.01, shrink=0.9, format=sfmt
+    )
 
     cb.ax.tick_params(labelsize=15)
 
@@ -590,8 +666,8 @@ def plot_transect(
     figsize=None,
     transect_data=[],
     max_distance=1e6,
-    facecolor='lightgray', 
-    fontsize=12
+    facecolor="lightgray",
+    fontsize=12,
 ):
 
     depth_index = ind_for_depth(maxdepth, mesh)
@@ -626,10 +702,10 @@ def plot_transect(
         ax.set_xlabel("km", size=fontsize)
         ax.set_ylabel("m", size=fontsize)
         ax.set_facecolor(facecolor)
-        ax.tick_params(axis='both', which='major', labelsize=fontsize)
+        ax.tick_params(axis="both", which="major", labelsize=fontsize)
 
         if oneplot:
-            cb = plt.colorbar(image, format = sfmt)
+            cb = plt.colorbar(image, format=sfmt)
             cb.set_label(label, size=fontsize)
             cb.ax.tick_params(labelsize=fontsize)
             cb.ax.yaxis.get_offset_text().set_fontsize(fontsize)
@@ -677,9 +753,11 @@ def plot_transect(
             ax[ind].set_xlabel("km", size=fontsize)
             ax[ind].set_ylabel("m", size=fontsize)
             ax[ind].set_facecolor(facecolor)
-            ax[ind].tick_params(axis='both', which='major', labelsize=fontsize)
+            ax[ind].tick_params(axis="both", which="major", labelsize=fontsize)
 
-            cb = fig.colorbar(image, orientation="horizontal", ax=ax[ind], pad=0.11, format = sfmt)
+            cb = fig.colorbar(
+                image, orientation="horizontal", ax=ax[ind], pad=0.11, format=sfmt
+            )
             cb.set_label(label, size=fontsize)
             cb.ax.tick_params(labelsize=fontsize)
             cb.ax.xaxis.get_offset_text().set_fontsize(fontsize)
@@ -911,3 +989,104 @@ def hofm_plot(
             figsize=figsize,
             xlabel=xlabel,
         )
+
+
+def tplot(
+    mesh,
+    data,
+    cmap=None,
+    box=[-180, 180, -80, 90],
+    mapproj="pc",
+    levels=None,
+    ptype="cf",
+    units=r"$^\circ$C",
+    figsize=(10, 10),
+    rowscol=(1, 1),
+    titles=None,
+    lw=0.01,
+    fontsize=12,
+):
+
+    if not isinstance(data, list):
+        data = [data]
+    if titles:
+        if not isinstance(titles, list):
+            titles = [titles]
+        if len(titles) != len(data):
+            raise ValueError(
+                "The number of titles do not match the number of data fields, please adjust titles (or put to None)"
+            )
+
+    if (rowscol[0] * rowscol[1]) < len(data):
+        raise ValueError(
+            "Number of rows*columns is smaller than number of data fields, please adjust rowscol."
+        )
+
+    colormap = get_cmap(cmap=cmap)
+
+    fig, ax = create_proj_figure(mapproj, rowscol, figsize)
+    if isinstance(ax, np.ndarray):
+        ax = ax.flatten()
+    else:
+        ax = [ax]
+
+    for ind, data_to_plot in enumerate(data):
+        data_levels = get_plot_levels(levels, data_to_plot, lev_to_data=True)
+        #     ax.set_global()
+        ax[ind].set_extent(box, crs=ccrs.PlateCarree())
+
+        if ptype == "tri":
+
+            elem_no_nan = cut_region(mesh, box)
+            no_cyclic_elem2 = get_no_cyclic(mesh, elem_no_nan)
+            # masked values do not work in cartopy
+            data_to_plot[data_to_plot == 0] = -99999
+            image = ax[ind].tripcolor(
+                mesh.x2,
+                mesh.y2,
+                elem_no_nan[no_cyclic_elem2],
+                data_to_plot,
+                transform=ccrs.PlateCarree(),
+                cmap=colormap,
+                vmin=data_levels[0],
+                vmax=data_levels[-1],
+                edgecolors="k",
+                lw=lw,
+                alpha=1,
+            )
+        elif ptype == "cf":
+            elem_no_nan = cut_region(mesh, box)
+            no_cyclic_elem2 = get_no_cyclic(mesh, elem_no_nan)
+            # masked values do not work in cartopy
+            data_to_plot[data_to_plot == 0] = -99999
+            image = ax[ind].tricontourf(
+                mesh.x2,
+                mesh.y2,
+                elem_no_nan[no_cyclic_elem2],
+                data_to_plot,
+                levels=data_levels,
+                transform=ccrs.PlateCarree(),
+                cmap=colormap,
+            )
+        else:
+            raise ValueError('Only `cf` (contourf) and `tri` (tripcolor) options are supported.')
+        
+        ax[ind].coastlines(lw=1.5, resolution="110m")
+
+        if titles:
+            titles = titles.copy()
+            ax[ind].set_title(titles.pop(0), size=20)
+
+    for delind in range(ind + 1, len(ax)):
+        fig.delaxes(ax[delind])
+
+    cb = fig.colorbar(
+        image, orientation="horizontal", ax=ax, pad=0.01, shrink=0.9, format=sfmt
+    )
+
+    cb.ax.tick_params(labelsize=fontsize)
+
+    if units:
+        cb.set_label(units, size=fontsize)
+    else:
+        pass
