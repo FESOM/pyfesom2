@@ -4,7 +4,6 @@ dependencies:
   - pip
   - numba
   - pip:
-      - sphinx==3.0.0
       - scipy
       - nbsphinx
       - numpydoc
