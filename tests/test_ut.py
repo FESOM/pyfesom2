@@ -7,11 +7,13 @@ import pytest
 import os
 import numpy as np
 import xarray as xr
+from matplotlib import cm
 
 from pyfesom2 import get_mask
 from pyfesom2 import compute_face_coords
 from pyfesom2 import load_mesh
 from pyfesom2 import cut_region
+from pyfesom2 import get_cmap 
 
 THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 my_data_folder = os.path.join(THIS_DIR, "data")
@@ -49,5 +51,16 @@ def test_cut_region():
     assert elem_no_nan.min() == 161
     assert elem_no_nan.max() == 742
     assert elem_no_nan.mean() == pytest.approx(382.5257270693512)
+
+def test_get_cmap():
+    colormap = get_cmap('Spectral_r')
+    assert colormap.name == 'Spectral_r'
+    colormap = get_cmap('thermal')
+    assert colormap.name == 'thermal'
+    colormap = get_cmap()
+    assert colormap.name == 'Spectral_r'
+    colormap = get_cmap(cm.Accent)
+    assert colormap.name == 'Accent'
+
 
 

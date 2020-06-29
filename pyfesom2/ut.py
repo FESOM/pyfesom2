@@ -23,7 +23,8 @@ import xarray as xr
 import matplotlib as mpl
 import json
 import pkg_resources
-import cmocean as cmo
+from cmocean import cm as cmo
+import matplotlib.pylab as plt
 
 
 def scalar_r2g(al, be, ga, rlon, rlat):
@@ -642,14 +643,28 @@ def cut_region(mesh, box):
 
     return elem_no_nan
 
+
 def get_cmap(cmap=None):
-    
+    """Get the color map.
+
+    Parameters
+    ----------
+    cmap: str, mpl.colors.Colormap
+        The colormap can be provided as the name (should be in matplotlib or cmocean colormaps),
+        or as matplotlib colormap object.
+
+    Returns
+    -------
+    colormap:mpl.colors.Colormap
+        Matplotlib colormap object.
+
+    """
     if cmap:
         if isinstance(cmap, (mpl.colors.Colormap)):
             colormap = cmap
         elif cmap in cmo.cmapnames:
             colormap = cmo.cmap_d[cmap]
-        elif cmap in plt.cm.datad:
+        elif cmap in plt.colormaps():
             colormap = plt.get_cmap(cmap)
         else:
             raise ValueError(
@@ -659,11 +674,12 @@ def get_cmap(cmap=None):
             )
     else:
         colormap = plt.get_cmap("Spectral_r")
-    
+
     return colormap
+
 
 def get_no_cyclic(mesh, elem_no_nan):
     d = mesh.x2[elem_no_nan].max(axis=1) - mesh.x2[elem_no_nan].min(axis=1)
     no_cyclic_elem = [i for (i, val) in enumerate(d) if val < 100]
-    
+
     return no_cyclic_elem
