@@ -22,6 +22,7 @@ Examples of tools are :ref:`pfplot` for quick visualization of FESOM data and :r
    :caption: Contents:
 
    installation
+   notebooks/pyfesom_overview
    tools
    library
    api

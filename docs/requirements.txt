@@ -1,7 +1,6 @@
-
 pandas
 netcdf4
-sphinx
+sphinx-rtd-theme
 xarray
 pyresample
 joblib
