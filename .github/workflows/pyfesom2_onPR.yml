@@ -1,19 +1,26 @@
-name: pyfesom2 main test
+name: pyfesom2 extended test
 
 # Controls when the action will run. Triggers the workflow on push or pull request.
 
-on: [push]
-
+on:
+  # Trigger the workflow on push or pull request,
+  # but only for the master branch
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
 
 jobs:
-  example-1:
+  basic_tests:
     name: Ex1 (${{ matrix.python-version }}, ${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        os: ["ubuntu-latest"]
-        python-version: ["3.6"]
+        os: ["ubuntu-latest", "macos-latest", "windows-latest"]
+        python-version: ["3.6", "3.7", "3.8"]
     steps:
       - uses: actions/checkout@v2
       - uses: goanpeca/setup-miniconda@v1
