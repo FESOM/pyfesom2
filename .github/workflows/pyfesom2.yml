@@ -22,8 +22,15 @@ jobs:
           activate-environment: pyfesom2
           environment-file: ci/requirements-py36.yml
           python-version: ${{ matrix.python-version }}
+          channels: conda-forge
           auto-activate-base: false
-      - name: Conda info
+          show-channel-urls: true
+          use-only-tar-bz2: true
+          allow-softlinks: true
+      - name: Install
+        shell: bash -l {0}
+        run: pip install -e .
+      - name: Test
         shell: bash -l {0}
         run: pytest
       
