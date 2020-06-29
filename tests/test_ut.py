@@ -37,13 +37,13 @@ def test_compute_face_coords():
     mesh = load_mesh(mesh_path, abg=[50, 15, -90], usepickle=False, usejoblib=False)
 
     face_x, face_y = compute_face_coords(mesh)
-    assert face_x.min() == -179.89608131062724
-    assert face_x.max() == 179.9390442333396
-    assert face_x.mean() == 5.192477589299442
+    assert face_x.min() == pytest.approx(-179.89608131062724)
+    assert face_x.max() == pytest.approx(179.9390442333396)
+    assert face_x.mean() == pytest.approx(5.192477589299442)
 
-    assert face_y.min() == -77.84857205391366
-    assert face_y.max() == 88.69953826328107
-    assert face_y.mean() == 9.148515091596915
+    assert face_y.min() == pytest.approx(-77.84857205391366)
+    assert face_y.max() == pytest.approx(88.69953826328107)
+    assert face_y.mean() == pytest.approx(9.148515091596915)
 
 def test_cut_region():
     mesh_path = os.path.join(my_data_folder, "pi-grid")
