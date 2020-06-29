@@ -14,6 +14,7 @@ from pyfesom2 import compute_face_coords
 from pyfesom2 import load_mesh
 from pyfesom2 import cut_region
 from pyfesom2 import get_cmap 
+from pyfesom2 import get_no_cyclic
 
 THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 my_data_folder = os.path.join(THIS_DIR, "data")
@@ -61,6 +62,18 @@ def test_get_cmap():
     assert colormap.name == 'Spectral_r'
     colormap = get_cmap(cm.Accent)
     assert colormap.name == 'Accent'
+
+def test_get_no_cyclic():
+    mesh_path = os.path.join(my_data_folder, "pi-grid")
+    mesh = load_mesh(mesh_path, abg=[50, 15, -90], usepickle=False, usejoblib=False)
+
+    no_cyclic_elem = get_no_cyclic(mesh, mesh.elem)
+    no_cyclic_elem = np.array(no_cyclic_elem)
+    assert no_cyclic_elem.max() == 5838
+    assert no_cyclic_elem.min() == 0
+    assert no_cyclic_elem.mean() == pytest.approx(2907.772830452244)
+    assert no_cyclic_elem.shape[0] == 5727
+
 
 
 
