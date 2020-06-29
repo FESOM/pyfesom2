@@ -54,7 +54,29 @@ import math
 sfmt = ticker.ScalarFormatter(useMathText=True)
 sfmt.set_powerlimits((-3, 4))
 
+
 def create_proj_figure(mapproj, rowscol, figsize):
+    """ Create figure and axis with cartopy projection.
+
+    Parameters
+    ----------
+    mapproj: str
+        name of the projection:
+            merc: Mercator
+            pc: PlateCarree (default)
+            np: NorthPolarStereo
+            sp: SouthPolarStereo
+            rob: Robinson
+    rowcol: (int, int)
+        number of rows and columns of the figure.
+    figsize: (float, float)
+        width, height in inches.
+
+    Returns
+    -------
+    fig, ax
+
+    """
     if mapproj == "merc":
         fig, ax = plt.subplots(
             rowscol[0],
@@ -96,17 +118,42 @@ def create_proj_figure(mapproj, rowscol, figsize):
             figsize=figsize,
         )
     else:
-        raise ValueError(f'Projection {mapproj} is not supported.')
+        raise ValueError(f"Projection {mapproj} is not supported.")
     return fig, ax
 
+
 def get_plot_levels(levels, data, lev_to_data=False):
+    """Returns levels for the plot.
+
+    Parameters
+    ----------
+    levels: list, numpy array
+        Can be list or numpy array with three or more elements.
+        If only three elements provided, they will b einterpereted as min, max, number of levels.
+        If more elements provided, they will be used directly.
+    data: numpy array of xarray
+        Data, that should be plotted with this levels.
+    lev_to_data: bool
+        Switch to correct the levels to the actual data range. 
+        This is needed for safe plotting on triangular grid with cartopy.
+
+    Returns
+    -------
+    data_levels: numpy array
+        resulted levels.
+        
+    """
     if levels:
-        if len(levels)==3:
+        if len(levels) == 3:
             mmin, mmax, nnum = levels
             if lev_to_data:
                 mmin, mmax = levels_to_data(mmin, mmax, data)
             nnum = int(nnum)
             data_levels = np.linspace(mmin, mmax, nnum)
+        elif len(levels) < 3:
+            raise ValueError(
+                "Levels can be the list or numpy array with three or more elements."
+            )
         else:
             data_levels = np.array(levels)
     else:
@@ -116,7 +163,14 @@ def get_plot_levels(levels, data, lev_to_data=False):
         data_levels = np.linspace(mmin, mmax, nnum)
     return data_levels
 
+
 def levels_to_data(mmin, mmax, data):
+    """Correct the levels to the actual data range.
+
+    This is needed to make cartopy happy. 
+    Cartopy can't plot on triangular mesh when the color
+    range is larger than the data range.
+    """
     # this is needed to make cartopy happy
     mmin_d = np.nanmin(data)
     mmax_d = np.nanmax(data)
@@ -1006,6 +1060,41 @@ def tplot(
     lw=0.01,
     fontsize=12,
 ):
+    """Plots original field on the cartopy map using tricontourf or tripcolor.
+
+    Parameters
+    ----------
+    mesh: mesh object
+        FESOM2 mesh object
+    data: np.array or list of np.arrays
+        FESOM 2 data on nodes 
+        (for u,v,u_ice and v_ice one have to first interpolate from elements to nodes (`tonodes` function)).
+        Can be ether one np.ndarray or list of np.ndarrays.
+    cmap: str
+        Name of the colormap from cmocean package or from the standard matplotlib set.
+        By default `Spectral_r` will be used.
+    box: list
+        Map boundaries in -180 180 -90 90 format that will be used for data selection and plotting (default [-180 180 -89 90]).
+    mapproj: str
+        Map projection. Options are Mercator (merc), Plate Carree (pc),
+        North Polar Stereo (np), South Polar Stereo (sp),  Robinson (rob)
+    levels: list
+        Levels for contour plot in format (min, max, numberOfLevels). List with more than
+        3 values will be interpreted as just a list of individual level values.
+        If not provided min/max values from data will be used with 40 levels.
+    ptype: str
+        Plot type. Options are tricontourf (\'cf\') and tripcolor (\'tri\')
+    units: str
+        Units for color bar.
+    figsize: tuple
+        figure size in inches
+    rowscol: tuple
+        number of rows and columns.
+    titles: str or list
+        Title of the plot (if string) or subplots (if list of strings)
+    fontsize: float
+        Font size of some of the plot elements.
+    """
 
     if not isinstance(data, list):
         data = [data]
@@ -1069,8 +1158,10 @@ def tplot(
                 cmap=colormap,
             )
         else:
-            raise ValueError('Only `cf` (contourf) and `tri` (tripcolor) options are supported.')
-        
+            raise ValueError(
+                "Only `cf` (contourf) and `tri` (tripcolor) options are supported."
+            )
+
         ax[ind].coastlines(lw=1.5, resolution="110m")
 
         if titles:
