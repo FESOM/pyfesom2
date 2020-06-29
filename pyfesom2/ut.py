@@ -383,6 +383,20 @@ def shiftedColorMap(cmap, start=0, midpoint=0.5, stop=1.0, name="shiftedcmap"):
 
 
 def mask_ne(lonreg2, latreg2):
+    """ Mask earth from lon/lat data using Natural Earth.
+
+    Parameters
+    ----------
+    lonreg2: float, np.array
+        2D array of longitudes
+    latreg2: float, np.array
+        2D array of latitudes
+
+    Returns
+    -------
+    m2: bool, np.array
+        2D mask with True where the ocean is.
+    """
     nearth = cfeature.NaturalEarthFeature("physical", "ocean", "50m")
     main_geom = [contour for contour in nearth.geometries()][0]
 
@@ -550,6 +564,7 @@ def compute_face_coords(mesh):
 
 
 def set_standard_attrs(da):
+    """ Add standard attributed to xarray DataArray"""
     da.coords["lat"].attrs = OrderedDict(
         [
             ("standard_name", "latitude"),
@@ -679,6 +694,7 @@ def get_cmap(cmap=None):
 
 
 def get_no_cyclic(mesh, elem_no_nan):
+    """Compute non cyclic elements of the mesh."""
     d = mesh.x2[elem_no_nan].max(axis=1) - mesh.x2[elem_no_nan].min(axis=1)
     no_cyclic_elem = [i for (i, val) in enumerate(d) if val < 100]
 
