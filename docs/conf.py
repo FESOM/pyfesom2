@@ -5,8 +5,8 @@ import os
 import shutil
 
 if not os.path.exists("notebooks"):
-#    os.mkdir('notebooks')
-	shutil.copytree(os.path.abspath("../notebooks"), "notebooks")
+    #    os.mkdir('notebooks')
+    shutil.copytree(os.path.abspath("../notebooks"), "notebooks")
 
 # Select nbsphinx and, if needed, other Sphinx extensions:
 extensions = [
@@ -31,12 +31,12 @@ nbsphinx_execute_arguments = [
 ]
 
 # Environment variables to be passed to the kernel:
-#os.environ['MY_DUMMY_VARIABLE'] = 'Hello from conf.py!'
+# os.environ['MY_DUMMY_VARIABLE'] = 'Hello from conf.py!'
 
-#nbsphinx_thumbnails = {
+# nbsphinx_thumbnails = {
 #    'gallery/thumbnail-from-conf-py': 'gallery/a-local-file.png',
 #    'gallery/*-rst': '_static/copy-button.svg',
-#}
+# }
 
 # This is processed by Jinja2 and inserted before each notebook
 nbsphinx_prolog = r"""
@@ -85,12 +85,12 @@ mathjax_config = {
 }
 
 # Additional files needed for generating LaTeX/PDF output:
-#latex_additional_files = ['references.bib']
+# latex_additional_files = ['references.bib']
 
 # Support for notebook formats other than .ipynb
-#nbsphinx_custom_formats = {
+# nbsphinx_custom_formats = {
 #    '.pct.py': ['jupytext.reads', {'fmt': 'py:percent'}],
-#}
+# }
 
 # -- The settings below this line are not specific to nbsphinx ------------
 
@@ -106,7 +106,6 @@ linkcheck_ignore = [
     'https://github.com/spatialaudio/nbsphinx/compare/',
 ]
 
-
 # The version info for the project you're documenting, acts as replacement
 # for |version| and |release|, also used in various other places throughout
 # the built documents.
@@ -117,6 +116,7 @@ linkcheck_ignore = [
 
 try:
     from subprocess import check_output
+
     release = check_output(['git', 'describe', '--tags', '--always'])
     release = release.decode().strip()
     today = check_output(['git', 'show', '-s', '--format=%ad', '--date=short'])
@@ -124,22 +124,20 @@ try:
 except Exception:
     subprocess.check_call([sys.executable, "-m", "pip", "install", "pyfesom2"])
     import pyfesom2
+
     version = pyfesom2.__version__
     release = version
     today = '<unknown date>'
 
-
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
 # This patterns also effect to html_static_path and html_extra_path
-#exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
-exclude_patterns = ['*.txt','*.md','_build', '**.ipynb_checkpoints','Thumbs.db','.DS_Store']
+# exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
+exclude_patterns = ['*.txt', '*.md', '_build', '**.ipynb_checkpoints', 'Thumbs.db', '.DS_Store']
 
 # -- Options for HTML output ----------------------------------------------
 
 html_title = project + ' version ' + release
-
-
 
 # -- Options for HTML output -------------------------------------------
 
@@ -154,10 +152,9 @@ html_theme = 'sphinx_rtd_theme'
 #
 # html_theme_options = {}
 html_theme_options = {
-'collapse_navigation': False,
-'navigation_depth': 3,
-'sticky_navigation': False}
-
+    'collapse_navigation': False,
+    'navigation_depth': 3,
+    'sticky_navigation': False}
 
 # -- Options for LaTeX output ---------------------------------------------
 
