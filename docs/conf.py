@@ -23,16 +23,21 @@ import sys
 sys.path.insert(0, os.path.abspath('..'))
 
 import pyfesom2
+import shutil
+
+if not os.path.exists("notebooks"):
+#    os.mkdir('notebooks')
+	shutil.copytree(os.path.abspath("../notebooks"), "notebooks")
 
 # -- General configuration ---------------------------------------------
 
 # If your documentation needs a minimal Sphinx version, state it here.
 #
-# needs_sphinx = '1.0'
+# needs_sphinx = '3.0's
 
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom ones.
-extensions = ['sphinx.ext.autodoc', 'sphinx.ext.viewcode']
+extensions = ['sphinx.ext.autodoc', 'sphinx.ext.viewcode', 'nbsphinx']
 
 autodoc_mock_imports = ['mpl_toolkits', 'Basemap', 'cartopy']
 
@@ -162,7 +167,14 @@ texinfo_documents = [
      'Miscellaneous'),
 ]
 
-autodoc_mock_imports = ["cartopy"]
+
+# -- Theme options -----------------
+
+# Options are theme-specific and customize the look and feel of the theme.
+html_theme_options = {
+'collapse_navigation': False,
+'navigation_depth': 3,
+'sticky_navigation': False}
 
 
 

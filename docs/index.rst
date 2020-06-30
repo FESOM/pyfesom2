@@ -1,7 +1,9 @@
 pyfesom2
 ========
 
-Python library and collection of tools for basic handling of `FESOM2 <http://www.fesom.de/>`_  ocean model output.
+pyfesom2 is a Python library and collection of command-line tools for working with `FESOM2 <http://www.fesom.de/>`_  ocean model data.
+as such is commonly used plots and calculations.
+
 
 :ref:`tools` are python scripts with command line interfaces that are used for quick actions with FESOM2 model output. For example::
 
@@ -18,11 +20,11 @@ Library is a python library that contains functions for working with FESOM2 mesh
 Examples of tools are :ref:`pfplot` for quick visualization of FESOM data and :ref:`pfinterp` for interpolation to regular lon/lat grid.
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
    :caption: Contents:
 
    installation
-   notebooks/pyfesom_overview
+   examples
    tools
    library
    api
