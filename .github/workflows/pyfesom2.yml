@@ -4,7 +4,6 @@ name: pyfesom2 main test
 
 on: [push]
 
-
 jobs:
   example-1:
     name: Ex1 (${{ matrix.python-version }}, ${{ matrix.os }})
@@ -13,7 +12,7 @@ jobs:
       fail-fast: false
       matrix:
         os: ["ubuntu-latest"]
-        python-version: ["3.6"]
+        python-version: ["3.7"]
     steps:
       - uses: actions/checkout@v2
       - uses: goanpeca/setup-miniconda@v1
@@ -25,7 +24,7 @@ jobs:
           channels: conda-forge
           auto-activate-base: false
           show-channel-urls: true
-          use-only-tar-bz2: true
+          # use-only-tar-bz2: true
           allow-softlinks: true
       - name: Install
         shell: bash -l {0}
