@@ -19,7 +19,7 @@ dependencies:
       - seawater
       - nbsphinx
       - ipython
-      - ipykernel0.
+      - ipykernel
       - pandoc
       - sphinx_copybutton
       - sphinx_gallery
