@@ -1,3 +1,4 @@
+nbsphinx
 pandas
 netcdf4
 sphinx-rtd-theme
@@ -6,6 +7,3 @@ pyresample
 joblib
 shapely
 cmocean
-
-
-

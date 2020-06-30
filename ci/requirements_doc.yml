@@ -17,4 +17,5 @@ dependencies:
       - shapely
       - matplotlib
       - seawater
+      - nbsphinx
 
