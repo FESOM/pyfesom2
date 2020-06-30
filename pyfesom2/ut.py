@@ -82,8 +82,9 @@ def scalar_r2g(al, be, ga, rlon, rlat):
     yg = rotate_matrix[1, 0] * xr + rotate_matrix[1, 1] * yr + rotate_matrix[1, 2] * zr
     zg = (
         rotate_matrix[2, 0] * xr + rotate_matrix[2, 1] * yr + rotate_matrix[2, 2] * zr
-    )  # Geographical coordinates:
-
+    )  
+    
+    # Geographical coordinates:
     lat = np.arcsin(zg)
     lon = np.arctan2(yg, xg)
 
