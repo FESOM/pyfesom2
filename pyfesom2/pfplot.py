@@ -102,12 +102,6 @@ def pfplot():
         default=(0.0, 0.0, 0.0),
         help="Alpha, beta and gamma Euler angles. If you plots look rotated, you use wrong abg values. Usually nessesary only during the first use of the mesh.",
     )
-    # parser.add_argument(
-    #     "--clim",
-    #     "-c",
-    #     type=str,
-    #     help="Path to the file with climatology. If option is set the model bias to climatology will be shown.",
-    # )
     parser.add_argument(
         "--cmap",
         default="Spectral_r",
@@ -161,23 +155,6 @@ def pfplot():
     else:
         colormap = "Spectral_r"
 
-    #     if args.cmap in cmo.cmapnames:
-    #         colormap = cmo.cmap_d[args.cmap]
-    #         # print(colormap)
-    #         # print(args.cmap)
-    #     elif args.cmap in plt.cm.datad:
-    #         colormap = plt.get_cmap(args.cmap)
-    #         print(colormap)
-    #         print(args.cmap)
-    #     else:
-    #         print("I am here")
-    #         raise ValueError('Get unrecognised name for the colormap `{}`. Colormaps should be from standard matplotlib set of from cmocean package.'.format(args.cmap))
-    # else:
-    #     if args.clim:
-    #         colormap = cmo.cmap_d['balance']
-    #     else:
-    #         colormap = plt.get_cmap('Spectral_r')
-
     mesh = load_mesh(args.meshpath, abg=args.abg, usepickle=True, usejoblib=False)
 
     years = parse_years(args.years)
@@ -193,16 +170,6 @@ def pfplot():
         how="mean",
         ncfile=None,
         compute=True,
-    )
-    # if args.levels:
-    #     levels = args.levels
-    #     mmin, mmax, nnum = args.levels
-    #     nnum = int(nnum)
-    # else:
-    #     mmin = np.nanmin(data)
-    #     mmax = np.nanmax(data)
-    #     nnum = 40
-    # data_levels = np.linspace(mmin, mmax, nnum)
 
     fig = plot(
         mesh=mesh,
