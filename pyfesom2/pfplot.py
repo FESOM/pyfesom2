@@ -7,7 +7,7 @@ import numpy as np
 
 # import matplotlib as mpl
 # mpl.use('Qt5Agg')
-from .fesom_plot_tools import plot
+from .plotting import plot
 from .load_mesh_data import get_data, load_mesh
 from .pfinterp import parse_years, parse_timesteps, parse_depths
 

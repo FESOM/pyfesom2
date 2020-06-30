@@ -316,21 +316,7 @@ def plot(
             )
             interpolated.append(ofesom)
 
-    # nearth = cfeature.NaturalEarthFeature("physical", "ocean", "50m")
-    # main_geom = [contour for contour in nearth.geometries()][0]
-
-    # mask = shapely.vectorized.contains(main_geom, lonreg2, latreg2)
-    # m2 = np.where(((lonreg2 == -180.0) & (latreg2 > 71.5)), True, mask)
-    # m2 = np.where(
-    #     ((lonreg2 == -180.0) & (latreg2 < 70.95) & (latreg2 > 68.96)), True, m2
-    # )
-    # m2 = np.where(((lonreg2 == -180.0) & (latreg2 < 65.33)), True, m2)
-
     m2 = mask_ne(lonreg2, latreg2)
-
-    #     m2 = np.where(((lonreg2 == 180.)&(latreg2>71.5)), True, m2)
-    #     m2 = np.where(((lonreg2 == 180.)&(latreg2<70.95)&(latreg2>68.96)), True, m2)
-    #     m2 = np.where(((lonreg2 == 180.)&(latreg2<65.33)), True, m2)
 
     for i, interpolated_instance in enumerate(interpolated):
         interpolated[i] = np.ma.masked_where(m2, interpolated[i])
