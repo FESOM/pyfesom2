@@ -4,7 +4,7 @@ pyfesom2
 
 [![Build Status](https://travis-ci.org/koldunovn/pyfesom2.svg?branch=master)](https://travis-ci.org/koldunovn/pyfesom2)
 [![Documentation Status](https://readthedocs.org/projects/pyfesom2/badge/?version=latest)](https://pyfesom2.readthedocs.io/en/latest/?badge=latest)
-[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/FESOM/pyfesom2/test_updates_to_docs?urlpath=notebooks)
+[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/FESOM/pyfesom2/test_updates_to_docs?filepath=notebooks)
 
 
 FESOM2 tools
