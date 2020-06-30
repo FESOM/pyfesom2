@@ -4,6 +4,7 @@ pyfesom2
 
 [![Build Status](https://travis-ci.org/koldunovn/pyfesom2.svg?branch=master)](https://travis-ci.org/koldunovn/pyfesom2)
 [![Documentation Status](https://readthedocs.org/projects/pyfesom2/badge/?version=latest)](https://pyfesom2.readthedocs.io/en/latest/?badge=latest)
+[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/FESOM/pyfesom2/test_updates_to_docs?urlpath=notebooks)
 
 
 FESOM2 tools
@@ -15,7 +16,7 @@ FESOM2 tools
 
 Installation
 ------------
-The only supported way now it to use `conda`. The short guide how to install it can be found for [Linux/Mac](https://github.com/koldunovn/python_for_geosciences/blob/master/README.md#getting-started-for-linuxmac) and [Windows](https://github.com/koldunovn/python_for_geosciences/blob/master/README.md#getting-started-for-windows). For now we are not testing for Windows, and there is no garantee that pyfesom2 will work on this OS. 
+The only supported way now it to use `conda`. The short guide how to install it can be found for [Linux/Mac](https://github.com/koldunovn/python_for_geosciences/blob/master/README.md#getting-started-for-linuxmac) and [Windows](https://github.com/koldunovn/python_for_geosciences/blob/master/README.md#getting-started-for-windows). For now we are not testing for Windows, and there is no garantee that pyfesom2 will work on this OS.
 
 The easiest way is to install latest stable version from `conda-forge`:
 
@@ -49,7 +50,7 @@ Install pyfesom2
 
 Usage of tools
 --------------
-Below are couple of examples of CLI tools usage. 
+Below are couple of examples of CLI tools usage.
 For now two tools are available: `pfplot` (plot variable on the map) and `pfinterp` (interpolate scalar values to regular grid). You can get complete list of options by executing:
 
     pfplot -h
