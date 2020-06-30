@@ -11,7 +11,6 @@ dependencies:
   - numba
   - scipy
   - cartopy
-  - basemap
   - matplotlib
   - shapely
   - jupyter
