@@ -2,7 +2,6 @@
 
 import os
 
-import pyfesom2
 import shutil
 
 if not os.path.exists("notebooks"):
@@ -113,8 +112,6 @@ linkcheck_ignore = [
 # the built documents.
 #
 # The short X.Y version.
-import pyfesom2
-version = pyfesom2.__version__
 
 # -- Get version/release information and date from Git ----------------------------
 
@@ -125,6 +122,9 @@ try:
     today = check_output(['git', 'show', '-s', '--format=%ad', '--date=short'])
     today = today.decode().strip()
 except Exception:
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "pyfesom2"])
+    import pyfesom2
+    version = pyfesom2.__version__
     release = version
     today = '<unknown date>'
 
