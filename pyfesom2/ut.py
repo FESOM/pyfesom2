@@ -1,14 +1,9 @@
-# This file is part of pyfesom
+# -*- coding: utf-8 -*-
 #
-################################################################################
+# This file is part of pyfesom2
+# Original code by Dmitry Sidorenko, Nikolay Koldunov, Lukrecia Stulic, 
+# Qiang Wang, Sergey Danilov and Patrick Scholz
 #
-# Original matlab/python code by Sergey Danilov, Dmitry Sidorenko and Qiang Wang.
-#
-# Contributers: Lukrecia Stulic, Nikolay Koldunov
-#
-# Modifications:
-#
-################################################################################
 
 import numpy as np
 import math as mt

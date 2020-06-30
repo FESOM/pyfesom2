@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 #
 # This file is part of pyfesom2
-# Original code by Dmitry Sidorenko, Qiang Wang, Sergey Danilov and Patrick Scholz
+# Original code by Dmitry Sidorenko, Nikolay Koldunov, 
+# Qiang Wang, Sergey Danilov and Patrick Scholz
 #
 
 import sys, os

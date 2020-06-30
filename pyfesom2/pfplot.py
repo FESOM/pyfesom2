@@ -1,4 +1,9 @@
 # -*- coding: utf-8 -*-
+#
+# This file is part of pyfesom2
+# Original code by Dmitry Sidorenko, Nikolay Koldunov, 
+# Qiang Wang, Sergey Danilov and Patrick Scholz
+#
 
 import argparse
 import matplotlib.pylab as plt
