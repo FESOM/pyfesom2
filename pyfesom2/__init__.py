@@ -1,4 +1,8 @@
 # -*- coding: utf-8 -*-
+#
+# This file is part of pyfesom2
+# Original code by Dmitry Sidorenko, Qiang Wang, Sergey Danilov and Patrick Scholz
+#
 
 """Top-level package for pyfesom2."""
 
