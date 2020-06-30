@@ -4,31 +4,12 @@
 # Original code by Dmitry Sidorenko, 2013
 #
 
+import sys, os
 import numpy as np
-import matplotlib.pyplot as plt
-
-try:
-    from mpl_toolkits.basemap import Basemap
-except KeyError:
-    # dirty hack to avoid KeyError: 'PROJ_LIB' problem with basemap
-    import conda
-    import os
-
-    conda_file_dir = conda.__file__
-    conda_dir = conda_file_dir.split("lib")[0]
-    proj_lib = os.path.join(os.path.join(conda_dir, "share"), "proj")
-    os.environ["PROJ_LIB"] = proj_lib
-
-    from mpl_toolkits.basemap import Basemap
-except ImportError:
-    print("Basemap is not installed, some plotting is not available.")
 from matplotlib.colors import LinearSegmentedColormap
 from .regriding import fesom2regular
 from netCDF4 import Dataset, MFDataset, num2date
 import matplotlib as mpl
-
-# mpl.use('Qt5Agg')
-# %matplotlib inline
 import matplotlib.pylab as plt
 import numpy as np
 
@@ -40,13 +21,11 @@ except ImportError:
     print("Cartopy is not installed, plotting is not available.")
 from cmocean import cm as cmo
 from matplotlib import cm
-import sys, os
 
 import xarray as xr
 import shapely.vectorized
 import joblib
 from .transect import *
-import matplotlib
 from .ut import mask_ne, cut_region, get_cmap, get_no_cyclic
 from matplotlib import ticker
 import math
@@ -459,7 +438,7 @@ def plot(
         )
 
     if cmap:
-        if isinstance(cmap, (matplotlib.colors.Colormap)):
+        if isinstance(cmap, (mpl.colors.Colormap)):
             colormap = cmap
         elif cmap in cmo.cmapnames:
             colormap = cmo.cmap_d[cmap]
