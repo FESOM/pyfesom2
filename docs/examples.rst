@@ -1,6 +1,10 @@
+========
+Examples
+========
 
 .. toctree::
-   :maxdepth: -1
+   :maxdepth: 1
+   :glob:
    :caption: Examples:
 
-   notebooks/pyfesom2_overview
+   notebooks/*

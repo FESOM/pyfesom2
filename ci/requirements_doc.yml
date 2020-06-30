@@ -18,4 +18,8 @@ dependencies:
       - matplotlib
       - seawater
       - nbsphinx
-
+      - ipython
+      - ipykernel0.
+      - pandoc
+      - sphinx_copybutton
+      - sphinx_gallery
