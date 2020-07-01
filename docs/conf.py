@@ -32,9 +32,9 @@ html_sourcelink_suffix = ''
 html_static_path = ['_static']
 
 
-def setup(app):
-    """Sphinx setup function."""
-    app.add_css_file('theme_override.css')
+#def setup(app):
+#    """Sphinx setup function."""
+#    app.add_css_file('theme_override.css')
 
 
 # List of arguments to be passed to the kernel that executes the notebooks:
@@ -45,7 +45,7 @@ nbsphinx_execute_arguments = [
 
 
 # Add any paths that contain templates here, relative to this directory.
-templates_path = ['_templates']
+#templates_path = ['_templates']
 
 
 # Environment variables to be passed to the kernel:
