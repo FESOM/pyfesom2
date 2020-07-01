@@ -20,7 +20,7 @@ Library is a python library that contains functions for working with FESOM2 mesh
 Examples of tools are :ref:`pfplot` for quick visualization of FESOM data and :ref:`pfinterp` for interpolation to regular lon/lat grid.
 
 .. toctree::
-   :maxdepth: 0
+   :maxdepth: 1
    :caption: Contents:
 
    installation
