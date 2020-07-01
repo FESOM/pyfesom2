@@ -15,7 +15,7 @@ extensions = [
     'sphinx_gallery.load_style',  # load CSS for gallery (needs SG >= 0.6)
 ]
 
-autodoc_mock_imports = ['mpl_toolkits', 'Basemap', 'cartopy']
+autodoc_mock_imports = ['mpl_toolkits',  'cartopy']
 
 # Default language for syntax highlighting in reST and Markdown cells:
 highlight_language = 'none'
@@ -28,6 +28,11 @@ nbsphinx_execute_arguments = [
     "--InlineBackend.figure_formats={'svg', 'pdf'}",
     "--InlineBackend.rc={'figure.dpi': 96}",
 ]
+
+
+# Add any paths that contain templates here, relative to this directory.
+templates_path = ['_templates']
+
 
 # Environment variables to be passed to the kernel:
 # os.environ['MY_DUMMY_VARIABLE'] = 'Hello from conf.py!'
@@ -82,6 +87,8 @@ nbsphinx_epilog = r"""
 mathjax_config = {
     'TeX': {'equationNumbers': {'autoNumber': 'AMS', 'useLabelIds': True}},
 }
+
+autodoc_mock_imports = ['mpl_toolkits', 'cartopy']
 
 # Additional files needed for generating LaTeX/PDF output:
 # latex_additional_files = ['references.bib']
