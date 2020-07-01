@@ -3,8 +3,7 @@ Examples
 ========
 
 .. toctree::
-   :maxdepth: 0
+   :maxdepth: 1
    :glob:
-   :caption: Examples:
 
    notebooks/*

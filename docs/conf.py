@@ -17,11 +17,25 @@ extensions = [
 
 autodoc_mock_imports = ['mpl_toolkits',  'cartopy']
 
+# The name of the Pygments (syntax highlighting) style to use.
+pygments_style = 'sphinx'
 # Default language for syntax highlighting in reST and Markdown cells:
-highlight_language = 'none'
+highlight_language = 'python3'
 
 # Don't add .txt suffix to source files:
 html_sourcelink_suffix = ''
+
+
+# Add any paths that contain custom static files (such as style sheets) here,
+# relative to this directory. They are copied after the builtin static files,
+# so a file named "default.css" will overwrite the builtin "default.css".
+html_static_path = ['_static']
+
+
+def setup(app):
+    """Sphinx setup function."""
+    app.add_css_file('theme_override.css')
+
 
 # List of arguments to be passed to the kernel that executes the notebooks:
 nbsphinx_execute_arguments = [
@@ -31,7 +45,7 @@ nbsphinx_execute_arguments = [
 
 
 # Add any paths that contain templates here, relative to this directory.
-#templates_path = ['_templates']
+templates_path = ['_templates']
 
 
 # Environment variables to be passed to the kernel:
