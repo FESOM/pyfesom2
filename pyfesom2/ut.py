@@ -1,14 +1,9 @@
-# This file is part of pyfesom
+# -*- coding: utf-8 -*-
 #
-################################################################################
+# This file is part of pyfesom2
+# Original code by Dmitry Sidorenko, Nikolay Koldunov, Lukrecia Stulic, 
+# Qiang Wang, Sergey Danilov and Patrick Scholz
 #
-# Original matlab/python code by Sergey Danilov, Dmitry Sidorenko and Qiang Wang.
-#
-# Contributers: Lukrecia Stulic, Nikolay Koldunov
-#
-# Modifications:
-#
-################################################################################
 
 import numpy as np
 import math as mt
@@ -87,8 +82,9 @@ def scalar_r2g(al, be, ga, rlon, rlat):
     yg = rotate_matrix[1, 0] * xr + rotate_matrix[1, 1] * yr + rotate_matrix[1, 2] * zr
     zg = (
         rotate_matrix[2, 0] * xr + rotate_matrix[2, 1] * yr + rotate_matrix[2, 2] * zr
-    )  # Geographical coordinates:
-
+    )  
+    
+    # Geographical coordinates:
     lat = np.arcsin(zg)
     lon = np.arctan2(yg, xg)
 

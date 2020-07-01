@@ -34,7 +34,7 @@ import pyfesom2
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom ones.
 extensions = ['sphinx.ext.autodoc', 'sphinx.ext.viewcode']
 
-autodoc_mock_imports = ['mpl_toolkits', 'Basemap', 'cartopy']
+autodoc_mock_imports = ['mpl_toolkits', 'cartopy']
 
 #autodoc_mock_imports = ['matplotlib', 'mpl_toolkits', 'Basemap', 'cartopy']
 

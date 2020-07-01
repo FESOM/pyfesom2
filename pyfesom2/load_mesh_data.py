@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 #
 # This file is part of pyfesom2
-# Original code by Dmitry Sidorenko, 2013
+# Original code by Dmitry Sidorenko, Nikolay Koldunov, 
+# Qiang Wang, Sergey Danilov and Patrick Scholz
 #
 
 import pandas as pd
@@ -170,12 +171,12 @@ class fesom_mesh(object):
         self.voltri = []
 
         logging.info("load 2d part of the mesh")
-        if (sys.version_info.major, sys.version_info.minor) >= (3, 8):
+        if (sys.version_info.major, sys.version_info.minor) >= (3, 7):
             start = time.time()
         else:
             start = time.clock()
         self.read2d()
-        if (sys.version_info.major, sys.version_info.minor) >= (3, 8):
+        if (sys.version_info.major, sys.version_info.minor) >= (3, 7):
             end = time.time()
         else:
             end = time.clock()
@@ -300,171 +301,11 @@ def ind_for_depth(depth, mesh):
     return dind
 
 
-def read_fesom_slice(
-    str_id,
-    records,
-    year,
-    mesh,
-    result_path,
-    runid,
-    ilev=0,
-    how="mean",
-    verbose=False,
-    ncfile="",
-):
-    # print(['reading year '+str(year)+':'])
-    if ncfile == "":
-        ncfile = result_path + "/" + str_id + "." + runid + "." + str(year) + ".nc"
-    if verbose:
-        print(["reading ", ncfile])
-    f = Dataset(ncfile, "r")
-    # dimensions of the netcdf variable
-    ncdims = f.variables[str_id].shape
-    # indexies for reading 2D part
-    if verbose:
-        if ncdims[1] == mesh.n2d:
-            print("data at nodes")
-        elif ncdims[1] == mesh.e2d:
-            print("data on elements")
-        else:
-            raise IOError("not existing dimension " + str(ncdims[1]))
-
-    dim = [records, np.arange(ncdims[1])]
-    data = np.zeros(shape=(ncdims[1]))
-    # add 3rd index if reading a slice from 3D data
-    if len(ncdims) == 3:
-        dim.append(ilev)
-
-    if how == "mean":
-        data = data + f.variables[str_id][dim].mean(axis=0)
-    elif how == "max":
-        data = data + f.variables[str_id][dim].max(axis=0)
-    elif how == "min":
-        data = data + f.variables[str_id][dim].min(axis=0)
-    f.close()
-    return data
-
-
-def read_fesom_sect(
-    str_id,
-    records,
-    year,
-    mesh,
-    result_path,
-    runid,
-    p1,
-    p2,
-    N,
-    nlev=0,
-    how="mean",
-    line_distance=3.0,
-    radius_of_influence=2000000,
-    do_land=False,
-    verbose=False,
-):
-    # define section: sx, sy, sz
-    sx = np.linspace(p1[0], p2[0], N)
-    sy = np.linspace(p1[1], p2[1], N)
-    if nlev == 0:
-        nlev = mesh.nlev
-    sz = np.zeros([nlev, N])
-    sz[:, :] = np.nan
-    # find 2D points which are within the line_distance to the section
-    # to make it cheaper, only these points will be used for interpolation
-    lnorm = np.sqrt(sum((p2 - p1) ** 2))
-    d = np.cross(np.array([mesh.x2, mesh.y2]).T - p1, p2 - p1) / lnorm
-    ind = d < line_distance
-    x = mesh.x2[ind]
-    y = mesh.y2[ind]
-    oce_ind2d = np.ones(x.shape)
-    oce_ind2d[mesh.ind2d[ind] != 0] = np.nan
-    # prepare the interpolation weights
-    orig_def = pyresample.geometry.SwathDefinition(lons=x, lats=y)
-    targ_def = pyresample.geometry.SwathDefinition(lons=sx, lats=sy)
-
-    oce_mask = pyresample.kd_tree.resample_nearest(
-        orig_def,
-        oce_ind2d,
-        targ_def,
-        radius_of_influence=radius_of_influence,
-        fill_value=0.0,
-    )
-    # do the interpolation layerwise
-    for ilev in range(nlev):
-        # read the model result from fesom.XXXX.oce.nc
-        if verbose:
-            print("interpolating level ", ilev)
-
-        data = read_fesom_slice(
-            str_id, records, year, mesh, result_path, runid, ilev=ilev
-        )
-        data[data == 0.0] = np.nan
-        sz[ilev, :] = (
-            pyresample.kd_tree.resample_gauss(
-                orig_def,
-                data[ind],
-                targ_def,
-                radius_of_influence=radius_of_influence,
-                neighbours=10,
-                sigmas=250000,
-                fill_value=None,
-            )
-            * oce_mask
-        )
-
-    return (sx, sy, sz)
-
-
-def cut_region(mesh, nlevels, box=[13, 30, 53, 66], depth=0):
-    """
-    Cut region from the mesh.
-
-    Parameters
-    ----------
-    mesh : object
-        FESOM mesh object
-    nlevels : array
-        array of size `elem` with number of levels for each element.
-        Usually read from *mesh.diag.nc file (`nlevels`) field.
-    box : list
-        Coordinates of the box in [-180 180 -90 90] format.
-        Default set to [13, 30, 53, 66], Baltic Sea.
-    depth : float
-        depth
-
-    Returns
-    -------
-    elem_no_nan : array
-        elements that belong to the region defined by `box`.
-    no_nan_triangles : array
-        boolian array of size elem2d with True for elements
-        that belong to the region defines by `box`.
-    """
-
-    nlevels = np.array([nlevels] * 3).transpose()
-    left, right, down, up = box
-    ind_depth = ind_for_depth(depth, mesh)
-    elem2 = mesh.elem
-    xx = mesh.x2[elem2]
-    yy = mesh.y2[elem2]
-    dind = ind_for_depth(depth, mesh)
-
-    mask = (nlevels > dind) & (xx >= left) & (xx <= right) & (yy >= down) & (yy <= up)
-
-    mask_elem = mask.mean(axis=1)
-    mask_elem[mask_elem != 1] = np.nan
-
-    no_nan_triangles = np.invert(np.isnan(mask_elem))
-    elem_no_nan = elem2[no_nan_triangles, :]
-
-    return elem_no_nan, no_nan_triangles
-
-
 def select_slices(dataset, variable, mesh, records, depth, continuous=False):
     """Select slices from data.
 
     The xarray isel function can be very slow, so in order to use arbitrary
-    selection, we add an option to acces to data directly by index.
+    selection, we add an option to acces the data directly by index.
 
     To use it the `continuous` argument should be True. That mean you
     provide as record a slice with step 1. In other cases you should rely on
