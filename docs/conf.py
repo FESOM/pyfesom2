@@ -29,7 +29,11 @@ nbsphinx_execute_arguments = [
     "--InlineBackend.rc={'figure.dpi': 96}",
 ]
 
-<<<<<<< HEAD
+
+# Add any paths that contain templates here, relative to this directory.
+templates_path = ['_templates']
+
+
 # Environment variables to be passed to the kernel:
 # os.environ['MY_DUMMY_VARIABLE'] = 'Hello from conf.py!'
 
@@ -83,9 +87,8 @@ nbsphinx_epilog = r"""
 mathjax_config = {
     'TeX': {'equationNumbers': {'autoNumber': 'AMS', 'useLabelIds': True}},
 }
-=======
+
 autodoc_mock_imports = ['mpl_toolkits', 'cartopy']
->>>>>>> master
 
 # Additional files needed for generating LaTeX/PDF output:
 # latex_additional_files = ['references.bib']
