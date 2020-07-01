@@ -1,5 +1,5 @@
 .rst-versions {
-    position: relative !important;
+    position: relative;
 }
 .rst-versions.shift-up {
     overflow-y: visible;
