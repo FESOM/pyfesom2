@@ -1,0 +1,35 @@
+name: pyfesom2 main test
+
+# Controls when the action will run. Triggers the workflow on push or pull request.
+
+on: [push]
+
+jobs:
+  example-1:
+    name: Ex1 (${{ matrix.python-version }}, ${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: ["ubuntu-latest"]
+        python-version: ["3.7"]
+    steps:
+      - uses: actions/checkout@v2
+      - uses: goanpeca/setup-miniconda@v1
+        with:
+          auto-update-conda: true
+          activate-environment: pyfesom2
+          environment-file: ci/requirements-py37.yml
+          python-version: ${{ matrix.python-version }}
+          channels: conda-forge
+          auto-activate-base: false
+          show-channel-urls: true
+          # use-only-tar-bz2: true
+          allow-softlinks: true
+      - name: Install
+        shell: bash -l {0}
+        run: pip install -e .
+      - name: Test
+        shell: bash -l {0}
+        run: pytest
+      

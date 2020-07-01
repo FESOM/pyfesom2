@@ -1,14 +1,9 @@
-# This file is part of pyfesom
+# -*- coding: utf-8 -*-
 #
-################################################################################
+# This file is part of pyfesom2
+# Original code by Dmitry Sidorenko, Nikolay Koldunov, Lukrecia Stulic, 
+# Qiang Wang, Sergey Danilov and Patrick Scholz
 #
-# Original matlab/python code by Sergey Danilov, Dmitry Sidorenko and Qiang Wang.
-#
-# Contributers: Lukrecia Stulic, Nikolay Koldunov
-#
-# Modifications:
-#
-################################################################################
 
 import numpy as np
 import math as mt
@@ -23,7 +18,8 @@ import xarray as xr
 import matplotlib as mpl
 import json
 import pkg_resources
-import cmocean as cmo
+from cmocean import cm as cmo
+import matplotlib.pylab as plt
 
 
 def scalar_r2g(al, be, ga, rlon, rlat):
@@ -86,8 +82,9 @@ def scalar_r2g(al, be, ga, rlon, rlat):
     yg = rotate_matrix[1, 0] * xr + rotate_matrix[1, 1] * yr + rotate_matrix[1, 2] * zr
     zg = (
         rotate_matrix[2, 0] * xr + rotate_matrix[2, 1] * yr + rotate_matrix[2, 2] * zr
-    )  # Geographical coordinates:
-
+    )  
+    
+    # Geographical coordinates:
     lat = np.arcsin(zg)
     lon = np.arctan2(yg, xg)
 
@@ -382,6 +379,20 @@ def shiftedColorMap(cmap, start=0, midpoint=0.5, stop=1.0, name="shiftedcmap"):
 
 
 def mask_ne(lonreg2, latreg2):
+    """ Mask earth from lon/lat data using Natural Earth.
+
+    Parameters
+    ----------
+    lonreg2: float, np.array
+        2D array of longitudes
+    latreg2: float, np.array
+        2D array of latitudes
+
+    Returns
+    -------
+    m2: bool, np.array
+        2D mask with True where the ocean is.
+    """
     nearth = cfeature.NaturalEarthFeature("physical", "ocean", "50m")
     main_geom = [contour for contour in nearth.geometries()][0]
 
@@ -549,6 +560,7 @@ def compute_face_coords(mesh):
 
 
 def set_standard_attrs(da):
+    """ Add standard attributed to xarray DataArray"""
     da.coords["lat"].attrs = OrderedDict(
         [
             ("standard_name", "latitude"),
@@ -642,14 +654,28 @@ def cut_region(mesh, box):
 
     return elem_no_nan
 
+
 def get_cmap(cmap=None):
-    
+    """Get the color map.
+
+    Parameters
+    ----------
+    cmap: str, mpl.colors.Colormap
+        The colormap can be provided as the name (should be in matplotlib or cmocean colormaps),
+        or as matplotlib colormap object.
+
+    Returns
+    -------
+    colormap:mpl.colors.Colormap
+        Matplotlib colormap object.
+
+    """
     if cmap:
         if isinstance(cmap, (mpl.colors.Colormap)):
             colormap = cmap
         elif cmap in cmo.cmapnames:
             colormap = cmo.cmap_d[cmap]
-        elif cmap in plt.cm.datad:
+        elif cmap in plt.colormaps():
             colormap = plt.get_cmap(cmap)
         else:
             raise ValueError(
@@ -659,11 +685,13 @@ def get_cmap(cmap=None):
             )
     else:
         colormap = plt.get_cmap("Spectral_r")
-    
+
     return colormap
 
+
 def get_no_cyclic(mesh, elem_no_nan):
+    """Compute non cyclic elements of the mesh."""
     d = mesh.x2[elem_no_nan].max(axis=1) - mesh.x2[elem_no_nan].min(axis=1)
     no_cyclic_elem = [i for (i, val) in enumerate(d) if val < 100]
-    
+
     return no_cyclic_elem

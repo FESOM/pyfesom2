@@ -1,3 +1,9 @@
+# -*- coding: utf-8 -*-
+#
+# This file is part of pyfesom2
+# Original code by Alireza Mahdavi
+#
+
 from pyfesom2 import fesom2regular
 import numpy as np
 try:

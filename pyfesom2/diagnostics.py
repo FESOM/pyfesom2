@@ -1,7 +1,9 @@
 # -*- coding: utf-8 -*-
 #
 # This file is part of pyfesom2
-# Original code by Nikolay Koldunov, Dmitry Sidorenko and Qiang Wang (2019)
+# Original code by Dmitry Sidorenko, Nikolay Koldunov, 
+# Qiang Wang, Sergey Danilov and Patrick Scholz
+#
 
 import os
 import numpy as np
@@ -9,8 +11,8 @@ import xarray as xr
 from .load_mesh_data import ind_for_depth
 from pandas.plotting import register_matplotlib_converters
 from .ut import compute_face_coords, get_mask
-register_matplotlib_converters()
 
+register_matplotlib_converters()
 
 
 def add_timedim(data, date="1970-01-01"):
@@ -198,7 +200,7 @@ def get_meshdiag(mesh, meshdiag=None, runid="fesom"):
     return diag
 
 
-def hovm_data(data, mesh, meshdiag=None, runid="fesom", mask = None):
+def hovm_data(data, mesh, meshdiag=None, runid="fesom", mask=None):
     """Calculate data for hovmoller diagram.
 
     Use 3d tracer variable (on nodes) to calculate weighted
@@ -236,7 +238,7 @@ def hovm_data(data, mesh, meshdiag=None, runid="fesom", mask = None):
     nod_area.load()
     if mask is not None:
         nod_area = nod_area[:, mask]
-        data = data[:,mask,:]
+        data = data[:, mask, :]
 
     if isinstance(data, xr.DataArray):
         nod_area = nod_area.where(nod_area != 0)
@@ -324,8 +326,8 @@ def volmean_data(data, mesh, uplow=None, meshdiag=None, runid="fesom", mask=None
     diag = get_meshdiag(mesh, meshdiag, runid)
     nod_area = diag.rename_dims({"nl": "nz1", "nod_n": "nod2"}).nod_area
     nod_area.load()
-#     nod_area = nod_area.where(nod_area != 0)
-    delta_z=np.abs(np.diff(mesh.zlev))
+    #     nod_area = nod_area.where(nod_area != 0)
+    delta_z = np.abs(np.diff(mesh.zlev))
 
     indexes = select_depths(uplow, mesh)
 
@@ -334,10 +336,10 @@ def volmean_data(data, mesh, uplow=None, meshdiag=None, runid="fesom", mask=None
     # we calculate layer by layer
     if mask is not None:
         nod_area = nod_area[:, mask]
-        data = data[:,mask,:]
+        data = data[:, mask, :]
 
     for i in indexes:
-        nod_area_at_level = np.ma.masked_equal(nod_area[i, :].data,0)
+        nod_area_at_level = np.ma.masked_equal(nod_area[i, :].data, 0)
         aux = (data[:, :, i] * nod_area_at_level[:]).sum(axis=1)
         if not np.ma.is_masked(nod_area_at_level[:].sum()):
             total_t = total_t + aux * delta_z[i]
@@ -345,10 +347,19 @@ def volmean_data(data, mesh, uplow=None, meshdiag=None, runid="fesom", mask=None
 
     return total_t / total_v
 
-def xmoc_data(mesh, data, nlats=91, mask='Global Ocean', return_masked=True,
-                 meshdiag=None, el_area=None,
-                  nlevels=None, face_x=None,
-                  face_y=None):
+
+def xmoc_data(
+    mesh,
+    data,
+    nlats=91,
+    mask="Global Ocean",
+    return_masked=True,
+    meshdiag=None,
+    el_area=None,
+    nlevels=None,
+    face_x=None,
+    face_y=None,
+):
     """ Compute moc for selected region.
 
     Parameters:
@@ -385,14 +396,16 @@ def xmoc_data(mesh, data, nlats=91, mask='Global Ocean', return_masked=True,
     """
 
     if len(data.shape) == 3:
-        raise ValueError("You have 3 dimensions in input data, xmoc_data \
-                          accepts only one 3D field of w(nodes, levels).")
+        raise ValueError(
+            "You have 3 dimensions in input data, xmoc_data \
+                          accepts only one 3D field of w(nodes, levels)."
+        )
 
     # option to provide el_area and nlevelsm not to load them every time
     if (el_area is None) or (nlevels is None):
         meshdiag = get_meshdiag(mesh, meshdiag=meshdiag)
-        el_area = meshdiag['elem_area'][:]
-        nlevels = meshdiag['nlevels'][:]-1
+        el_area = meshdiag["elem_area"][:]
+        nlevels = meshdiag["nlevels"][:] - 1
 
     # option to provide precomputed face_x and face_y
     if (face_x is None) or (face_y is None):
@@ -404,34 +417,33 @@ def xmoc_data(mesh, data, nlats=91, mask='Global Ocean', return_masked=True,
     else:
         mask = mask
 
-    nlats=nlats
-    lats=np.linspace(-90, 90, nlats)
-    dlat=lats[1]-lats[0]
+    nlats = nlats
+    lats = np.linspace(-90, 90, nlats)
+    dlat = lats[1] - lats[0]
     # allocate moc array
-    moc=np.zeros([mesh.nlev, nlats])
-    pos = ((face_y-lats[0])/dlat).astype('int')
+    moc = np.zeros([mesh.nlev, nlats])
+    pos = ((face_y - lats[0]) / dlat).astype("int")
 
     if isinstance(data, xr.DataArray):
-        w = (data[:,:].values*mask[:,None])
+        w = data[:, :].values * mask[:, None]
     else:
-        w = (data[:,:]*mask[:,None])
+        w = data[:, :] * mask[:, None]
 
-    elem_mean = np.sum(w[mesh.elem.T,:], axis=0)/3.*1.e-6
-    elem_mean_weigh = elem_mean*el_area.values[:, None]
-    for i in range(0,mesh.nlev):
-        not_calc = np.where(i>=nlevels)[0]
-        elem_mean_weigh[not_calc, i]=np.nan
+    elem_mean = np.sum(w[mesh.elem.T, :], axis=0) / 3.0 * 1.0e-6
+    elem_mean_weigh = elem_mean * el_area.values[:, None]
+    for i in range(0, mesh.nlev):
+        not_calc = np.where(i >= nlevels)[0]
+        elem_mean_weigh[not_calc, i] = np.nan
 
-    for k in range(pos.min(), pos.max()+1):
-        moc[:, k]=np.nansum(elem_mean_weigh[pos[:]==k,:], axis=0)
+    for k in range(pos.min(), pos.max() + 1):
+        moc[:, k] = np.nansum(elem_mean_weigh[pos[:] == k, :], axis=0)
 
-
-    i, j = np.where(moc.T==0)
-    moc_cumsum = np.ma.cumsum(moc[:,::-1], axis=1)
-    moc_proper_order = moc_cumsum[:,::-1].T*-1
+    i, j = np.where(moc.T == 0)
+    moc_cumsum = np.ma.cumsum(moc[:, ::-1], axis=1)
+    moc_proper_order = moc_cumsum[:, ::-1].T * -1
     if return_masked:
-        moc_proper_order[i,j] = 0
-        moc_masked=np.ma.masked_equal(moc_proper_order, 0)
+        moc_proper_order[i, j] = 0
+        moc_masked = np.ma.masked_equal(moc_proper_order, 0)
         moc_final = moc_masked
     else:
         moc_final = moc_proper_order

@@ -1,13 +1,9 @@
-# This file is part of pyfesom
+# -*- coding: utf-8 -*-
 #
-################################################################################
+# This file is part of pyfesom2
+# Original code by Dmitry Sidorenko, Nikolay Koldunov, 
+# Qiang Wang, Sergey Danilov and Patrick Scholz
 #
-# Original code by Dmitry Sidorenko, 2013
-#
-# Modifications:
-#   Nikolay Koldunov, 2016
-#          - change to netCDF4 
-#          - change scipy griddata interpolation to KDTree for speed
 # TODO
 # Add seasonal climatology
 ################################################################################

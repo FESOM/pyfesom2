@@ -1,34 +1,16 @@
 # -*- coding: utf-8 -*-
 #
 # This file is part of pyfesom2
-# Original code by Dmitry Sidorenko, 2013
+# Original code by Dmitry Sidorenko, Nikolay Koldunov, 
+# Qiang Wang, Sergey Danilov and Patrick Scholz
 #
 
+import sys, os
 import numpy as np
-import matplotlib.pyplot as plt
-
-try:
-    from mpl_toolkits.basemap import Basemap
-except KeyError:
-    # dirty hack to avoid KeyError: 'PROJ_LIB' problem with basemap
-    import conda
-    import os
-
-    conda_file_dir = conda.__file__
-    conda_dir = conda_file_dir.split("lib")[0]
-    proj_lib = os.path.join(os.path.join(conda_dir, "share"), "proj")
-    os.environ["PROJ_LIB"] = proj_lib
-
-    from mpl_toolkits.basemap import Basemap
-except ImportError:
-    print("Basemap is not installed, some plotting is not available.")
 from matplotlib.colors import LinearSegmentedColormap
 from .regriding import fesom2regular
 from netCDF4 import Dataset, MFDataset, num2date
 import matplotlib as mpl
-
-# mpl.use('Qt5Agg')
-# %matplotlib inline
 import matplotlib.pylab as plt
 import numpy as np
 
@@ -40,13 +22,11 @@ except ImportError:
     print("Cartopy is not installed, plotting is not available.")
 from cmocean import cm as cmo
 from matplotlib import cm
-import sys, os
 
 import xarray as xr
 import shapely.vectorized
 import joblib
 from .transect import *
-import matplotlib
 from .ut import mask_ne, cut_region, get_cmap, get_no_cyclic
 from matplotlib import ticker
 import math
@@ -54,7 +34,29 @@ import math
 sfmt = ticker.ScalarFormatter(useMathText=True)
 sfmt.set_powerlimits((-3, 4))
 
+
 def create_proj_figure(mapproj, rowscol, figsize):
+    """ Create figure and axis with cartopy projection.
+
+    Parameters
+    ----------
+    mapproj: str
+        name of the projection:
+            merc: Mercator
+            pc: PlateCarree (default)
+            np: NorthPolarStereo
+            sp: SouthPolarStereo
+            rob: Robinson
+    rowcol: (int, int)
+        number of rows and columns of the figure.
+    figsize: (float, float)
+        width, height in inches.
+
+    Returns
+    -------
+    fig, ax
+
+    """
     if mapproj == "merc":
         fig, ax = plt.subplots(
             rowscol[0],
@@ -96,17 +98,42 @@ def create_proj_figure(mapproj, rowscol, figsize):
             figsize=figsize,
         )
     else:
-        raise ValueError(f'Projection {mapproj} is not supported.')
+        raise ValueError(f"Projection {mapproj} is not supported.")
     return fig, ax
 
+
 def get_plot_levels(levels, data, lev_to_data=False):
+    """Returns levels for the plot.
+
+    Parameters
+    ----------
+    levels: list, numpy array
+        Can be list or numpy array with three or more elements.
+        If only three elements provided, they will b einterpereted as min, max, number of levels.
+        If more elements provided, they will be used directly.
+    data: numpy array of xarray
+        Data, that should be plotted with this levels.
+    lev_to_data: bool
+        Switch to correct the levels to the actual data range. 
+        This is needed for safe plotting on triangular grid with cartopy.
+
+    Returns
+    -------
+    data_levels: numpy array
+        resulted levels.
+        
+    """
     if levels:
-        if len(levels)==3:
+        if len(levels) == 3:
             mmin, mmax, nnum = levels
             if lev_to_data:
                 mmin, mmax = levels_to_data(mmin, mmax, data)
             nnum = int(nnum)
             data_levels = np.linspace(mmin, mmax, nnum)
+        elif len(levels) < 3:
+            raise ValueError(
+                "Levels can be the list or numpy array with three or more elements."
+            )
         else:
             data_levels = np.array(levels)
     else:
@@ -116,7 +143,14 @@ def get_plot_levels(levels, data, lev_to_data=False):
         data_levels = np.linspace(mmin, mmax, nnum)
     return data_levels
 
+
 def levels_to_data(mmin, mmax, data):
+    """Correct the levels to the actual data range.
+
+    This is needed to make cartopy happy. 
+    Cartopy can't plot on triangular mesh when the color
+    range is larger than the data range.
+    """
     # this is needed to make cartopy happy
     mmin_d = np.nanmin(data)
     mmax_d = np.nanmax(data)
@@ -127,198 +161,6 @@ def levels_to_data(mmin, mmax, data):
         mmax = mmax_d
         print("maximum level changed to make cartopy happy")
     return mmin, mmax
-
-
-def ftriplot(
-    mesh,
-    data2,
-    contours,
-    cmap=[],
-    oce="global",
-    do_cbar=True,
-    mlabels=[0, 0, 0, 0],
-    plabels=[0, 0, 0, 0],
-    extend="both",
-    data_on_elem=0,
-):
-    if cmap == []:
-        cmap = plt.cm.jet
-    if oce == "global":
-        data2 = np.copy(data2)
-
-        elem2 = mesh.elem[mesh.no_cyclic_elem, :]
-
-        if data_on_elem == 0:
-            d = data2[elem2].mean(axis=1)
-        else:
-            data2 = data2[mesh.no_cyclic_elem]
-            d = data2
-
-        k = [i for (i, val) in enumerate(d) if not np.isnan(val)]
-        elem2 = elem2[k, :]
-
-        if data_on_elem == 1:
-            data2 = data2[k]
-
-        print("ftriplot, number of dummy points:", len(d) - len(k))
-        map = Basemap(projection="robin", lon_0=0)
-        x, y = map(mesh.x2, mesh.y2)
-        map.drawmapboundary(fill_color="0.9")
-        map.drawcoastlines()
-        map.drawparallels(np.arange(-90, 90, 30), labels=plabels)  # [1,0,0,0]
-        map.drawmeridians(
-            np.arange(map.lonmin, map.lonmax + 30, 60), labels=mlabels
-        )  # [0,0,0,1]
-        # data2[data2>900]=np.nan
-        eps = (contours.max() - contours.min()) / 50.0
-        data2[data2 <= contours.min()] = contours.min() + eps
-        data2[data2 >= contours.max()] = contours.max() - eps
-        if data_on_elem:
-            im = plt.tripcolor(x, y, elem2, facecolors=data2, cmap=cmap)
-        else:
-            im = plt.tricontourf(
-                x, y, elem2, data2, levels=contours, cmap=cmap, extend=extend
-            )
-        if do_cbar:
-            cbar = map.colorbar(im, "bottom", size="5%", pad="2%")
-
-    # 		n=642155-1
-    # 		n=83089-1
-    # 		plt.plot(x[n-1], y[n-1], markersize=10, marker='o')
-    elif oce == "np":
-        data2 = np.copy(data2)
-        elem2 = mesh.elem  # [mesh.no_cyclic_elem,:]
-        d = data2[elem2].mean(axis=1)
-        k = [i for (i, val) in enumerate(d) if not np.isnan(val)]
-        elem2 = elem2[k, :]
-        print("ftriplot, number of dummy points:", len(d) - len(k))
-        map = Basemap(projection="nplaea", boundinglat=45, lon_0=0, resolution="l")
-        x, y = map(mesh.x2, mesh.y2)
-        map.drawcoastlines()
-        map.drawparallels(np.arange(-80.0, 81.0, 20.0), labels=plabels)
-        map.drawmeridians(np.arange(-180.0, 181.0, 20.0), labels=mlabels)  # [0,1,0,0]
-        map.drawmapboundary(fill_color="0.9")
-        map.fillcontinents(color=".7", lake_color=".7")
-        # data2[data2>900]=np.nan
-        eps = (contours.max() - contours.min()) / 100.0
-        data2[data2 <= contours.min()] = contours.min() + eps
-        data2[data2 >= contours.max()] = contours.max() - eps
-        im = plt.tricontourf(
-            x, y, elem2, data2, levels=contours, cmap=cmap, extend=extend
-        )
-        if do_cbar:
-            cbar = map.colorbar(im, "bottom", size="5%", pad="2%")
-    elif oce == "sp":
-        data2 = np.copy(data2)
-        elem2 = mesh.elem  # [mesh.no_cyclic_elem,:]
-        d = data2[elem2].mean(axis=1)
-        k = [i for (i, val) in enumerate(d) if not np.isnan(val)]
-        elem2 = elem2[k, :]
-        print("ftriplot, number of dummy points:", len(d) - len(k))
-        map = Basemap(projection="splaea", boundinglat=-20, lon_0=180, resolution="l")
-        x, y = map(mesh.x2, mesh.y2)
-        map.drawcoastlines()
-        map.drawparallels(np.arange(-80.0, 81.0, 20.0), labels=plabels)
-        map.drawmeridians(np.arange(-180.0, 181.0, 20.0), labels=mlabels)
-        map.drawmapboundary(fill_color="0.9")
-        map.fillcontinents(color=".7", lake_color=".7")
-        # data2[data2>900]=np.nan
-        eps = (contours.max() - contours.min()) / 100.0
-        data2[data2 <= contours.min()] = contours.min() + eps
-        data2[data2 >= contours.max()] = contours.max() - eps
-        im = plt.tricontourf(
-            x, y, elem2, data2, levels=contours, cmap=cmap, extend=extend
-        )
-        if do_cbar:
-            cbar = map.colorbar(im, "bottom", size="5%", pad="2%")
-    return (im, map, cbar if (do_cbar) else False)
-
-
-def wplot_xy(xx, yy, zz, contours, cmap=[], do_cbar=True, oce="global"):
-    import numpy as np
-    import matplotlib.pyplot as plt
-    from mpl_toolkits.basemap import Basemap
-    from matplotlib.colors import LinearSegmentedColormap
-
-    if cmap == []:
-        cmap = plt.cm.jet
-    eps = (contours.max() - contours.min()) / 100.0
-    zz[zz <= contours.min()] = contours.min() + eps
-    zz[zz >= contours.max()] = contours.max() - eps
-
-    if oce == "global":
-
-        map = Basemap(projection="robin", lon_0=0, llcrnrlon=-180.0, urcrnrlon=180.0)
-        xxx, yyy = map(xx, yy)
-
-        map.drawmapboundary(fill_color="0.9")
-        map.drawcoastlines()
-        map.fillcontinents(color=".7", lake_color=".7")
-        map.drawparallels(np.arange(-90, 90, 45), labels=[1, 0, 0, 0])
-        map.drawmeridians([-120.0, 0.0, 120.0], labels=[0, 0, 0, 1])
-        im = plt.contourf(xxx, yyy, zz, levels=contours, cmap=cmap, extend="both")
-        if do_cbar:
-            cbar = map.colorbar(im, "bottom", size="5%", pad="2%")
-            return (im, map, cbar)
-        else:
-            return (im, map)
-    elif oce == "np":
-        map = Basemap(projection="nplaea", boundinglat=45, lon_0=0, resolution="l")
-        xxx, yyy = map(xx, yy)
-
-        map.drawmapboundary(fill_color="0.9")
-        map.drawcoastlines()
-        map.fillcontinents(color=".7", lake_color=".7")
-        map.drawparallels(np.arange(-80.0, 81.0, 20.0), labels=[0, 0, 0, 0])
-        map.drawmeridians(
-            np.arange(-180.0, 181.0, 20.0), labels=[0, 0, 0, 0]
-        )  # [0,1,0,0]
-        im = plt.contourf(xxx, yyy, zz, levels=contours, cmap=cmap, extend="both")
-        if do_cbar:
-            cbar = map.colorbar(im, "bottom", size="5%", pad="2%")
-            return (im, map, cbar)
-        else:
-            return (im, map)
-    elif oce == "sp":
-        map = Basemap(projection="splaea", boundinglat=-20, lon_0=180, resolution="l")
-        xxx, yyy = map(xx, yy)
-
-        map.drawmapboundary(fill_color="0.9")
-        map.drawcoastlines()
-        map.fillcontinents(color=".7", lake_color=".7")
-        map.drawparallels(np.arange(-80.0, 81.0, 20.0), labels=[0, 0, 0, 0])
-        map.drawmeridians(np.arange(-180.0, 181.0, 20.0), labels=[0, 0, 0, 0])
-        im = plt.contourf(xxx, yyy, zz, levels=contours, cmap=cmap, extend="both")
-        if do_cbar:
-            cbar = map.colorbar(im, "bottom", size="5%", pad="2%")
-            return (im, map, cbar)
-        else:
-            return (im, map)
-
-
-def wplot_yz(y, z, v, contours, cmap=[]):
-    import numpy as np
-    import matplotlib.pyplot as plt
-    from matplotlib.colors import LinearSegmentedColormap
-
-    if cmap == []:
-        cmap = plt.cm.jet
-
-    im = plt.contourf(y, z, v, levels=contours, cmap=cmap, extend="both")
-    cbar = plt.colorbar(orientation="horizontal")
-    plt.grid()
-    return (im, cbar)
-
-
-def movingaverage(interval, window_size):
-    import numpy as np
-
-    window = np.ones(int(window_size)) / float(window_size)
-    ret = list(interval)
-    for i in range(window_size):
-        ret = ret + [ret[-1]]
-    ret = np.convolve(np.array(ret), window, "valid")
-    return ret
 
 
 def plot(
@@ -405,7 +247,7 @@ def plot(
         )
 
     if cmap:
-        if isinstance(cmap, (matplotlib.colors.Colormap)):
+        if isinstance(cmap, (mpl.colors.Colormap)):
             colormap = cmap
         elif cmap in cmo.cmapnames:
             colormap = cmo.cmap_d[cmap]
@@ -425,7 +267,6 @@ def plot(
     left, right, down, up = box
     lonNumber, latNumber = res
 
-    # flf = Dataset(ifile)
     lonreg = np.linspace(left, right, lonNumber)
     latreg = np.linspace(down, up, latNumber)
     lonreg2, latreg2 = np.meshgrid(lonreg, latreg)
@@ -476,21 +317,7 @@ def plot(
             )
             interpolated.append(ofesom)
 
-    # nearth = cfeature.NaturalEarthFeature("physical", "ocean", "50m")
-    # main_geom = [contour for contour in nearth.geometries()][0]
-
-    # mask = shapely.vectorized.contains(main_geom, lonreg2, latreg2)
-    # m2 = np.where(((lonreg2 == -180.0) & (latreg2 > 71.5)), True, mask)
-    # m2 = np.where(
-    #     ((lonreg2 == -180.0) & (latreg2 < 70.95) & (latreg2 > 68.96)), True, m2
-    # )
-    # m2 = np.where(((lonreg2 == -180.0) & (latreg2 < 65.33)), True, m2)
-
     m2 = mask_ne(lonreg2, latreg2)
-
-    #     m2 = np.where(((lonreg2 == 180.)&(latreg2>71.5)), True, m2)
-    #     m2 = np.where(((lonreg2 == 180.)&(latreg2<70.95)&(latreg2>68.96)), True, m2)
-    #     m2 = np.where(((lonreg2 == 180.)&(latreg2<65.33)), True, m2)
 
     for i, interpolated_instance in enumerate(interpolated):
         interpolated[i] = np.ma.masked_where(m2, interpolated[i])
@@ -1006,6 +833,41 @@ def tplot(
     lw=0.01,
     fontsize=12,
 ):
+    """Plots original field on the cartopy map using tricontourf or tripcolor.
+
+    Parameters
+    ----------
+    mesh: mesh object
+        FESOM2 mesh object
+    data: np.array or list of np.arrays
+        FESOM 2 data on nodes 
+        (for u,v,u_ice and v_ice one have to first interpolate from elements to nodes (`tonodes` function)).
+        Can be ether one np.ndarray or list of np.ndarrays.
+    cmap: str
+        Name of the colormap from cmocean package or from the standard matplotlib set.
+        By default `Spectral_r` will be used.
+    box: list
+        Map boundaries in -180 180 -90 90 format that will be used for data selection and plotting (default [-180 180 -89 90]).
+    mapproj: str
+        Map projection. Options are Mercator (merc), Plate Carree (pc),
+        North Polar Stereo (np), South Polar Stereo (sp),  Robinson (rob)
+    levels: list
+        Levels for contour plot in format (min, max, numberOfLevels). List with more than
+        3 values will be interpreted as just a list of individual level values.
+        If not provided min/max values from data will be used with 40 levels.
+    ptype: str
+        Plot type. Options are tricontourf (\'cf\') and tripcolor (\'tri\')
+    units: str
+        Units for color bar.
+    figsize: tuple
+        figure size in inches
+    rowscol: tuple
+        number of rows and columns.
+    titles: str or list
+        Title of the plot (if string) or subplots (if list of strings)
+    fontsize: float
+        Font size of some of the plot elements.
+    """
 
     if not isinstance(data, list):
         data = [data]
@@ -1069,8 +931,10 @@ def tplot(
                 cmap=colormap,
             )
         else:
-            raise ValueError('Only `cf` (contourf) and `tri` (tripcolor) options are supported.')
-        
+            raise ValueError(
+                "Only `cf` (contourf) and `tri` (tripcolor) options are supported."
+            )
+
         ax[ind].coastlines(lw=1.5, resolution="110m")
 
         if titles:
