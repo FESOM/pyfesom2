@@ -31,7 +31,7 @@ nbsphinx_execute_arguments = [
 
 
 # Add any paths that contain templates here, relative to this directory.
-templates_path = ['_templates']
+#templates_path = ['_templates']
 
 
 # Environment variables to be passed to the kernel:
