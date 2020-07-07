@@ -175,6 +175,31 @@ def interpolate_for_plot(
     basepath=None,
     qhull_path=None
 ):
+    """Interpolate for the plot.
+
+    Parameters
+    ----------
+    mesh: mesh object
+        FESOM2 mesh object
+    data: np.array or list of np.arrays
+        FESOM 2 data on nodes (for u,v,u_ice and v_ice one have to first interpolate from elements to nodes).
+        Can be ether one np.ndarray or list of np.ndarrays.
+    lonreg2: 2D numpy array
+        Longitudes of the regular grid.
+    latreg2: 2D numpy array
+        Latitudes of the regular grid.
+    interp: str
+        Interpolation method. Options are 'nn' (nearest neighbor), 'idist' (inverce distance), "linear" and "cubic".
+    distances_path : string
+        Path to the file with distances. If not provided and dumpfile=True, it will be created.
+    inds_path : string
+        Path to the file with inds. If not provided and dumpfile=True, it will be created.
+    qhull_path : str
+         Path to the file with qhull (needed for linear and cubic interpolations). If not provided and dumpfile=True, it will be created.
+    basepath: str
+        path where to store additional interpolation files. If None (default),
+        the path of the mesh will be used.
+    """
     interpolated = []
     for datainstance in data:
 
@@ -329,50 +354,6 @@ def plot(
         basepath=basepath,
         qhull_path=qhull_path
     )
-    # interpolated = []
-    # for datainstance in data:
-    #     if interp == "nn":
-    #         ofesom = fesom2regular(
-    #             datainstance,
-    #             mesh,
-    #             lonreg2,
-    #             latreg2,
-    #             distances_path=distances_path,
-    #             inds_path=inds_path,
-    #             radius_of_influence=radius_of_influence,
-    #             basepath=basepath,
-    #         )
-    #         interpolated.append(ofesom)
-    #     elif interp == "idist":
-    #         ofesom = fesom2regular(
-    #             datainstance,
-    #             mesh,
-    #             lonreg2,
-    #             latreg2,
-    #             distances_path=distances_path,
-    #             inds_path=inds_path,
-    #             radius_of_influence=radius_of_influence,
-    #             how="idist",
-    #             k=5,
-    #             basepath=basepath,
-    #         )
-    #         interpolated.append(ofesom)
-    #     elif interp == "linear":
-    #         ofesom = fesom2regular(
-    #             datainstance,
-    #             mesh,
-    #             lonreg2,
-    #             latreg2,
-    #             how="linear",
-    #             qhull_path=qhull_path,
-    #             basepath=basepath,
-    #         )
-    #         interpolated.append(ofesom)
-    #     elif interp == "cubic":
-    #         ofesom = fesom2regular(
-    #             datainstance, mesh, lonreg2, latreg2, basepath=basepath, how="cubic"
-    #         )
-    #         interpolated.append(ofesom)
 
     m2 = mask_ne(lonreg2, latreg2)
 
