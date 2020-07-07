@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 #
 # This file is part of pyfesom2
-# Original code by Dmitry Sidorenko, Nikolay Koldunov, 
+# Original code by Dmitry Sidorenko, Nikolay Koldunov,
 # Qiang Wang, Sergey Danilov and Patrick Scholz
 #
 
@@ -163,6 +163,66 @@ def levels_to_data(mmin, mmax, data):
     return mmin, mmax
 
 
+def interpolate_for_plot(
+    data,
+    mesh,
+    lonreg2,
+    latreg2,
+    interp="nn",
+    distances_path=None,
+    inds_path=None,
+    radius_of_influence=None,
+    basepath=None,
+    qhull_path=None
+):
+    interpolated = []
+    for datainstance in data:
+
+        if interp == "nn":
+            ofesom = fesom2regular(
+                datainstance,
+                mesh,
+                lonreg2,
+                latreg2,
+                distances_path=distances_path,
+                inds_path=inds_path,
+                radius_of_influence=radius_of_influence,
+                basepath=basepath,
+            )
+            interpolated.append(ofesom)
+        elif interp == "idist":
+            ofesom = fesom2regular(
+                datainstance,
+                mesh,
+                lonreg2,
+                latreg2,
+                distances_path=distances_path,
+                inds_path=inds_path,
+                radius_of_influence=radius_of_influence,
+                how="idist",
+                k=5,
+                basepath=basepath,
+            )
+            interpolated.append(ofesom)
+        elif interp == "linear":
+            ofesom = fesom2regular(
+                datainstance,
+                mesh,
+                lonreg2,
+                latreg2,
+                how="linear",
+                qhull_path=qhull_path,
+                basepath=basepath,
+            )
+            interpolated.append(ofesom)
+        elif interp == "cubic":
+            ofesom = fesom2regular(
+                datainstance, mesh, lonreg2, latreg2, basepath=basepath, how="cubic"
+            )
+            interpolated.append(ofesom)
+    return interpolated
+
+
 def plot(
     mesh,
     data,
@@ -246,21 +306,7 @@ def plot(
             "Number of rows*columns is smaller than number of data fields, please adjust rowscol."
         )
 
-    if cmap:
-        if isinstance(cmap, (mpl.colors.Colormap)):
-            colormap = cmap
-        elif cmap in cmo.cmapnames:
-            colormap = cmo.cmap_d[cmap]
-        elif cmap in plt.cm.datad:
-            colormap = plt.get_cmap(cmap)
-        else:
-            raise ValueError(
-                "Get unrecognised name for the colormap `{}`. Colormaps should be from standard matplotlib set of from cmocean package.".format(
-                    cmap
-                )
-            )
-    else:
-        colormap = plt.get_cmap("Spectral_r")
+    colormap = get_cmap(cmap=cmap)
 
     radius_of_influence = influence
 
@@ -271,51 +317,62 @@ def plot(
     latreg = np.linspace(down, up, latNumber)
     lonreg2, latreg2 = np.meshgrid(lonreg, latreg)
 
-    interpolated = []
-    for datainstance in data:
-
-        if interp == "nn":
-            ofesom = fesom2regular(
-                datainstance,
-                mesh,
-                lonreg2,
-                latreg2,
-                distances_path=distances_path,
-                inds_path=inds_path,
-                radius_of_influence=radius_of_influence,
-                basepath=basepath,
-            )
-            interpolated.append(ofesom)
-        elif interp == "idist":
-            ofesom = fesom2regular(
-                datainstance,
-                mesh,
-                lonreg2,
-                latreg2,
-                distances_path=distances_path,
-                inds_path=inds_path,
-                radius_of_influence=radius_of_influence,
-                how="idist",
-                k=5,
-                basepath=basepath,
-            )
-            interpolated.append(ofesom)
-        elif interp == "linear":
-            ofesom = fesom2regular(
-                datainstance,
-                mesh,
-                lonreg2,
-                latreg2,
-                how="linear",
-                qhull_path=qhull_path,
-                basepath=basepath,
-            )
-            interpolated.append(ofesom)
-        elif interp == "cubic":
-            ofesom = fesom2regular(
-                datainstance, mesh, lonreg2, latreg2, basepath=basepath, how="cubic"
-            )
-            interpolated.append(ofesom)
+    interpolated = interpolate_for_plot(
+        data,
+        mesh,
+        lonreg2,
+        latreg2,
+        interp=interp,
+        distances_path=distances_path,
+        inds_path=inds_path,
+        radius_of_influence=radius_of_influence,
+        basepath=basepath,
+        qhull_path=qhull_path
+    )
+    # interpolated = []
+    # for datainstance in data:
+    #     if interp == "nn":
+    #         ofesom = fesom2regular(
+    #             datainstance,
+    #             mesh,
+    #             lonreg2,
+    #             latreg2,
+    #             distances_path=distances_path,
+    #             inds_path=inds_path,
+    #             radius_of_influence=radius_of_influence,
+    #             basepath=basepath,
+    #         )
+    #         interpolated.append(ofesom)
+    #     elif interp == "idist":
+    #         ofesom = fesom2regular(
+    #             datainstance,
+    #             mesh,
+    #             lonreg2,
+    #             latreg2,
+    #             distances_path=distances_path,
+    #             inds_path=inds_path,
+    #             radius_of_influence=radius_of_influence,
+    #             how="idist",
+    #             k=5,
+    #             basepath=basepath,
+    #         )
+    #         interpolated.append(ofesom)
+    #     elif interp == "linear":
+    #         ofesom = fesom2regular(
+    #             datainstance,
+    #             mesh,
+    #             lonreg2,
+    #             latreg2,
+    #             how="linear",
+    #             qhull_path=qhull_path,
+    #             basepath=basepath,
+    #         )
+    #         interpolated.append(ofesom)
+    #     elif interp == "cubic":
+    #         ofesom = fesom2regular(
+    #             datainstance, mesh, lonreg2, latreg2, basepath=basepath, how="cubic"
+    #         )
+    #         interpolated.append(ofesom)
 
     m2 = mask_ne(lonreg2, latreg2)
 
@@ -323,46 +380,8 @@ def plot(
         interpolated[i] = np.ma.masked_where(m2, interpolated[i])
         interpolated[i] = np.ma.masked_equal(interpolated[i], 0)
 
-    if mapproj == "merc":
-        fig, ax = plt.subplots(
-            rowscol[0],
-            rowscol[1],
-            subplot_kw=dict(projection=ccrs.Mercator()),
-            constrained_layout=True,
-            figsize=figsize,
-        )
-    elif mapproj == "pc":
-        fig, ax = plt.subplots(
-            rowscol[0],
-            rowscol[1],
-            subplot_kw=dict(projection=ccrs.PlateCarree()),
-            constrained_layout=True,
-            figsize=figsize,
-        )
-    elif mapproj == "np":
-        fig, ax = plt.subplots(
-            rowscol[0],
-            rowscol[1],
-            subplot_kw=dict(projection=ccrs.NorthPolarStereo()),
-            constrained_layout=True,
-            figsize=figsize,
-        )
-    elif mapproj == "sp":
-        fig, ax = plt.subplots(
-            rowscol[0],
-            rowscol[1],
-            subplot_kw=dict(projection=ccrs.SouthPolarStereo()),
-            constrained_layout=True,
-            figsize=figsize,
-        )
-    elif mapproj == "rob":
-        fig, ax = plt.subplots(
-            rowscol[0],
-            rowscol[1],
-            subplot_kw=dict(projection=ccrs.Robinson()),
-            constrained_layout=True,
-            figsize=figsize,
-        )
+    fig, ax = create_proj_figure(mapproj, rowscol, figsize)
+
     if isinstance(ax, np.ndarray):
         ax = ax.flatten()
     else:
@@ -370,14 +389,8 @@ def plot(
 
     for ind, data_int in enumerate(interpolated):
         ax[ind].set_extent([left, right, down, up], crs=ccrs.PlateCarree())
-        if levels:
-            mmin, mmax, nnum = levels
-            nnum = int(nnum)
-        else:
-            mmin = np.nanmin(data_int)
-            mmax = np.nanmax(data_int)
-            nnum = 40
-        data_levels = np.linspace(mmin, mmax, nnum)
+        data_levels = get_plot_levels(levels, data_int, lev_to_data=False)
+
         if ptype == "cf":
             data_int_cyc, lon_cyc = add_cyclic_point(data_int, coord=lonreg)
             image = ax[ind].contourf(
@@ -604,7 +617,7 @@ def hofm_plot_one(
     maxdepth=1000,
     label=r"$^{\circ}$C",
     title="",
-    cmap=cm.Spectral_r,
+    cmap=None,
     ax=None,
     facecolor="lightgray",
     fontsize=12,
@@ -617,13 +630,13 @@ def hofm_plot_one(
         oneplot = True
     else:
         oneplot = False
-
+    colormap = get_cmap(cmap=cmap)
     image = ax.contourf(
         xvals,
         np.abs(mesh.zlev[:depth_index]),
         data[:, :depth_index].T,
         levels=levels,
-        cmap=cmap,
+        cmap=colormap,
         extend="both",
     )
     ax.invert_yaxis()
@@ -650,7 +663,7 @@ def hofm_plot_many(
     maxdepth=1000,
     label=r"$^{\circ}$C",
     title="",
-    cmap=cm.Spectral_r,
+    cmap=None,
     ax=None,
     facecolor="lightgray",
     fontsize=12,
@@ -671,7 +684,7 @@ def hofm_plot_many(
         figsize = (8 * ncols, 2 * nrows * ncols)
     fig, ax = plt.subplots(nrows, ncols, figsize=figsize)
     ax = ax.flatten()
-
+    colormap = get_cmap(cmap=cmap)
     for ind, data_one in enumerate(data):
 
         image = ax[ind].contourf(
@@ -679,7 +692,7 @@ def hofm_plot_many(
             np.abs(mesh.zlev[:depth_index]),
             data_one[:, :depth_index].T,
             levels=levels,
-            cmap=cmap,
+            cmap=colormap,
             extend="both",
         )
         ax[ind].invert_yaxis()
@@ -718,7 +731,7 @@ def hofm_plot(
     maxdepth=1000,
     label=r"$^{\circ}$C",
     title="",
-    cmap=cm.Spectral_r,
+    cmap=None,
     ax=None,
     facecolor="lightgray",
     fontsize=12,
