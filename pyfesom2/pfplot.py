@@ -6,15 +6,16 @@
 #
 
 import argparse
-import matplotlib.pylab as plt
+
 import cmocean.cm as cmo
+import matplotlib.pylab as plt
 import numpy as np
 
+from .load_mesh_data import get_data, load_mesh
+from .pfinterp import parse_depths, parse_timesteps, parse_years
 # import matplotlib as mpl
 # mpl.use('Qt5Agg')
 from .plotting import plot
-from .load_mesh_data import get_data, load_mesh
-from .pfinterp import parse_years, parse_timesteps, parse_depths
 
 
 def pfplot():

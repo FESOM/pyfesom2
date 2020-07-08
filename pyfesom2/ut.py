@@ -5,21 +5,22 @@
 # Qiang Wang, Sergey Danilov and Patrick Scholz
 #
 
-import numpy as np
+import json
 import math as mt
+from collections import OrderedDict
+
+import matplotlib as mpl
+import matplotlib.pylab as plt
+import numpy as np
+import pkg_resources
+import shapely
+import xarray as xr
+from cmocean import cm as cmo
 
 try:
     import cartopy.feature as cfeature
 except ImportError:
     print("Cartopy is not installed, plotting is not available.")
-import shapely
-from collections import OrderedDict
-import xarray as xr
-import matplotlib as mpl
-import json
-import pkg_resources
-from cmocean import cm as cmo
-import matplotlib.pylab as plt
 
 
 def scalar_r2g(al, be, ga, rlon, rlat):

@@ -5,18 +5,21 @@
 # Qiang Wang, Sergey Danilov and Patrick Scholz
 #
 
-import pandas as pd
-import numpy as np
-from netCDF4 import Dataset
-from .ut import scalar_r2g
-import os
 import logging
-import time
+import os
 import pickle
-import pyresample
-import joblib
-import xarray as xr
 import sys
+import time
+
+import joblib
+import numpy as np
+import pandas as pd
+import pyresample
+import xarray as xr
+from netCDF4 import Dataset
+
+from .ut import scalar_r2g
+
 
 def load_mesh(path, abg=[0, 0, 0], usepickle=True, usejoblib=False, protocol=4):
     """ Loads FESOM mesh

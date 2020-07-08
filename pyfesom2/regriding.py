@@ -5,14 +5,17 @@
 # Qiang Wang, Sergey Danilov and Patrick Scholz
 #
 
-from scipy.spatial import cKDTree
-import numpy as np
-import os
-import joblib
-import scipy.spatial.qhull as qhull
-from scipy.interpolate import LinearNDInterpolator, CloughTocher2DInterpolator
 import logging
+import os
+from collections import namedtuple
+
+import joblib
+import numpy as np
+import scipy.spatial.qhull as qhull
+import xarray as xr
 from numba import jit
+from scipy.interpolate import CloughTocher2DInterpolator, LinearNDInterpolator
+from scipy.spatial import cKDTree
 
 
 def lon_lat_to_cartesian(lon, lat, R=6371000):
@@ -249,7 +252,7 @@ def fesom2clim(
     """
     xx, yy = np.meshgrid(climatology.x, climatology.y)
     out_data = np.copy(climatology.T)
-    distances, inds = create_indexes_and_distances(mesh, xx, yy, k=10, n_jobs=2)
+    # distances, inds = create_indexes_and_distances(mesh, xx, yy, k=10, n_jobs=2)
 
     # import pdb
     # pdb.set_trace()
@@ -265,8 +268,6 @@ def fesom2clim(
         mesh,
         xx,
         yy,
-        distances=distances,
-        inds=inds,
         radius_of_influence=radius_of_influence,
     )
     out_data[np.isnan(climatology.T[iz, :, :])] = np.nan
@@ -330,8 +331,6 @@ def regular2regular(
         mesh,
         lons=olons,
         lats=olats,
-        distances=distances,
-        inds=inds,
         how=how,
         k=k,
         radius_of_influence=radius_of_influence,
@@ -546,7 +545,10 @@ def tonodes3d(component, mesh):
     levels = component.shape[1]
     out_data = np.zeros((mesh.n2d, levels))
     for level in range(levels):
-        component_level = component[:, level].astype("float32")
+        if isinstance(component, xr.DataArray):
+            component_level = component[:, level].values.astype("float32")
+        else:
+            component_level = component[:, level].astype("float32")
         onnodes = tonodes(
             component_level, mesh.n2d, mesh.voltri, mesh.elem, mesh.e2d, mesh.lump2
         )

@@ -1,18 +1,29 @@
 # -*- coding: utf-8 -*-
 #
 # This file is part of pyfesom2
-# Original code by Dmitry Sidorenko, Nikolay Koldunov, 
+# Original code by Dmitry Sidorenko, Nikolay Koldunov,
 # Qiang Wang, Sergey Danilov and Patrick Scholz
 #
 
-import sys, os
-import numpy as np
-from matplotlib.colors import LinearSegmentedColormap
-from .regriding import fesom2regular
-from netCDF4 import Dataset, MFDataset, num2date
+import math
+import os
+import sys
+
+import joblib
 import matplotlib as mpl
 import matplotlib.pylab as plt
 import numpy as np
+import shapely.vectorized
+import xarray as xr
+from cmocean import cm as cmo
+from matplotlib import cm, ticker
+from matplotlib.colors import LinearSegmentedColormap
+from netCDF4 import Dataset, MFDataset, num2date
+
+from .load_mesh_data import ind_for_depth
+from .regriding import fesom2regular
+from .transect import transect_get_nodes
+from .ut import cut_region, get_cmap, get_no_cyclic, mask_ne
 
 try:
     import cartopy.crs as ccrs
@@ -20,16 +31,7 @@ try:
     from cartopy.util import add_cyclic_point
 except ImportError:
     print("Cartopy is not installed, plotting is not available.")
-from cmocean import cm as cmo
-from matplotlib import cm
 
-import xarray as xr
-import shapely.vectorized
-import joblib
-from .transect import *
-from .ut import mask_ne, cut_region, get_cmap, get_no_cyclic
-from matplotlib import ticker
-import math
 
 sfmt = ticker.ScalarFormatter(useMathText=True)
 sfmt.set_powerlimits((-3, 4))
@@ -163,6 +165,90 @@ def levels_to_data(mmin, mmax, data):
     return mmin, mmax
 
 
+def interpolate_for_plot(
+    data,
+    mesh,
+    lonreg2,
+    latreg2,
+    interp="nn",
+    distances_path=None,
+    inds_path=None,
+    radius_of_influence=None,
+    basepath=None,
+    qhull_path=None
+):
+    """Interpolate for the plot.
+
+    Parameters
+    ----------
+    mesh: mesh object
+        FESOM2 mesh object
+    data: np.array or list of np.arrays
+        FESOM 2 data on nodes (for u,v,u_ice and v_ice one have to first interpolate from elements to nodes).
+        Can be ether one np.ndarray or list of np.ndarrays.
+    lonreg2: 2D numpy array
+        Longitudes of the regular grid.
+    latreg2: 2D numpy array
+        Latitudes of the regular grid.
+    interp: str
+        Interpolation method. Options are 'nn' (nearest neighbor), 'idist' (inverce distance), "linear" and "cubic".
+    distances_path : string
+        Path to the file with distances. If not provided and dumpfile=True, it will be created.
+    inds_path : string
+        Path to the file with inds. If not provided and dumpfile=True, it will be created.
+    qhull_path : str
+         Path to the file with qhull (needed for linear and cubic interpolations). If not provided and dumpfile=True, it will be created.
+    basepath: str
+        path where to store additional interpolation files. If None (default),
+        the path of the mesh will be used.
+    """
+    interpolated = []
+    for datainstance in data:
+
+        if interp == "nn":
+            ofesom = fesom2regular(
+                datainstance,
+                mesh,
+                lonreg2,
+                latreg2,
+                distances_path=distances_path,
+                inds_path=inds_path,
+                radius_of_influence=radius_of_influence,
+                basepath=basepath,
+            )
+            interpolated.append(ofesom)
+        elif interp == "idist":
+            ofesom = fesom2regular(
+                datainstance,
+                mesh,
+                lonreg2,
+                latreg2,
+                distances_path=distances_path,
+                inds_path=inds_path,
+                radius_of_influence=radius_of_influence,
+                how="idist",
+                k=5,
+                basepath=basepath,
+            )
+            interpolated.append(ofesom)
+        elif interp == "linear":
+            ofesom = fesom2regular(
+                datainstance,
+                mesh,
+                lonreg2,
+                latreg2,
+                how="linear",
+                qhull_path=qhull_path,
+                basepath=basepath,
+            )
+            interpolated.append(ofesom)
+        elif interp == "cubic":
+            ofesom = fesom2regular(
+                datainstance, mesh, lonreg2, latreg2, basepath=basepath, how="cubic"
+            )
+            interpolated.append(ofesom)
+    return interpolated
+
 def plot(
     mesh,
     data,
@@ -246,21 +332,8 @@ def plot(
             "Number of rows*columns is smaller than number of data fields, please adjust rowscol."
         )
 
-    if cmap:
-        if isinstance(cmap, (mpl.colors.Colormap)):
-            colormap = cmap
-        elif cmap in cmo.cmapnames:
-            colormap = cmo.cmap_d[cmap]
-        elif cmap in plt.cm.datad:
-            colormap = plt.get_cmap(cmap)
-        else:
-            raise ValueError(
-                "Get unrecognised name for the colormap `{}`. Colormaps should be from standard matplotlib set of from cmocean package.".format(
-                    cmap
-                )
-            )
-    else:
-        colormap = plt.get_cmap("Spectral_r")
+
+    colormap = get_cmap(cmap=cmap)
 
     radius_of_influence = influence
 
@@ -271,98 +344,27 @@ def plot(
     latreg = np.linspace(down, up, latNumber)
     lonreg2, latreg2 = np.meshgrid(lonreg, latreg)
 
-    interpolated = []
-    for datainstance in data:
-
-        if interp == "nn":
-            ofesom = fesom2regular(
-                datainstance,
-                mesh,
-                lonreg2,
-                latreg2,
-                distances_path=distances_path,
-                inds_path=inds_path,
-                radius_of_influence=radius_of_influence,
-                basepath=basepath,
-            )
-            interpolated.append(ofesom)
-        elif interp == "idist":
-            ofesom = fesom2regular(
-                datainstance,
-                mesh,
-                lonreg2,
-                latreg2,
-                distances_path=distances_path,
-                inds_path=inds_path,
-                radius_of_influence=radius_of_influence,
-                how="idist",
-                k=5,
-                basepath=basepath,
-            )
-            interpolated.append(ofesom)
-        elif interp == "linear":
-            ofesom = fesom2regular(
-                datainstance,
-                mesh,
-                lonreg2,
-                latreg2,
-                how="linear",
-                qhull_path=qhull_path,
-                basepath=basepath,
-            )
-            interpolated.append(ofesom)
-        elif interp == "cubic":
-            ofesom = fesom2regular(
-                datainstance, mesh, lonreg2, latreg2, basepath=basepath, how="cubic"
-            )
-            interpolated.append(ofesom)
+    interpolated = interpolate_for_plot(
+        data,
+        mesh,
+        lonreg2,
+        latreg2,
+        interp=interp,
+        distances_path=distances_path,
+        inds_path=inds_path,
+        radius_of_influence=radius_of_influence,
+        basepath=basepath,
+        qhull_path=qhull_path
+    )
 
     m2 = mask_ne(lonreg2, latreg2)
 
-    for i, interpolated_instance in enumerate(interpolated):
+    for i in range(len(interpolated)):
         interpolated[i] = np.ma.masked_where(m2, interpolated[i])
         interpolated[i] = np.ma.masked_equal(interpolated[i], 0)
 
-    if mapproj == "merc":
-        fig, ax = plt.subplots(
-            rowscol[0],
-            rowscol[1],
-            subplot_kw=dict(projection=ccrs.Mercator()),
-            constrained_layout=True,
-            figsize=figsize,
-        )
-    elif mapproj == "pc":
-        fig, ax = plt.subplots(
-            rowscol[0],
-            rowscol[1],
-            subplot_kw=dict(projection=ccrs.PlateCarree()),
-            constrained_layout=True,
-            figsize=figsize,
-        )
-    elif mapproj == "np":
-        fig, ax = plt.subplots(
-            rowscol[0],
-            rowscol[1],
-            subplot_kw=dict(projection=ccrs.NorthPolarStereo()),
-            constrained_layout=True,
-            figsize=figsize,
-        )
-    elif mapproj == "sp":
-        fig, ax = plt.subplots(
-            rowscol[0],
-            rowscol[1],
-            subplot_kw=dict(projection=ccrs.SouthPolarStereo()),
-            constrained_layout=True,
-            figsize=figsize,
-        )
-    elif mapproj == "rob":
-        fig, ax = plt.subplots(
-            rowscol[0],
-            rowscol[1],
-            subplot_kw=dict(projection=ccrs.Robinson()),
-            constrained_layout=True,
-            figsize=figsize,
-        )
+    fig, ax = create_proj_figure(mapproj, rowscol, figsize)
+
     if isinstance(ax, np.ndarray):
         ax = ax.flatten()
     else:
@@ -370,14 +372,9 @@ def plot(
 
     for ind, data_int in enumerate(interpolated):
         ax[ind].set_extent([left, right, down, up], crs=ccrs.PlateCarree())
-        if levels:
-            mmin, mmax, nnum = levels
-            nnum = int(nnum)
-        else:
-            mmin = np.nanmin(data_int)
-            mmax = np.nanmax(data_int)
-            nnum = 40
-        data_levels = np.linspace(mmin, mmax, nnum)
+
+        data_levels = get_plot_levels(levels, data_int, lev_to_data=False)
+
         if ptype == "cf":
             data_int_cyc, lon_cyc = add_cyclic_point(data_int, coord=lonreg)
             image = ax[ind].contourf(
@@ -390,6 +387,8 @@ def plot(
                 extend="both",
             )
         elif ptype == "pcm":
+            mmin = data_levels[0]
+            mmax = data_levels[-1]
             data_int_cyc, lon_cyc = add_cyclic_point(data_int, coord=lonreg)
             image = ax[ind].pcolormesh(
                 lon_cyc,
@@ -477,126 +476,12 @@ def plot_transect_map(lonlat, mesh, view="w", stock_img=False):
     return ax
 
 
-def plot_transect(
-    data3d,
-    mesh,
-    lonlat,
-    maxdepth=1000,
-    label=r"$^{\circ}$C",
-    title="",
-    levels=None,
-    cmap=cm.Spectral_r,
-    ax=None,
-    dist=None,
-    nodes=None,
-    ncols=2,
-    figsize=None,
-    transect_data=[],
-    max_distance=1e6,
-    facecolor="lightgray",
-    fontsize=12,
-):
 
-    depth_index = ind_for_depth(maxdepth, mesh)
-    if not isinstance(data3d, list):
-        if ax is None:
-            ax = plt.gca()
-            oneplot = True
-        else:
-            oneplot = False
-        if (type(dist) is np.ndarray) and (type(nodes) is np.ndarray):
-            if not (type(transect_data) is np.ma.core.MaskedArray):
-                mask2d = transect_get_mask(nodes, mesh, lonlat, max_distance)
-                transect_data = transect_get_data(data3d, nodes, mask2d)
-        else:
-            nodes = transect_get_nodes(lonlat, mesh)
-            dist = transect_get_distance(lonlat)
-            # profile = transect_get_profile(nodes, mesh)
-            if not (type(transect_data) is np.ma.core.MaskedArray):
-                mask2d = transect_get_mask(nodes, mesh, lonlat, max_distance)
-                transect_data = transect_get_data(data3d, nodes, mask2d)
-
-        image = ax.contourf(
-            dist,
-            np.abs(mesh.zlev[:depth_index]),
-            transect_data[:, :depth_index].T,
-            levels=levels,
-            cmap=cmap,
-            extend="both",
-        )
-        ax.invert_yaxis()
-        ax.set_title(title, size=fontsize)
-        ax.set_xlabel("km", size=fontsize)
-        ax.set_ylabel("m", size=fontsize)
-        ax.set_facecolor(facecolor)
-        ax.tick_params(axis="both", which="major", labelsize=fontsize)
-
-        if oneplot:
-            cb = plt.colorbar(image, format=sfmt)
-            cb.set_label(label, size=fontsize)
-            cb.ax.tick_params(labelsize=fontsize)
-            cb.ax.yaxis.get_offset_text().set_fontsize(fontsize)
-
-        return image
-    else:
-        ncols = float(ncols)
-        nplots = len(data3d)
-        nrows = math.ceil(nplots / ncols)
-        ncols = int(ncols)
-        nrows = int(nrows)
-        nplot = 1
-
-        if not figsize:
-            figsize = (8 * ncols, 2 * nrows * ncols)
-        fig, ax = plt.subplots(nrows, ncols, figsize=figsize)
-        ax = ax.flatten()
-        for ind, data in enumerate(data3d):
-            if (type(data) is np.ndarray) and (type(nodes) is np.ndarray):
-                if not (type(transect_data) is np.ma.core.MaskedArray):
-                    mask2d = transect_get_mask(nodes, mesh, lonlat, max_distance)
-                    transect_data = transect_get_data(data, nodes, mask2d)
-            else:
-                nodes = transect_get_nodes(lonlat, mesh)
-                dist = transect_get_distance(lonlat)
-                # profile = transect_get_profile(nodes, mesh)
-                if not (type(transect_data) is np.ma.core.MaskedArray):
-                    mask2d = transect_get_mask(nodes, mesh, lonlat, max_distance)
-                    transect_data = transect_get_data(data, nodes, mask2d)
-
-            image = ax[ind].contourf(
-                dist,
-                np.abs(mesh.zlev[:depth_index]),
-                transect_data[:, :depth_index].T,
-                levels=levels,
-                cmap=cmap,
-                extend="both",
-            )
-            ax[ind].invert_yaxis()
-            if not isinstance(title, list):
-                ax[ind].set_title(title, size=fontsize)
-            else:
-                ax[ind].set_title(title[ind], size=fontsize)
-
-            ax[ind].set_xlabel("km", size=fontsize)
-            ax[ind].set_ylabel("m", size=fontsize)
-            ax[ind].set_facecolor(facecolor)
-            ax[ind].tick_params(axis="both", which="major", labelsize=fontsize)
-
-            cb = fig.colorbar(
-                image, orientation="horizontal", ax=ax[ind], pad=0.11, format=sfmt
-            )
-            cb.set_label(label, size=fontsize)
-            cb.ax.tick_params(labelsize=fontsize)
-            cb.ax.xaxis.get_offset_text().set_fontsize(fontsize)
-
-        for delind in range(ind + 1, len(ax)):
-
-            fig.delaxes(ax[delind])
-
-        fig.tight_layout()
+def plot_transect(*args, **kwargs):
+    raise DeprecationWarning("The plot_transect function is deprecated. Use combination of get_transect and plot_xyz instead.")
 
 
-def hofm_plot_one(
+def xyz_plot_one(
     mesh,
     data,
     xvals,
@@ -604,7 +489,7 @@ def hofm_plot_one(
     maxdepth=1000,
     label=r"$^{\circ}$C",
     title="",
-    cmap=cm.Spectral_r,
+    cmap=None,
     ax=None,
     facecolor="lightgray",
     fontsize=12,
@@ -618,12 +503,14 @@ def hofm_plot_one(
     else:
         oneplot = False
 
+    colormap = get_cmap(cmap=cmap)
+
     image = ax.contourf(
         xvals,
         np.abs(mesh.zlev[:depth_index]),
         data[:, :depth_index].T,
         levels=levels,
-        cmap=cmap,
+        cmap=colormap,
         extend="both",
     )
     ax.invert_yaxis()
@@ -642,7 +529,8 @@ def hofm_plot_one(
     return image
 
 
-def hofm_plot_many(
+
+def xyz_plot_many(
     mesh,
     data,
     xvals,
@@ -650,7 +538,7 @@ def hofm_plot_many(
     maxdepth=1000,
     label=r"$^{\circ}$C",
     title="",
-    cmap=cm.Spectral_r,
+    cmap=None,
     ax=None,
     facecolor="lightgray",
     fontsize=12,
@@ -665,12 +553,13 @@ def hofm_plot_many(
     nrows = math.ceil(nplots / ncols)
     ncols = int(ncols)
     nrows = int(nrows)
-    nplot = 1
 
     if not figsize:
         figsize = (8 * ncols, 2 * nrows * ncols)
     fig, ax = plt.subplots(nrows, ncols, figsize=figsize)
     ax = ax.flatten()
+
+    colormap = get_cmap(cmap=cmap)
 
     for ind, data_one in enumerate(data):
 
@@ -679,7 +568,7 @@ def hofm_plot_many(
             np.abs(mesh.zlev[:depth_index]),
             data_one[:, :depth_index].T,
             levels=levels,
-            cmap=cmap,
+            cmap=colormap,
             extend="both",
         )
         ax[ind].invert_yaxis()
@@ -710,7 +599,10 @@ def hofm_plot_many(
     return fig
 
 
-def hofm_plot(
+def hofm_plot(*args, **kwargs):
+    raise DeprecationWarning("The hovm_plot function is deprecated. Use plot_xyz instead.")
+
+def plot_xyz(
     mesh,
     data,
     xvals=None,
@@ -718,7 +610,7 @@ def hofm_plot(
     maxdepth=1000,
     label=r"$^{\circ}$C",
     title="",
-    cmap=cm.Spectral_r,
+    cmap=None,
     ax=None,
     facecolor="lightgray",
     fontsize=12,
@@ -777,7 +669,8 @@ def hofm_plot(
                     "You provide np.array as an input, but did not provide xvals (e.g. time or distance)"
                 )
 
-        hofm_plot_one(
+
+        xyz_plot_one(
             mesh=mesh,
             data=data,
             xvals=xvals,
@@ -800,7 +693,7 @@ def hofm_plot(
                     "You provide np.array as an input, but did not provide xvals (e.g. time or distance)"
                 )
 
-        hofm_plot_many(
+        xyz_plot_many(
             mesh=mesh,
             data=data,
             xvals=xvals,

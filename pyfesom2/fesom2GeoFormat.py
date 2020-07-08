@@ -4,8 +4,10 @@
 # Original code by Alireza Mahdavi
 #
 
-from pyfesom2 import fesom2regular
 import numpy as np
+
+from pyfesom2 import fesom2regular
+
 try:
     from osgeo import osr, gdal
 except ImportError:
