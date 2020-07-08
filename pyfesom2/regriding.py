@@ -13,6 +13,7 @@ import scipy.spatial.qhull as qhull
 from scipy.interpolate import LinearNDInterpolator, CloughTocher2DInterpolator
 import logging
 from numba import jit
+import xarray as xr
 
 
 def lon_lat_to_cartesian(lon, lat, R=6371000):
@@ -546,7 +547,10 @@ def tonodes3d(component, mesh):
     levels = component.shape[1]
     out_data = np.zeros((mesh.n2d, levels))
     for level in range(levels):
-        component_level = component[:, level].astype("float32")
+        if isinstance(component, xr.DataArray):
+            component_level = component[:, level].values.astype("float32")
+        else:
+            component_level = component[:, level].astype("float32")
         onnodes = tonodes(
             component_level, mesh.n2d, mesh.voltri, mesh.elem, mesh.e2d, mesh.lump2
         )
