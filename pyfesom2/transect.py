@@ -91,60 +91,35 @@ def get_transect(data, mesh, lonlat, max_distance=1e6):
     transect_data = transect_get_data(data, nodes, mask2d)
     return dist, transect_data
 
-def transect_uv(
+def transect_uv(*args, **kwargs):
+    raise DeprecationWarning("The transect_uv function is deprecated. Use get_transect_uv instead.")
+
+def get_transect_uv(
     udata3d,
     vdata3d,
     mesh,
-    lon_start,
-    lat_start,
-    lon_end,
-    lat_end,
-    npoints=30,
+    lonlat,
     abg=[50, 15, -90],
     max_distance=None,
     myangle=0,
 ):
-    """
-    Example:
-        rot_u, rot_v, dist, profile = pf.transect_uv(f_bold02u.variables['u'][0,:],
-                                             f_bold02v.variables['v'][0,:],
-                                             mesh_bold,
-                                             lon_start,
-                                             lat_start,
-                                             lon_end,
-                                             lat_end,
-                                             npoints=50,
-                                             myangle=0)
+    """Get transect for UV data.
 
-        pf.plot_transect(f_bold02v.variables['v'][0,:],
-                 mesh_bold,
-                 lon_start,
-                 lat_start,
-                 lon_end,
-                 lat_end,
-                 npoints=50,
-                 transect_data=np.ma.masked_equal(rot_v, 0).T,
-                 dist=dist,
-                 profile=profile,
-                 levels= np.round(np.linspace(-0.03, 0.03, 42),4),
-                 cmap=cmo.balance, maxdepth=6000)
+    Parameters
+    
     """
-    lonlat = transect_get_lonlat(
-        lon_start, lat_start, lon_end, lat_end, npoints=npoints
-    )
+    # lonlat = transect_get_lonlat(
+    #     lon_start, lat_start, lon_end, lat_end, npoints=npoints
+    # )
     nodes = transect_get_nodes(lonlat, mesh)
     dist = transect_get_distance(lonlat)
     if max_distance:
         mask2d = transect_get_mask(nodes, mesh, lonlat, max_distance)
     else:
         mask2d = None
-    # profile = transect_get_profile(nodes, mesh)
 
     u = udata3d[nodes, :]
     v = vdata3d[nodes, :]
-
-    # u = u.reshape(profile.shape)
-    # v = v.reshape(profile.shape)
 
     rot_u = []
     rot_v = []
@@ -185,9 +160,9 @@ def transect_uv(
         if type(mask2d) is np.ndarray:
             rot_u = np.ma.masked_where(mask2d.T, rot_u)
             rot_v = np.ma.masked_where(mask2d.T, rot_v)
-        return rot_u, rot_v, dist, nodes
+        return dist, rot_u, rot_v
 
-    return rot_u, rot_v, dist, nodes
+    return dist, rot_u, rot_v
 
 
 def calculate_initial_compass_bearing(pointA, pointB):
