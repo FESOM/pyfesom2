@@ -7,13 +7,16 @@
 # TODO
 # Add seasonal climatology
 ################################################################################
-from .regriding import fesom2regular, create_indexes_and_distances
+import os
+
 import numpy as np
 import scipy as sc
-from numpy import nanmean
-from netCDF4 import Dataset
-import os
 import seawater as sw
+from netCDF4 import Dataset
+from numpy import nanmean
+
+from .regriding import create_indexes_and_distances, fesom2regular
+
 
 class climatology(object):
     '''

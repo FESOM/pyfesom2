@@ -5,15 +5,16 @@
 # Qiang Wang, Sergey Danilov and Patrick Scholz
 #
 
-from scipy.spatial import cKDTree
-import numpy as np
-import os
-import joblib
-import scipy.spatial.qhull as qhull
-from scipy.interpolate import LinearNDInterpolator, CloughTocher2DInterpolator
 import logging
-from numba import jit
+import os
+
+import joblib
+import numpy as np
+import scipy.spatial.qhull as qhull
 import xarray as xr
+from numba import jit
+from scipy.interpolate import CloughTocher2DInterpolator, LinearNDInterpolator
+from scipy.spatial import cKDTree
 
 
 def lon_lat_to_cartesian(lon, lat, R=6371000):

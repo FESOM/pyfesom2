@@ -7,11 +7,13 @@
 
 import argparse
 from collections import OrderedDict
+
 import numpy as np
-from .load_mesh_data import get_data, load_mesh, ind_for_depth
+import xarray as xr
+
+from .load_mesh_data import get_data, ind_for_depth, load_mesh
 from .regriding import fesom2regular, tonodes
 from .ut import mask_ne, set_standard_attrs, vec_rotate_r2g
-import xarray as xr
 
 
 def parse_years(years):

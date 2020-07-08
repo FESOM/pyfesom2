@@ -5,14 +5,25 @@
 # Qiang Wang, Sergey Danilov and Patrick Scholz
 #
 
-import sys, os
-import numpy as np
-from matplotlib.colors import LinearSegmentedColormap
-from .regriding import fesom2regular
-from netCDF4 import Dataset, MFDataset, num2date
+import math
+import os
+import sys
+
+import joblib
 import matplotlib as mpl
 import matplotlib.pylab as plt
 import numpy as np
+import shapely.vectorized
+import xarray as xr
+from cmocean import cm as cmo
+from matplotlib import cm, ticker
+from matplotlib.colors import LinearSegmentedColormap
+from netCDF4 import Dataset, MFDataset, num2date
+
+from .load_mesh_data import ind_for_depth
+from .regriding import fesom2regular
+from .transect import transect_get_nodes
+from .ut import cut_region, get_cmap, get_no_cyclic, mask_ne
 
 try:
     import cartopy.crs as ccrs
@@ -20,16 +31,7 @@ try:
     from cartopy.util import add_cyclic_point
 except ImportError:
     print("Cartopy is not installed, plotting is not available.")
-from cmocean import cm as cmo
-from matplotlib import cm
 
-import xarray as xr
-import shapely.vectorized
-import joblib
-from .transect import *
-from .ut import mask_ne, cut_region, get_cmap, get_no_cyclic
-from matplotlib import ticker
-import math
 
 sfmt = ticker.ScalarFormatter(useMathText=True)
 sfmt.set_powerlimits((-3, 4))
@@ -357,7 +359,7 @@ def plot(
 
     m2 = mask_ne(lonreg2, latreg2)
 
-    for i, interpolated_instance in enumerate(interpolated):
+    for i in range(len(interpolated)):
         interpolated[i] = np.ma.masked_where(m2, interpolated[i])
         interpolated[i] = np.ma.masked_equal(interpolated[i], 0)
 
@@ -546,7 +548,6 @@ def xyz_plot_many(
     nrows = math.ceil(nplots / ncols)
     ncols = int(ncols)
     nrows = int(nrows)
-    nplot = 1
 
     if not figsize:
         figsize = (8 * ncols, 2 * nrows * ncols)
