@@ -249,7 +249,6 @@ def interpolate_for_plot(
             interpolated.append(ofesom)
     return interpolated
 
-
 def plot(
     mesh,
     data,
@@ -333,6 +332,7 @@ def plot(
             "Number of rows*columns is smaller than number of data fields, please adjust rowscol."
         )
 
+
     colormap = get_cmap(cmap=cmap)
 
     radius_of_influence = influence
@@ -372,6 +372,7 @@ def plot(
 
     for ind, data_int in enumerate(interpolated):
         ax[ind].set_extent([left, right, down, up], crs=ccrs.PlateCarree())
+
         data_levels = get_plot_levels(levels, data_int, lev_to_data=False)
 
         if ptype == "cf":
@@ -475,6 +476,7 @@ def plot_transect_map(lonlat, mesh, view="w", stock_img=False):
     return ax
 
 
+
 def plot_transect(*args, **kwargs):
     raise DeprecationWarning("The plot_transect function is deprecated. Use combination of get_transect and plot_xyz instead.")
 
@@ -500,7 +502,9 @@ def xyz_plot_one(
         oneplot = True
     else:
         oneplot = False
+
     colormap = get_cmap(cmap=cmap)
+
     image = ax.contourf(
         xvals,
         np.abs(mesh.zlev[:depth_index]),
@@ -523,6 +527,7 @@ def xyz_plot_one(
         cb.ax.yaxis.get_offset_text().set_fontsize(fontsize)
 
     return image
+
 
 
 def xyz_plot_many(
@@ -553,7 +558,9 @@ def xyz_plot_many(
         figsize = (8 * ncols, 2 * nrows * ncols)
     fig, ax = plt.subplots(nrows, ncols, figsize=figsize)
     ax = ax.flatten()
+
     colormap = get_cmap(cmap=cmap)
+
     for ind, data_one in enumerate(data):
 
         image = ax[ind].contourf(
@@ -590,6 +597,7 @@ def xyz_plot_many(
     fig.tight_layout()
 
     return fig
+
 
 def hofm_plot(*args, **kwargs):
     raise DeprecationWarning("The hovm_plot function is deprecated. Use plot_xyz instead.")
@@ -660,6 +668,7 @@ def plot_xyz(
                 raise ValueError(
                     "You provide np.array as an input, but did not provide xvals (e.g. time or distance)"
                 )
+
 
         xyz_plot_one(
             mesh=mesh,
