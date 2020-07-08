@@ -105,7 +105,7 @@ def test_get_data():
     mmean = temp.mean()
     assert mmean == pytest.approx(5.6487503)
 
-def test_regriding():
+def test_regridding():
     mesh_path = os.path.join(my_data_folder, 'pi-grid')
     data_path = os.path.join(my_data_folder, 'pi-results')
     mesh = load_mesh(mesh_path, usepickle = False, usejoblib = False)

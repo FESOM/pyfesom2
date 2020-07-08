@@ -12,7 +12,7 @@ import numpy as np
 import xarray as xr
 
 from .load_mesh_data import get_data, ind_for_depth, load_mesh
-from .regriding import fesom2regular, tonodes
+from .regridding import fesom2regular, tonodes
 from .ut import mask_ne, set_standard_attrs, vec_rotate_r2g
 
 

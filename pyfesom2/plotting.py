@@ -21,7 +21,7 @@ from matplotlib.colors import LinearSegmentedColormap
 from netCDF4 import Dataset, MFDataset, num2date
 
 from .load_mesh_data import ind_for_depth
-from .regriding import fesom2regular
+from .regridding import fesom2regular
 from .transect import transect_get_nodes
 from .ut import cut_region, get_cmap, get_no_cyclic, mask_ne
 
