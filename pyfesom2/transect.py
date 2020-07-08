@@ -63,6 +63,33 @@ def transect_get_data(data3d, nodes, mask2d=None):
         transect_data = np.ma.masked_where(mask2d, transect_data)
     return transect_data
 
+def get_transect(data, mesh, lonlat, max_distance=1e6):
+    """Create transect from 3D data and collection of points.
+    
+    Parameters
+    ----------
+    data: np array, xarray
+        3D fesom data
+    mesh: mesh object
+        FESOM2 mesh object
+    lonlat: numpy array
+        Array of shape (2, npoints), that consist lons and lats.
+        can be obtained by the `transect_get_lonlat` function.
+    max_distance:
+        maximum distance to still consider the points for using in the transect.
+
+    Returns
+    -------
+    dist: numpy array
+        distances of each point from the first coordinates.
+    transect_data: numpy array
+        2D array of shape (npoints, nlevels)
+    """
+    nodes = transect_get_nodes(lonlat, mesh)
+    dist = transect_get_distance(lonlat)
+    mask2d = transect_get_mask(nodes, mesh, lonlat, max_distance)
+    transect_data = transect_get_data(data, nodes, mask2d)
+    return dist, transect_data
 
 def transect_uv(
     udata3d,

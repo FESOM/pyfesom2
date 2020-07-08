@@ -471,126 +471,11 @@ def plot_transect_map(lonlat, mesh, view="w", stock_img=False):
     return ax
 
 
-def plot_transect(
-    data3d,
-    mesh,
-    lonlat,
-    maxdepth=1000,
-    label=r"$^{\circ}$C",
-    title="",
-    levels=None,
-    cmap=cm.Spectral_r,
-    ax=None,
-    dist=None,
-    nodes=None,
-    ncols=2,
-    figsize=None,
-    transect_data=[],
-    max_distance=1e6,
-    facecolor="lightgray",
-    fontsize=12,
-):
-
-    depth_index = ind_for_depth(maxdepth, mesh)
-    if not isinstance(data3d, list):
-        if ax is None:
-            ax = plt.gca()
-            oneplot = True
-        else:
-            oneplot = False
-        if (type(dist) is np.ndarray) and (type(nodes) is np.ndarray):
-            if not (type(transect_data) is np.ma.core.MaskedArray):
-                mask2d = transect_get_mask(nodes, mesh, lonlat, max_distance)
-                transect_data = transect_get_data(data3d, nodes, mask2d)
-        else:
-            nodes = transect_get_nodes(lonlat, mesh)
-            dist = transect_get_distance(lonlat)
-            # profile = transect_get_profile(nodes, mesh)
-            if not (type(transect_data) is np.ma.core.MaskedArray):
-                mask2d = transect_get_mask(nodes, mesh, lonlat, max_distance)
-                transect_data = transect_get_data(data3d, nodes, mask2d)
-
-        image = ax.contourf(
-            dist,
-            np.abs(mesh.zlev[:depth_index]),
-            transect_data[:, :depth_index].T,
-            levels=levels,
-            cmap=cmap,
-            extend="both",
-        )
-        ax.invert_yaxis()
-        ax.set_title(title, size=fontsize)
-        ax.set_xlabel("km", size=fontsize)
-        ax.set_ylabel("m", size=fontsize)
-        ax.set_facecolor(facecolor)
-        ax.tick_params(axis="both", which="major", labelsize=fontsize)
-
-        if oneplot:
-            cb = plt.colorbar(image, format=sfmt)
-            cb.set_label(label, size=fontsize)
-            cb.ax.tick_params(labelsize=fontsize)
-            cb.ax.yaxis.get_offset_text().set_fontsize(fontsize)
-
-        return image
-    else:
-        ncols = float(ncols)
-        nplots = len(data3d)
-        nrows = math.ceil(nplots / ncols)
-        ncols = int(ncols)
-        nrows = int(nrows)
-        nplot = 1
-
-        if not figsize:
-            figsize = (8 * ncols, 2 * nrows * ncols)
-        fig, ax = plt.subplots(nrows, ncols, figsize=figsize)
-        ax = ax.flatten()
-        for ind, data in enumerate(data3d):
-            if (type(data) is np.ndarray) and (type(nodes) is np.ndarray):
-                if not (type(transect_data) is np.ma.core.MaskedArray):
-                    mask2d = transect_get_mask(nodes, mesh, lonlat, max_distance)
-                    transect_data = transect_get_data(data, nodes, mask2d)
-            else:
-                nodes = transect_get_nodes(lonlat, mesh)
-                dist = transect_get_distance(lonlat)
-                # profile = transect_get_profile(nodes, mesh)
-                if not (type(transect_data) is np.ma.core.MaskedArray):
-                    mask2d = transect_get_mask(nodes, mesh, lonlat, max_distance)
-                    transect_data = transect_get_data(data, nodes, mask2d)
-
-            image = ax[ind].contourf(
-                dist,
-                np.abs(mesh.zlev[:depth_index]),
-                transect_data[:, :depth_index].T,
-                levels=levels,
-                cmap=cmap,
-                extend="both",
-            )
-            ax[ind].invert_yaxis()
-            if not isinstance(title, list):
-                ax[ind].set_title(title, size=fontsize)
-            else:
-                ax[ind].set_title(title[ind], size=fontsize)
-
-            ax[ind].set_xlabel("km", size=fontsize)
-            ax[ind].set_ylabel("m", size=fontsize)
-            ax[ind].set_facecolor(facecolor)
-            ax[ind].tick_params(axis="both", which="major", labelsize=fontsize)
-
-            cb = fig.colorbar(
-                image, orientation="horizontal", ax=ax[ind], pad=0.11, format=sfmt
-            )
-            cb.set_label(label, size=fontsize)
-            cb.ax.tick_params(labelsize=fontsize)
-            cb.ax.xaxis.get_offset_text().set_fontsize(fontsize)
-
-        for delind in range(ind + 1, len(ax)):
-
-            fig.delaxes(ax[delind])
-
-        fig.tight_layout()
+def plot_transect(*args, **kwargs):
+    raise DeprecationWarning("The plot_transect function is deprecated. Use combination of get_transect and plot_xyz instead.")
 
 
-def hofm_plot_one(
+def xyz_plot_one(
     mesh,
     data,
     xvals,
@@ -636,7 +521,7 @@ def hofm_plot_one(
     return image
 
 
-def hofm_plot_many(
+def xyz_plot_many(
     mesh,
     data,
     xvals,
@@ -703,8 +588,10 @@ def hofm_plot_many(
 
     return fig
 
+def hofm_plot(*args, **kwargs):
+    raise DeprecationWarning("The hovm_plot function is deprecated. Use plot_xyz instead.")
 
-def hofm_plot(
+def plot_xyz(
     mesh,
     data,
     xvals=None,
@@ -771,7 +658,7 @@ def hofm_plot(
                     "You provide np.array as an input, but did not provide xvals (e.g. time or distance)"
                 )
 
-        hofm_plot_one(
+        xyz_plot_one(
             mesh=mesh,
             data=data,
             xvals=xvals,
@@ -794,7 +681,7 @@ def hofm_plot(
                     "You provide np.array as an input, but did not provide xvals (e.g. time or distance)"
                 )
 
-        hofm_plot_many(
+        xyz_plot_many(
             mesh=mesh,
             data=data,
             xvals=xvals,
