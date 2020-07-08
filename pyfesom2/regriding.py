@@ -7,6 +7,7 @@
 
 import logging
 import os
+from collections import namedtuple
 
 import joblib
 import numpy as np
@@ -251,7 +252,7 @@ def fesom2clim(
     """
     xx, yy = np.meshgrid(climatology.x, climatology.y)
     out_data = np.copy(climatology.T)
-    distances, inds = create_indexes_and_distances(mesh, xx, yy, k=10, n_jobs=2)
+    # distances, inds = create_indexes_and_distances(mesh, xx, yy, k=10, n_jobs=2)
 
     # import pdb
     # pdb.set_trace()
@@ -267,8 +268,6 @@ def fesom2clim(
         mesh,
         xx,
         yy,
-        distances=distances,
-        inds=inds,
         radius_of_influence=radius_of_influence,
     )
     out_data[np.isnan(climatology.T[iz, :, :])] = np.nan
@@ -332,8 +331,6 @@ def regular2regular(
         mesh,
         lons=olons,
         lats=olats,
-        distances=distances,
-        inds=inds,
         how=how,
         k=k,
         radius_of_influence=radius_of_influence,
