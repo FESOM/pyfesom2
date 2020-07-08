@@ -384,6 +384,8 @@ def plot(
                 extend="both",
             )
         elif ptype == "pcm":
+            mmin = data_levels[0]
+            mmax = data_levels[-1]
             data_int_cyc, lon_cyc = add_cyclic_point(data_int, coord=lonreg)
             image = ax[ind].pcolormesh(
                 lon_cyc,
