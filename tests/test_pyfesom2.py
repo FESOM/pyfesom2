@@ -16,7 +16,7 @@ from matplotlib.testing.decorators import _image_directories
 from pyfesom2 import pyfesom2
 from pyfesom2 import load_mesh
 from pyfesom2 import get_data
-from pyfesom2 import fesom2regular
+
 
 THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 my_data_folder = os.path.join(THIS_DIR, 'data')
@@ -104,46 +104,3 @@ def test_get_data():
     temp = get_data(data_path, 'temp', range(1948, 1950), mesh, depth = 200, how='max')
     mmean = temp.mean()
     assert mmean == pytest.approx(5.6487503)
-
-def test_regriding():
-    mesh_path = os.path.join(my_data_folder, 'pi-grid')
-    data_path = os.path.join(my_data_folder, 'pi-results')
-    mesh = load_mesh(mesh_path, usepickle = False, usejoblib = False)
-    lons = range(0,360)
-    lats = range(-90,90)
-    lons, lats = np.meshgrid(lons, lats)
-    data = get_data(data_path, 'temp', 1948, mesh, depth=0)
-
-    # default nn interpolation
-    data_inter = fesom2regular(data, mesh, lons,lats)
-    mmean = data_inter.mean()
-    assert mmean == pytest.approx(6.309350409986763)
-    assert isinstance(data_inter, np.ma.core.MaskedArray)
-
-    # idist method
-    data_inter = fesom2regular(data, mesh, lons,lats, how='idist')
-    mmean = data_inter.mean()
-    assert mmean == pytest.approx(6.308561066202526)
-    assert isinstance(data_inter, np.ma.core.MaskedArray)
-
-    # linear method from scipy
-    data_inter = fesom2regular(data, mesh, lons,lats, how='linear')
-    mmean = data_inter.mean()
-    assert mmean == pytest.approx(13.582933890477655)
-    assert isinstance(data_inter, np.ma.core.MaskedArray)
-
-    # cubic method from scipy
-    data_inter = fesom2regular(data, mesh, lons,lats, how='cubic')
-    mmean = data_inter.mean()
-    assert mmean == pytest.approx(13.39402615207708)
-    assert isinstance(data_inter, np.ma.core.MaskedArray)
-
-    # clean up
-    os.remove(os.path.join(mesh_path, 'distances_3140_0_359_-90_89_360_180_1'))
-    os.remove(os.path.join(mesh_path, 'distances_3140_0_359_-90_89_360_180_5'))
-
-    os.remove(os.path.join(mesh_path, 'inds_3140_0_359_-90_89_360_180_1'))
-    os.remove(os.path.join(mesh_path, 'inds_3140_0_359_-90_89_360_180_5'))
-
-    os.remove(os.path.join(mesh_path, 'qhull_3140'))
-

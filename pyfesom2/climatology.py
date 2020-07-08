@@ -15,7 +15,7 @@ import seawater as sw
 from netCDF4 import Dataset
 from numpy import nanmean
 
-from .regriding import create_indexes_and_distances, fesom2regular
+from .regridding import create_indexes_and_distances, fesom2regular
 
 
 class climatology(object):

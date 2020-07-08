@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 #
 # This file is part of pyfesom2
-# Original code by Dmitry Sidorenko, Nikolay Koldunov, 
+# Original code by Dmitry Sidorenko, Nikolay Koldunov,
 # Qiang Wang, Sergey Danilov and Patrick Scholz
 #
 
@@ -264,11 +264,7 @@ def fesom2clim(
         climatology.z[iz],
     )
     out_data = fesom2regular(
-        data,
-        mesh,
-        xx,
-        yy,
-        radius_of_influence=radius_of_influence,
+        data, mesh, xx, yy, radius_of_influence=radius_of_influence,
     )
     out_data[np.isnan(climatology.T[iz, :, :])] = np.nan
     return iz, xx, yy, out_data
@@ -522,14 +518,43 @@ def clim2regular(
     return xx, yy, out_data
 
 
+def tonodes(component, mesh):
+    """Interpolate data from elements to nodes.
+
+    Parameters
+    ----------
+    component: np.array or xarray.Dataset
+        1D data on elements
+    mesh: mesh object
+        FESOM2 mesh object
+    
+    Returns
+    -------
+    onnodes: np.array
+        1D data on nodes
+    """
+    if isinstance(component, xr.DataArray):
+        component = component.values.astype("float32")
+    else:
+        component = component.astype("float32")
+    n2d = np.int64(mesh.n2d)
+    voltri = mesh.voltri.astype("float64")
+    elem = mesh.elem.astype("int64")
+    e2d = np.int64(mesh.e2d)
+    lump2 = mesh.lump2.astype("float64")
+    onnodes = tonodes_jit(component, n2d, voltri, elem, e2d, lump2)
+    return onnodes
+
+
 @jit(
-    "float64[:](float32[:],int64, float64[:], int64[:,:], int64, float64[:])",
+    "float64[:](float32[:], int64, float64[:], int64[:,:], int64, float64[:])",
     nopython=True,
 )
-def tonodes(component, n2d, voltri, elem, e2d, lump2):
+def tonodes_jit(component, n2d, voltri, elem, e2d, lump2):
     """ Function to interpolate from elements to nodes.
     Made fast with numba.
     """
+
     onnodes = np.zeros(shape=n2d)
 
     var_elem = component * voltri
@@ -542,6 +567,20 @@ def tonodes(component, n2d, voltri, elem, e2d, lump2):
 
 
 def tonodes3d(component, mesh):
+    """Interpolate 3D data from elements to nodes.
+
+    Parameters
+    ----------
+    component: np.array or xarray.Dataset
+        2D data (elements, levels) on elements
+    mesh: mesh object
+        FESOM2 mesh object
+    
+    Returns
+    -------
+    out_data: np.array
+        2D data (nodes, levels) on nodes
+    """
     levels = component.shape[1]
     out_data = np.zeros((mesh.n2d, levels))
     for level in range(levels):
@@ -549,8 +588,6 @@ def tonodes3d(component, mesh):
             component_level = component[:, level].values.astype("float32")
         else:
             component_level = component[:, level].astype("float32")
-        onnodes = tonodes(
-            component_level, mesh.n2d, mesh.voltri, mesh.elem, mesh.e2d, mesh.lump2
-        )
+        onnodes = tonodes(component_level, mesh)
         out_data[:, level] = onnodes
     return out_data
