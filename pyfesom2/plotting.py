@@ -21,9 +21,9 @@ from matplotlib.colors import LinearSegmentedColormap
 from netCDF4 import Dataset, MFDataset, num2date
 
 from .load_mesh_data import ind_for_depth
-from .regridding import fesom2regular
+from .regridding import fesom2regular, tonodes
 from .transect import transect_get_nodes
-from .ut import cut_region, get_cmap, get_no_cyclic, mask_ne
+from .ut import cut_region, get_cmap, get_no_cyclic, mask_ne, vec_rotate_r2g
 
 try:
     import cartopy.crs as ccrs
@@ -175,7 +175,7 @@ def interpolate_for_plot(
     inds_path=None,
     radius_of_influence=None,
     basepath=None,
-    qhull_path=None
+    qhull_path=None,
 ):
     """Interpolate for the plot.
 
@@ -248,6 +248,69 @@ def interpolate_for_plot(
             )
             interpolated.append(ofesom)
     return interpolated
+
+
+def get_vector_forplot(
+    u, v, mesh, box=[-180, 180, -89, 90], res=[360, 180], influence=80000, lonreg2=None, latreg2=None
+):
+    if len(u.shape) > 1:
+        raise ValueError('You are trying to use 2D variable. Only 1D variables on elements can be used.')
+    if len(v.shape) > 1:
+        raise ValueError('You are trying to use 2D variable. Only 1D variables on elements can be used.')
+
+    u_nodes = tonodes(u, mesh)
+    v_nodes = tonodes(v, mesh)
+
+    left, right, down, up = box
+
+    if (lonreg2 is None) and (latreg2 is None):
+        lonNumber, latNumber = [360, 180]
+
+        lonreg = np.linspace(left, right, lonNumber)
+        latreg = np.linspace(down, up, latNumber)
+        lonreg2, latreg2 = np.meshgrid(lonreg, latreg)
+
+
+    u_rot, v_rot = vec_rotate_r2g(
+        50, 15, -90, mesh.x2, mesh.y2, u_nodes, v_nodes, flag=1
+    )
+
+    u_int = interpolate_for_plot(
+        [u_rot],
+        mesh,
+        lonreg2,
+        latreg2,
+        interp="nn",
+        distances_path=None,
+        inds_path=None,
+        radius_of_influence=influence,
+        basepath=None,
+        qhull_path=None,
+    )
+    v_int = interpolate_for_plot(
+        [v_rot],
+        mesh,
+        lonreg2,
+        latreg2,
+        interp="nn",
+        distances_path=None,
+        inds_path=None,
+        radius_of_influence=influence,
+        basepath=None,
+        qhull_path=None,
+    )
+    m2 = mask_ne(lonreg2, latreg2)
+    u_int = u_int[0]
+    v_int = v_int[0]
+
+    u_int = np.ma.masked_where(m2, u_int)
+    u_int = np.ma.masked_equal(u_int, 0)
+
+    v_int = np.ma.masked_where(m2, v_int)
+    v_int = np.ma.masked_equal(v_int, 0)
+
+    return u_int, v_int, lonreg2, latreg2
+
 
 def plot(
     mesh,
@@ -332,7 +395,6 @@ def plot(
             "Number of rows*columns is smaller than number of data fields, please adjust rowscol."
         )
 
-
     colormap = get_cmap(cmap=cmap)
 
     radius_of_influence = influence
@@ -354,7 +416,7 @@ def plot(
         inds_path=inds_path,
         radius_of_influence=radius_of_influence,
         basepath=basepath,
-        qhull_path=qhull_path
+        qhull_path=qhull_path,
     )
 
     m2 = mask_ne(lonreg2, latreg2)
@@ -427,6 +489,83 @@ def plot(
     return ax
 
 
+def plot_vector(
+    u_int,
+    v_int,
+    lonreg2,
+    latreg2,
+    box=[-180, 180, -80, 90],
+    cmap=None,
+    rowscol=[1, 1],
+    figsize=(15, 10),
+    titles=None,
+    sstep=3,
+    scale=20,
+    vmin=0,
+    vmax=0.5,
+    mapproj="pc",
+    regrid_shape=None,
+    units="m/s",
+):
+
+    normalisation = mpl.colors.Normalize(vmin=vmin, vmax=vmax, clip=False)
+    if not isinstance(u_int, list):
+        u_int = [u_int]
+    if not isinstance(v_int, list):
+        v_int = [v_int]
+
+    if titles:
+        if not isinstance(titles, list):
+            titles = [titles]
+        if len(titles) != len(u_int):
+            raise ValueError(
+                "The number of titles do not match the number of data fields, please adjust titles (or put to None)"
+            )
+
+    if (rowscol[0] * rowscol[1]) > len(u_int):
+        raise ValueError(
+            "Number of rows*columns is smaller than number of data fields, please adjust rowscol."
+        )
+    colormap = get_cmap(cmap=cmap)
+
+    left, right, down, up = box
+    colormap = get_cmap(cmap=cmap)
+    fig, ax = create_proj_figure(mapproj, rowscol=rowscol, figsize=figsize)
+
+    if isinstance(ax, np.ndarray):
+        ax = ax.flatten()
+    else:
+        ax = [ax]
+
+    for ind, data_int in enumerate(zip(u_int, v_int)):
+        ax[ind].set_extent([left, right, down, up], crs=ccrs.PlateCarree())
+        speed = np.hypot(data_int[0], data_int[1])
+        image = ax[ind].quiver(
+            lonreg2[::sstep, ::sstep],
+            latreg2[::sstep, ::sstep],
+            data_int[0][::sstep, ::sstep],
+            data_int[1][::sstep, ::sstep],
+            speed[::sstep, ::sstep],
+            transform=ccrs.PlateCarree(),
+            scale=scale,
+            norm=normalisation,
+            regrid_shape=regrid_shape,
+            cmap=colormap,
+            #                 extend="both",
+        )
+        ax[ind].coastlines(resolution="50m", lw=0.5)
+    cb = fig.colorbar(
+        image, orientation="horizontal", ax=ax, pad=0.01, shrink=0.9, format=sfmt
+    )
+    cb.ax.tick_params(labelsize=15)
+    if units:
+        cb.set_label(units, size=20)
+    else:
+        pass
+
+    return ax
+
+
 def plot_transect_map(lonlat, mesh, view="w", stock_img=False):
     """Plot map of the transect.
     
@@ -476,9 +615,10 @@ def plot_transect_map(lonlat, mesh, view="w", stock_img=False):
     return ax
 
 
-
 def plot_transect(*args, **kwargs):
-    raise DeprecationWarning("The plot_transect function is deprecated. Use combination of get_transect and plot_xyz instead.")
+    raise DeprecationWarning(
+        "The plot_transect function is deprecated. Use combination of get_transect and plot_xyz instead."
+    )
 
 
 def xyz_plot_one(
@@ -527,7 +667,6 @@ def xyz_plot_one(
         cb.ax.yaxis.get_offset_text().set_fontsize(fontsize)
 
     return image
-
 
 
 def xyz_plot_many(
@@ -600,7 +739,10 @@ def xyz_plot_many(
 
 
 def hofm_plot(*args, **kwargs):
-    raise DeprecationWarning("The hovm_plot function is deprecated. Use plot_xyz instead.")
+    raise DeprecationWarning(
+        "The hovm_plot function is deprecated. Use plot_xyz instead."
+    )
+
 
 def plot_xyz(
     mesh,
@@ -668,7 +810,6 @@ def plot_xyz(
                 raise ValueError(
                     "You provide np.array as an input, but did not provide xvals (e.g. time or distance)"
                 )
-
 
         xyz_plot_one(
             mesh=mesh,
