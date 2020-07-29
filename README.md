@@ -33,7 +33,7 @@ After you install `conda` (python 3.7 environment is recomendes), clone the sour
 
 Create pyfesom2 environment by:
 
-    conda env create -f ./pyfesom2/ci/requirements-py36.yml
+    conda env create -f ./pyfesom2/ci/requirements-py37.yml
 
 
 Activate the environment
