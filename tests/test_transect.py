@@ -61,8 +61,8 @@ def test_get_transect_uv():
     dist, rot_u, rot_v = get_transect_uv(u_nodes, v_nodes, mesh, lonlat, myangle=0)
 
     assert dist.shape == (30.,)
-    assert rot_u.shape == (47, 30)
-    assert rot_v.shape == (47, 30)
+    assert rot_u.shape == (30,47)
+    assert rot_v.shape == (30,47)
     assert rot_u.max() == pytest.approx(0.012118130919170302)
     assert rot_u.min() == pytest.approx(-0.010595729181566588)
     assert rot_v.max() == pytest.approx(0.014261195850716241)

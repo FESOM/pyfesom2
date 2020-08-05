@@ -161,9 +161,9 @@ def get_transect_uv(
         if type(mask2d) is np.ndarray:
             rot_u = np.ma.masked_where(mask2d.T, rot_u)
             rot_v = np.ma.masked_where(mask2d.T, rot_v)
-        return dist, rot_u, rot_v
+        return dist, rot_u.T, rot_v.T
 
-    return dist, rot_u, rot_v
+    return dist, rot_u.T, rot_v.T
 
 
 def calculate_initial_compass_bearing(pointA, pointB):
