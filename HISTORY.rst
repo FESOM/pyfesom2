@@ -6,14 +6,14 @@ History
 ------------------
 
 Breaking changes
-****************
+----------------
 
 * depricate ``plot_transect`` and ``hofm_plot`` functions. Replaced with more general ``plot_xyz`` function.
 * replace ``transect_uv`` with ``get_transect_uv``.
 * remove Basemap dependency and all code related to Basemap.
 
 New Features
-************
+------------
 
 * ``plot_vector`` - plotting vector on a map.
 * ``plot_xyz`` - ploting, for example, transect or hovmoeller diagrams.
@@ -25,14 +25,14 @@ New Features
 * ``get_mask`` - create mask of the region (e.g. Atlantic or Pacific Ocean).
 
 Bug fixes
-*********
+---------
 
 * fix ``get_cmap`` to cpmply with new matplotlib versions.
 * fix RTD builds on master (by `Suvarchal Kumar Cheedela <https://github.com/suvarchal>`_).
 * fix issue with time module change after python 3.7 (by `Paul Gierz <https://github.com/pgierz>`_)
 
 Documentation
-*************
+-------------
 
 * Notebook example for vector plotting.
 * Notebook example for plotting on original mesh with``tplot``.
@@ -40,7 +40,7 @@ Documentation
 * Notebook example for xMOC plotting.
 
 Internal Changes
-****************
+----------------
 
 * general cleaning up of the code
 * split ``plot`` function to make it more readable.
