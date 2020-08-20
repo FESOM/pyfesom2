@@ -125,7 +125,7 @@ def get_plot_levels(levels, data, lev_to_data=False):
         resulted levels.
         
     """
-    if levels:
+    if levels is not None:
         if len(levels) == 3:
             mmin, mmax, nnum = levels
             if lev_to_data:
@@ -251,12 +251,23 @@ def interpolate_for_plot(
 
 
 def get_vector_forplot(
-    u, v, mesh, box=[-180, 180, -89, 90], res=[360, 180], influence=80000, lonreg2=None, latreg2=None
+    u,
+    v,
+    mesh,
+    box=[-180, 180, -89, 90],
+    res=[360, 180],
+    influence=80000,
+    lonreg2=None,
+    latreg2=None,
 ):
     if len(u.shape) > 1:
-        raise ValueError('You are trying to use 2D variable. Only 1D variables on elements can be used.')
+        raise ValueError(
+            "You are trying to use 2D variable. Only 1D variables on elements can be used."
+        )
     if len(v.shape) > 1:
-        raise ValueError('You are trying to use 2D variable. Only 1D variables on elements can be used.')
+        raise ValueError(
+            "You are trying to use 2D variable. Only 1D variables on elements can be used."
+        )
 
     u_nodes = tonodes(u, mesh)
     v_nodes = tonodes(v, mesh)
@@ -269,7 +280,6 @@ def get_vector_forplot(
         lonreg = np.linspace(left, right, lonNumber)
         latreg = np.linspace(down, up, latNumber)
         lonreg2, latreg2 = np.meshgrid(lonreg, latreg)
-
 
     u_rot, v_rot = vec_rotate_r2g(
         50, 15, -90, mesh.x2, mesh.y2, u_nodes, v_nodes, flag=1
@@ -358,7 +368,8 @@ def plot(
         Map projection. Options are Mercator (merc), Plate Carree (pc),
         North Polar Stereo (np), South Polar Stereo (sp),  Robinson (rob)
     levels: list
-        Levels for contour plot in format min max numberOfLevels.
+        Levels for contour plot in format (min, max, numberOfLevels). List with more than
+        3 values will be interpreted as just a list of individual level values.
         If not provided min/max values from data will be used with 40 levels.
     ptype: str
         Plot type. Options are contourf (\'cf\') and pcolormesh (\'pcm\')
@@ -644,12 +655,14 @@ def xyz_plot_one(
         oneplot = False
 
     colormap = get_cmap(cmap=cmap)
+    # hope it will not slow things down
+    data_levels = get_plot_levels(levels, data[:, :depth_index].T, lev_to_data=False)
 
     image = ax.contourf(
         xvals,
         np.abs(mesh.zlev[:depth_index]),
         data[:, :depth_index].T,
-        levels=levels,
+        levels=data_levels,
         cmap=colormap,
         extend="both",
     )
@@ -701,12 +714,15 @@ def xyz_plot_many(
     colormap = get_cmap(cmap=cmap)
 
     for ind, data_one in enumerate(data):
+        data_levels = get_plot_levels(
+            levels, data_one[:, :depth_index].T, lev_to_data=False
+        )
 
         image = ax[ind].contourf(
             xvals,
             np.abs(mesh.zlev[:depth_index]),
             data_one[:, :depth_index].T,
-            levels=levels,
+            levels=data_levels,
             cmap=colormap,
             extend="both",
         )
@@ -774,8 +790,10 @@ def plot_xyz(
         Values for the x axis (e.g. time, distance).
         Deduced automatically if `data` is xarray DataArray.
         Should be provided if `data` is nd array.
-    levels:
-        list of levels for contour plot
+    levels: list
+        Levels for contour plot in format (min, max, numberOfLevels). List with more than
+        3 values will be interpreted as just a list of individual level values.
+        If not provided min/max values from data will be used with 40 levels.
     maxdepth:
         maximum depth the plot will be limited to
     label:
