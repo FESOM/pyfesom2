@@ -341,6 +341,9 @@ def plot(
     inds_path=None,
     qhull_path=None,
     basepath=None,
+    interpolated_data=None,
+    lonreg = None,
+    latreg = None
 ):
     """
     Plots interpolated 2d field on the map.
@@ -386,7 +389,17 @@ def plot(
     inds_path : string
         Path to the file with inds. If not provided and dumpfile=True, it will be created.
     qhull_path : str
-         Path to the file with qhull (needed for linear and cubic interpolations). If not provided and dumpfile=True, it will be created.
+         Path to the file with qhull (needed for linear and cubic interpolations). 
+         If not provided and dumpfile=True, it will be created.
+    interpolated_data: np.array
+         data interpolated to regular grid (you also have to provide lonreg and latreg).
+         If provided, data will be plotted directly, without interpolation.
+    lonreg: np.array
+         1D array of longitudes. Used in combination with `interpolated_data`, 
+         when you need to plot interpolated data directly.
+    latreg: np.array
+         1D array of latitudes. Used in combination with `interpolated_data`, 
+         when you need to plot interpolated data directly.     
     basepath: str
         path where to store additional interpolation files. If None (default),
         the path of the mesh will be used.
@@ -413,22 +426,27 @@ def plot(
     left, right, down, up = box
     lonNumber, latNumber = res
 
-    lonreg = np.linspace(left, right, lonNumber)
-    latreg = np.linspace(down, up, latNumber)
+    if lonreg is None:
+        lonreg = np.linspace(left, right, lonNumber)
+        latreg = np.linspace(down, up, latNumber)
+        
     lonreg2, latreg2 = np.meshgrid(lonreg, latreg)
 
-    interpolated = interpolate_for_plot(
-        data,
-        mesh,
-        lonreg2,
-        latreg2,
-        interp=interp,
-        distances_path=distances_path,
-        inds_path=inds_path,
-        radius_of_influence=radius_of_influence,
-        basepath=basepath,
-        qhull_path=qhull_path,
-    )
+    if interpolated_data is None:
+        interpolated = interpolate_for_plot(
+            data,
+            mesh,
+            lonreg2,
+            latreg2,
+            interp=interp,
+            distances_path=distances_path,
+            inds_path=inds_path,
+            radius_of_influence=radius_of_influence,
+            basepath=basepath,
+            qhull_path=qhull_path,
+        )
+    else:
+        interpolated = [interpolated_data]
 
     m2 = mask_ne(lonreg2, latreg2)
 
