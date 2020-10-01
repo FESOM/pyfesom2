@@ -4,40 +4,33 @@
 Installation
 ============
 
-Now we support only installation from source and recomend to use `conda <https://conda.io/docs/>`_  to install dependencies. The shortest way to succes consist of the following simple steps:
+The best way to install now is to use `conda`. The short guide how to install it can be found for `Linux/Mac <https://github.com/koldunovn/python_for_geosciences/blob/master/README.md#getting-started-for-linuxmac>`_  and `Windows <https://github.com/koldunovn/python_for_geosciences/blob/master/README.md#getting-started-for-windows>`_ . For now we are not testing for Windows, and there is no garantee that pyfesom2 will work on this OS.
 
-1. Go to `Miniconda <https://conda.io/miniconda.html>`_ website and download Miniconda installation script for your system. We recomend to use python 3.7 version.
-
-
-2. Install `Miniconda`. Don't forget to add the path of `Miniconda` instllation to your `$PATH` and relaunch your terminal.
-
-
-3. Add conda-forge channel::
+The easiest way is to install latest stable version from `conda-forge`::
 
     conda config --add channels conda-forge
+    conda install pyfesom2
 
+************************
+Development Installation
+************************
 
-4. Go to the folder where you want to have pyfesom and execute (you have to have git installed)::
+If you want to use the latest version of the code, or just plan to change the code inside the package, you have to install it in "development" mode. After you install `conda` (python 3.7 environment is recomended), clone the source code::
 
     git clone https://github.com/FESOM/pyfesom2.git
 
-5. Go to `pyfesom2` folder and create conda environment from file::
+Create pyfesom2 environment by::
 
-    conda env create -f ./ci/requirements-py37.yml
-
-
-6. Activate `pyfesom2` conda environment::
+    conda env create -f ./pyfesom2/ci/requirements-py37.yml
+    
+Activate the environment::
 
     conda activate pyfesom2
+    
+Install pyfesom2::
 
-7. While in pyfesom2 folder execute::
-
+    cd pyfesom2
     pip install -e .
 
-this will install pyfesom2 in to your conda pyfesom2 environment.
-
-Now when you want to use pyfesom2 as a library or one of the pyfesom2 tools, you have to execute::
-
-    conda activate pyfesom2
 
 
