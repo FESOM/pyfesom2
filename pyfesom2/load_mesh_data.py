@@ -54,7 +54,7 @@ def load_mesh(path, abg=[0, 0, 0], usepickle=True, usejoblib=False, protocol=4):
         os.makedirs(CACHE_DIR)
 
     if usepickle:
-        if os.path.isfile(os.path.join(path, "pickle_mesh_py3_fesom2"):
+        if os.path.isfile(os.path.join(path, "pickle_mesh_py3_fesom2")):
             pickle_file = os.path.join(path, "pickle_mesh_py3_fesom2")
             print(pickle_file)
         elif os.path.isfile(os.path.join(CACHE_DIR, "pickle_mesh_py3_fesom2")):
@@ -65,7 +65,7 @@ def load_mesh(path, abg=[0, 0, 0], usepickle=True, usejoblib=False, protocol=4):
             print("pickle file not found in any default location, a try will be made to create it...")
 
     if usejoblib:
-        if os.path.isfile(os.path.join(path, "joblib_mesh_py3_fesom2"):
+        if os.path.isfile(os.path.join(path, "joblib_mesh_py3_fesom2")):
             joblib_file = os.path.join(path, "joblib_mesh_py3_fesom2")
             print(joblib_file)
         elif os.path.isfile(os.path.join(CACHE_DIR, "joblib_mesh_py3_fesom2")):

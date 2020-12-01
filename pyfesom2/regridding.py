@@ -197,7 +197,7 @@ def fesom2regular(
                 mesh, lons, lats, k=kk, n_jobs=n_jobs
             )
             if dumpfile:
-                for distances_path in distances_paths
+                for distances_path in distances_paths:
                     try:
                         joblib.dump(distances, distances_path)
                         break
@@ -246,7 +246,7 @@ def fesom2regular(
                 mesh, lons, lats, k=kk, n_jobs=n_jobs
             )
             if dumpfile:
-                for distances_path in distances_paths
+                for distances_path in distances_paths:
                     try:
                         joblib.dump(distances, distances_path)
                         break
