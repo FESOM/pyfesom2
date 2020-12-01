@@ -128,40 +128,87 @@ def fesom2regular(
     else:
         kk = k
 
-    if not basepath:
-        basepath = mesh.path
+    distances_paths = []
+    inds_paths = []
+    qhull_paths = []
 
-    if (distances_path is None) and (inds_path is None):
-        distances_file = "distances_{}_{}_{}_{}_{}_{}_{}_{}".format(
-            mesh.n2d, left, right, down, up, lonNumber, latNumber, kk
-        )
-        inds_file = "inds_{}_{}_{}_{}_{}_{}_{}_{}".format(
-            mesh.n2d, left, right, down, up, lonNumber, latNumber, kk
-        )
+    MESH_BASE = os.path.basename(mesh.path)
+    MESH_DIR = mesh.path
+    CACHE_DIR = os.environ.get("PYFESOM_CACHE", os.path.join(os.environ.get("HOME"), ".cache/pyfesom"))
+    CACHE_DIR = os.path.join(CACHE_DIR, MESH_BASE)
 
-        distances_path = os.path.join(basepath, distances_file)
-        inds_path = os.path.join(basepath, inds_file)
+    if not os.path.isdir(CACHE_DIR):
+        os.makedirs(CACHE_DIR)
 
-    if qhull_path is None:
-        qhull_file = "qhull_{}".format(mesh.n2d)
-        qhull_path = os.path.join(basepath, qhull_file)
-    # print distances
+    distances_file = "distances_{}_{}_{}_{}_{}_{}_{}_{}".format(
+        mesh.n2d, left, right, down, up, lonNumber, latNumber, kk
+    )
+    inds_file = "inds_{}_{}_{}_{}_{}_{}_{}_{}".format(
+        mesh.n2d, left, right, down, up, lonNumber, latNumber, kk
+    )
+    qhull_file = "qhull_{}".format(mesh.n2d)
 
+    distances_paths.append(os.path.join(mesh.path, distances_file))
+    distances_paths.append(os.path.join(CACHE_DIR, distances_file))
+
+    inds_paths.append(os.path.join(mesh.path, inds_file))
+    inds_paths.append(os.path.join(CACHE_DIR, inds_file))
+
+    qhull_paths.append(os.path.join(mesh.path, qhull_file))
+    qhull_paths.append(os.path.join(CACHE_DIR, qhull_file))
+
+    if distances_path is not None:
+        distances_paths.insert(0, distances_path)
+
+    if inds_path is not None:
+        inds_paths.insert(0, inds_path)
+
+    if qhull_path is not None:
+        qhull_paths.insert(0, qhull_path)
+
+    loaded_distances = False
+    loaded_inds = False
+    loaded_qhull = False
     if how == "nn":
-        if os.path.isfile(distances_path) and os.path.isfile(distances_path):
-            logging.info(
-                "Note: using precalculated file from {}".format(distances_path)
-            )
-            logging.info("Note: using precalculated file from {}".format(inds_path))
-            distances = joblib.load(distances_path)
-            inds = joblib.load(inds_path)
-        else:
+        for distances_path in distances_paths:
+            if os.path.isfile(distances_path):
+                logging.info(
+                    "Note: using precalculated file from {}".format(distances_path)
+                )
+                try:
+                    distances = joblib.load(distances_path)
+                    loaded_distances = True
+                except PermissionError:
+                    # who knows, something didn't work. Try the next path:
+                    continue
+        for inds_path in inds_paths:
+            if os.path.isfile(inds_path):
+                logging.info("Note: using precalculated file from {}".format(inds_path))
+                try:
+                    inds = joblib.load(inds_path)
+                    loaded_inds = True
+                except PermissionError:
+                    # Same as above...something is wrong
+                    continue
+        if not (loaded_distances and loaded_inds):
             distances, inds = create_indexes_and_distances(
                 mesh, lons, lats, k=kk, n_jobs=n_jobs
             )
             if dumpfile:
-                joblib.dump(distances, distances_path)
-                joblib.dump(inds, inds_path)
+                for distances_path in distances_paths
+                    try:
+                        joblib.dump(distances, distances_path)
+                        break
+                    except PermissionError:
+                        # Couldn't dump the file, try next path
+                        continue
+                for inds_path in inds_paths:
+                    try:
+                        joblib.dump(inds, inds_path)
+                        break
+                    except PermissionError:
+                        # Couldn't dump inds file, try next
+                        continue
 
         data_interpolated = data[inds]
         data_interpolated[distances >= radius_of_influence] = np.nan
@@ -170,20 +217,45 @@ def fesom2regular(
         return data_interpolated
 
     elif how == "idist":
-        if os.path.isfile(distances_path) and os.path.isfile(distances_path):
-            logging.info(
-                "Note: using precalculated file from {}".format(distances_path)
-            )
-            logging.info("Note: using precalculated file from {}".format(inds_path))
-            distances = joblib.load(distances_path)
-            inds = joblib.load(inds_path)
-        else:
+        for distances_path in distances_paths:
+            if os.path.isfile(distances_path):
+                logging.info(
+                    "Note: using precalculated file from {}".format(distances_path)
+                )
+                try:
+                    distances = joblib.load(distances_path)
+                    loaded_distances = True
+                except PermissionError:
+                    # who knows, something didn't work. Try the next path:
+                    continue
+        for inds_path in inds_paths:
+            if os.path.isfile(inds_path):
+                logging.info("Note: using precalculated file from {}".format(inds_path))
+                try:
+                    inds = joblib.load(inds_path)
+                    loaded_inds = True
+                except PermissionError:
+                    # Same as above...something is wrong
+                    continue
+        if not (loaded_distances and loaded_inds):
             distances, inds = create_indexes_and_distances(
                 mesh, lons, lats, k=kk, n_jobs=n_jobs
             )
             if dumpfile:
-                joblib.dump(distances, distances_path)
-                joblib.dump(inds, inds_path)
+                for distances_path in distances_paths
+                    try:
+                        joblib.dump(distances, distances_path)
+                        break
+                    except PermissionError:
+                        # Couldn't dump the file, try next path
+                        continue
+                for inds_path in inds_paths:
+                    try:
+                        joblib.dump(inds, inds_path)
+                        break
+                    except PermissionError:
+                        # Couldn't dump inds file, try next
+                        continue
 
         distances_ma = np.ma.masked_greater(distances, radius_of_influence)
 
@@ -194,27 +266,53 @@ def fesom2regular(
         return data_interpolated
 
     elif how == "linear":
-        if os.path.isfile(qhull_path):
-            logging.info("Note: using precalculated file from {}".format(qhull_path))
-            qh = joblib.load(qhull_path)
-        else:
+        for qhull_path in qhull_paths:
+            if os.path.isfile(distances_path):
+                logging.info(
+                    "Note: using precalculated file from {}".format(distances_path)
+                )
+                logging.info("Note: using precalculated file from {}".format(qhull_path))
+                try:
+                    qh = joblib.load(qhull_path)
+                    loaded_qhull = True
+                except PermissionError:
+                    # who knows, something didn't work. Try the next path:
+                    continue
+        if not loaded_qhull:
             points = np.vstack((mesh.x2, mesh.y2)).T
             qh = qhull.Delaunay(points)
             if dumpfile:
-                joblib.dump(qh, qhull_path)
+                for qhull_path in qhull_paths:
+                    try:
+                        joblib.dump(qh, qhull_path)
+                    except PermissionError:
+                        continue
         data_interpolated = LinearNDInterpolator(qh, data)((lons, lats))
         data_interpolated = np.ma.masked_invalid(data_interpolated)
         return data_interpolated
 
     elif how == "cubic":
-        if os.path.isfile(qhull_path):
-            logging.info("Note: using precalculated file from {}".format(qhull_path))
-            qh = joblib.load(qhull_path)
-        else:
+        for qhull_path in qhull_paths:
+            if os.path.isfile(distances_path):
+                logging.info(
+                    "Note: using precalculated file from {}".format(distances_path)
+                )
+                logging.info("Note: using precalculated file from {}".format(qhull_path))
+                try:
+                    qh = joblib.load(qhull_path)
+                    loaded_qhull = True
+                except PermissionError:
+                    # who knows, something didn't work. Try the next path:
+                    continue
+        if not loaded_qhull:
             points = np.vstack((mesh.x2, mesh.y2)).T
             qh = qhull.Delaunay(points)
             if dumpfile:
-                joblib.dump(qh, qhull_path)
+                for qhull_path in qhull_paths:
+                    try:
+                        joblib.dump(qh, qhull_path)
+                    except PermissionError:
+                        continue
         data_interpolated = CloughTocher2DInterpolator(qh, data)((lons, lats))
         data_interpolated = np.ma.masked_invalid(data_interpolated)
         return data_interpolated
@@ -527,7 +625,7 @@ def tonodes(component, mesh):
         1D data on elements
     mesh: mesh object
         FESOM2 mesh object
-    
+
     Returns
     -------
     onnodes: np.array
@@ -575,7 +673,7 @@ def tonodes3d(component, mesh):
         2D data (elements, levels) on elements
     mesh: mesh object
         FESOM2 mesh object
-    
+
     Returns
     -------
     out_data: np.array
