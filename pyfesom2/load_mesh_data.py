@@ -67,14 +67,18 @@ def load_mesh(path, abg=[0, 0, 0], usepickle=True, usejoblib=False, protocol=4):
     elif (usepickle == True) and (os.path.isfile(pickle_file) == False):
         print("The usepickle == True")
         print("The pickle file for FESOM2 DO NOT exists")
-        print("The mesh will be saved to {}".format(pickle_file))
 
         mesh = fesom_mesh(path=path, abg=abg)
-        logging.info("Use pickle to save the mesh information")
-        print("Save mesh to binary format")
-        outfile = open(pickle_file, "wb")
-        pickle.dump(mesh, outfile, protocol=protocol)
-        outfile.close()
+
+        try:
+            print("The mesh will be saved to {}".format(pickle_file))
+            logging.info("Use pickle to save the mesh information")
+            print("Save mesh to binary format")
+            outfile = open(pickle_file, "wb")
+            pickle.dump(mesh, outfile, protocol=protocol)
+            outfile.close()
+        except: # I think it's PermissionError, but not sure. For now, just catch everything (bad idea)
+            print("Something went wrong with saving the pickle, sorry...")
         return mesh
 
     elif (usepickle == False) and (usejoblib == False):
@@ -92,13 +96,16 @@ def load_mesh(path, abg=[0, 0, 0], usepickle=True, usejoblib=False, protocol=4):
     elif (usejoblib == True) and (os.path.isfile(joblib_file) == False):
         print("The usejoblib == True")
         print("The joblib file for FESOM2 DO NOT exists")
-        print("The mesh will be saved to {}".format(joblib_file))
-
+        
         mesh = fesom_mesh(path=path, abg=abg)
-        logging.info("Use joblib to save the mesh information")
-        print("Save mesh to binary format")
-        joblib.dump(mesh, joblib_file)
-
+        
+        try:
+            print("The mesh will be saved to {}".format(joblib_file))
+            logging.info("Use joblib to save the mesh information")
+            print("Save mesh to binary format")
+            joblib.dump(mesh, joblib_file)
+        except: # I think it's PermissionError, but not sure. For now, just catch everything (bad idea)
+            print("Something went wrong with saving the joblib, sorry...")
         return mesh
 
 
