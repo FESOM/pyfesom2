@@ -178,6 +178,7 @@ def fesom2regular(
                 try:
                     distances = joblib.load(distances_path)
                     loaded_distances = True
+                    break
                 except PermissionError:
                     # who knows, something didn't work. Try the next path:
                     continue
@@ -187,6 +188,7 @@ def fesom2regular(
                 try:
                     inds = joblib.load(inds_path)
                     loaded_inds = True
+                    break
                 except PermissionError:
                     # Same as above...something is wrong
                     continue
@@ -225,6 +227,7 @@ def fesom2regular(
                 try:
                     distances = joblib.load(distances_path)
                     loaded_distances = True
+                    break
                 except PermissionError:
                     # who knows, something didn't work. Try the next path:
                     continue
@@ -234,6 +237,7 @@ def fesom2regular(
                 try:
                     inds = joblib.load(inds_path)
                     loaded_inds = True
+                    break
                 except PermissionError:
                     # Same as above...something is wrong
                     continue
@@ -275,6 +279,7 @@ def fesom2regular(
                 try:
                     qh = joblib.load(qhull_path)
                     loaded_qhull = True
+                    break
                 except PermissionError:
                     # who knows, something didn't work. Try the next path:
                     continue
@@ -301,6 +306,7 @@ def fesom2regular(
                 try:
                     qh = joblib.load(qhull_path)
                     loaded_qhull = True
+                    break
                 except PermissionError:
                     # who knows, something didn't work. Try the next path:
                     continue
