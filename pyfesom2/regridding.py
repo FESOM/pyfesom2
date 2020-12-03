@@ -134,7 +134,7 @@ def fesom2regular(
 
     MESH_BASE = os.path.basename(mesh.path)
     MESH_DIR = mesh.path
-    CACHE_DIR = os.environ.get("PYFESOM_CACHE", os.path.join(os.environ.get("HOME"), ".cache/pyfesom"))
+    CACHE_DIR = os.environ.get("PYFESOM_CACHE", os.path.join(os.getcwd(), "MESH_cache"))
     CACHE_DIR = os.path.join(CACHE_DIR, MESH_BASE)
 
     if not os.path.isdir(CACHE_DIR):
@@ -157,6 +157,7 @@ def fesom2regular(
     qhull_paths.append(os.path.join(mesh.path, qhull_file))
     qhull_paths.append(os.path.join(CACHE_DIR, qhull_file))
 
+    # if distances_path is provided, use it first
     if distances_path is not None:
         distances_paths.insert(0, distances_path)
 
@@ -271,9 +272,9 @@ def fesom2regular(
 
     elif how == "linear":
         for qhull_path in qhull_paths:
-            if os.path.isfile(distances_path):
+            if os.path.isfile(qhull_path):
                 logging.info(
-                    "Note: using precalculated file from {}".format(distances_path)
+                    "Note: using precalculated file from {}".format(qhull_path)
                 )
                 logging.info("Note: using precalculated file from {}".format(qhull_path))
                 try:
@@ -298,9 +299,9 @@ def fesom2regular(
 
     elif how == "cubic":
         for qhull_path in qhull_paths:
-            if os.path.isfile(distances_path):
+            if os.path.isfile(qhull_path):
                 logging.info(
-                    "Note: using precalculated file from {}".format(distances_path)
+                    "Note: using precalculated file from {}".format(qhull_path)
                 )
                 logging.info("Note: using precalculated file from {}".format(qhull_path))
                 try:

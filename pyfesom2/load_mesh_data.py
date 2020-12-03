@@ -47,7 +47,7 @@ def load_mesh(path, abg=[0, 0, 0], usepickle=True, usejoblib=False, protocol=4):
             "Both `usepickle` and `usejoblib` set to True, select only one"
         )
 
-    CACHE_DIR = os.environ.get("PYFESOM_CACHE", os.path.join(os.environ.get("HOME"), ".cache/pyfesom"))
+    CACHE_DIR = os.environ.get("PYFESOM_CACHE", os.path.join(os.getcwd(), "MESH_cache"))
     MESH_NAME = os.path.basename(path)
     CACHE_DIR = os.path.join(CACHE_DIR, MESH_NAME)
     if not os.path.isdir(CACHE_DIR):
