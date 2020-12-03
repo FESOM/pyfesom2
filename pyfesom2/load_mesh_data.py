@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 #
 # This file is part of pyfesom2
-# Original code by Dmitry Sidorenko, Nikolay Koldunov, 
+# Original code by Dmitry Sidorenko, Nikolay Koldunov,
 # Qiang Wang, Sergey Danilov and Patrick Scholz
 #
 
@@ -47,12 +47,33 @@ def load_mesh(path, abg=[0, 0, 0], usepickle=True, usejoblib=False, protocol=4):
             "Both `usepickle` and `usejoblib` set to True, select only one"
         )
 
+    CACHE_DIR = os.environ.get("PYFESOM_CACHE", os.path.join(os.getcwd(), "MESH_cache"))
+    MESH_NAME = os.path.basename(path)
+    CACHE_DIR = os.path.join(CACHE_DIR, MESH_NAME)
+    if not os.path.isdir(CACHE_DIR):
+        os.makedirs(CACHE_DIR)
+
     if usepickle:
-        pickle_file = os.path.join(path, "pickle_mesh_py3_fesom2")
-        print(pickle_file)
+        if os.path.isfile(os.path.join(path, "pickle_mesh_py3_fesom2")):
+            pickle_file = os.path.join(path, "pickle_mesh_py3_fesom2")
+            print(pickle_file)
+        elif os.path.isfile(os.path.join(CACHE_DIR, "pickle_mesh_py3_fesom2")):
+            pickle_file = os.path.join(CACHE_DIR, "pickle_mesh_py3_fesom2")
+            print(pickle_file)
+        else:
+            pickle_file = "/dev/null"
+            print("pickle file not found in any default location, a try will be made to create it...")
 
     if usejoblib:
-        joblib_file = os.path.join(path, "joblib_mesh_fesom2")
+        if os.path.isfile(os.path.join(path, "joblib_mesh_py3_fesom2")):
+            joblib_file = os.path.join(path, "joblib_mesh_py3_fesom2")
+            print(joblib_file)
+        elif os.path.isfile(os.path.join(CACHE_DIR, "joblib_mesh_py3_fesom2")):
+            joblib_file = os.path.join(CACHE_DIR, "joblib_mesh_py3_fesom2")
+            print(joblib_file)
+        else:
+            joblib_file = "/dev/null"  # Use a string here, the check below needs it
+            print("joblib file not found in any default location, a try will be made to create it...")
 
     if usepickle and (os.path.isfile(pickle_file)):
         print("The usepickle == True)")
@@ -67,14 +88,28 @@ def load_mesh(path, abg=[0, 0, 0], usepickle=True, usejoblib=False, protocol=4):
     elif (usepickle == True) and (os.path.isfile(pickle_file) == False):
         print("The usepickle == True")
         print("The pickle file for FESOM2 DO NOT exists")
-        print("The mesh will be saved to {}".format(pickle_file))
 
         mesh = fesom_mesh(path=path, abg=abg)
-        logging.info("Use pickle to save the mesh information")
-        print("Save mesh to binary format")
-        outfile = open(pickle_file, "wb")
-        pickle.dump(mesh, outfile, protocol=protocol)
-        outfile.close()
+
+        try: # to save in the mesh first...
+            pickle_file = os.path.join(path, "pickle_mesh_py3_fesom2")
+            print("The mesh will be saved to {}".format(pickle_file))
+            logging.info("Use pickle to save the mesh information")
+            print("Save mesh to binary format")
+            outfile = open(pickle_file, "wb")
+            pickle.dump(mesh, outfile, protocol=protocol)
+            outfile.close()
+        except PermissionError:
+            try: # to save in the cache next...
+                pickle_file = os.path.join(CACHE_DIR, "pickle_mesh_py3_fesom2")
+                print("The mesh will be saved to {}".format(pickle_file))
+                logging.info("Use pickle to save the mesh information")
+                print("Save mesh to binary format")
+                outfile = open(pickle_file, "wb")
+                pickle.dump(mesh, outfile, protocol=protocol)
+                outfile.close()
+            except PermissionError: # couldn't save in either location...
+                print("Something went wrong with saving the pickle, sorry...")
         return mesh
 
     elif (usepickle == False) and (usejoblib == False):
@@ -92,13 +127,28 @@ def load_mesh(path, abg=[0, 0, 0], usepickle=True, usejoblib=False, protocol=4):
     elif (usejoblib == True) and (os.path.isfile(joblib_file) == False):
         print("The usejoblib == True")
         print("The joblib file for FESOM2 DO NOT exists")
-        print("The mesh will be saved to {}".format(joblib_file))
 
         mesh = fesom_mesh(path=path, abg=abg)
-        logging.info("Use joblib to save the mesh information")
-        print("Save mesh to binary format")
-        joblib.dump(mesh, joblib_file)
 
+        try: # to save in the mesh first...
+            joblib_file = os.path.join(path, "joblib_mesh_py3_fesom2")
+            print("The mesh will be saved to {}".format(joblib_file))
+            logging.info("Use joblib to save the mesh information")
+            print("Save mesh to binary format")
+            outfile = open(joblib_file, "wb")
+            joblib.dump(mesh, outfile, protocol=protocol)
+            outfile.close()
+        except PermissionError:
+            try: # to save in the cache next...
+                joblib_file = os.path.join(CACHE_DIR, "joblib_mesh_py3_fesom2")
+                print("The mesh will be saved to {}".format(joblib_file))
+                logging.info("Use joblib to save the mesh information")
+                print("Save mesh to binary format")
+                outfile = open(joblib_file, "wb")
+                joblib.dump(mesh, outfile, protocol=protocol)
+                outfile.close()
+            except PermissionError: # couldn't save in either location...
+                print("Something went wrong with saving the joblib, sorry...")
         return mesh
 
 
