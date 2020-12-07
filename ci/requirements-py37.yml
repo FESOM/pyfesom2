@@ -19,4 +19,8 @@ dependencies:
   - cmocean
   - xarray
   - dask
-  
+  - fsspec
+  - zarr
+  - aiohttp
+  - requests
+
