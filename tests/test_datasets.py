@@ -1,14 +1,16 @@
 from pyfesom2 import datasets
 import xarray as xr
+import pytest
 
 
-def test_lcore():
-    lcore_dataset_dict = datasets.datasets_dict['LCORE']
-    lcore_dataset = datasets.LCORE.load()
-    assert isinstance(lcore_dataset, xr.Dataset)
-    assert all([var in lcore_dataset.data_vars for var in lcore_dataset_dict['vars']])
+@pytest.fixture(scope="module", params=[datasets.LCORE, datasets.A01])
+def dataset(request):
+    da = request.param.load()
+    yield da
 
-def test_a01():
-    a01_dataset = datasets.A01.load()
-    assert isinstance(lcore_dataset, xr.Dataset)
 
+def test_dataset(dataset):
+    assert isinstance(dataset, xr.Dataset)
+    assert "nod2" in dataset.dims
+    assert all([coord in dataset.coords for coord in ["lon", "lat"]])
+    assert "Dataset URL" in dataset.attrs
