@@ -1,6 +1,9 @@
-import xarray as xr
-import pyfesom2 as pf
 from typing import Sequence
+
+import xarray as xr
+
+import pyfesom2 as pf
+
 datasets_dict = {"LCORE":
                      {"path": "https://swift.dkrz.de/v1/dkrz_02942825-0cab-44f3-ad37-80fd5d2e37e3/FESOM2_data/LCORE",
                       "user_path": "https://swiftbrowser.dkrz.de/objects/FESOM2_data/LCORE",
