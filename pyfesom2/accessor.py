@@ -1,12 +1,11 @@
 ## support sel on remote
 ## and opened dataset
-from typing import Union, List, Sequence as SequenceType
+from collections.abc import Sequence  # python>3.3?
+from typing import Union, Sequence as SequenceType
+
 import numpy as np
 import xarray as xr
-from shapely.geometry import MultiPoint, MultiPolygon, Polygon, box, asMultiPoint
-
-from collections.abc import Sequence # python>3.3?
-
+from shapely.geometry import MultiPoint, MultiPolygon, Polygon, box
 
 # FESOMDataset
 
@@ -56,19 +55,18 @@ class FESOMDataArray(object):
 
         if self._mesh_as_mp is None:
             self._mesh_as_mp = MultiPoint(self.stacked_data.nod2.values.T)
-            #self._mesh_as_mp = asMultiPoint(self.stacked_data.nod2.values.T) # faster
+            # self._mesh_as_mp = asMultiPoint(self.stacked_data.nod2.values.T) # faster
 
         # sel by index
         # inds = [i for i, pt in enumerate(self._mesh_as_mp) if pt.within(sel_polygon)]
         # #inds = list(set(inds)) # there are a few grids with dulplicates
         # return self.stacked_data.isel(nod2=inds)
 
-
         sel_indexer = np.asarray(self._mesh_as_mp.intersection(sel_polygon))
         sel_indexer = list((lo, la) for lo, la in sel_indexer)
-        #sel_indexer = list(set((lo, la) for lo, la in sel_indexer))  # removing duplicates
+        # sel_indexer = list(set((lo, la) for lo, la in sel_indexer))  # removing duplicates
 
-        if len(sel_indexer)==0:
+        if len(sel_indexer) == 0:
             raise Exception('No region found')
 
         return self._xrobj_stacked.sel(nod2=sel_indexer)
@@ -85,7 +83,7 @@ class FESOMDataArray(object):
         dst_pts = geodetic_crs.transform_points(geodetic_crs, np.array(lon), np.array(lat))
 
         if tolerance is None:
-        # query is faster when no tolerance is specified
+            # query is faster when no tolerance is specified
             _, ind = self._tree.query(dst_pts)
         else:
             inds = self._tree.query_ball_point(dst_pts, r=tolerance, n_jobs=-1)[0]
@@ -116,7 +114,7 @@ class FESOMDataArray(object):
         if not method == "nearest":
             raise NotImplementedError("Only nearest method is currently supported")
         if (lat_indexer or lon_indexer) and (region is not None or path is not None):
-            #TODO: do this combinations better, doesn't check if path and region are both given
+            # TODO: do this combinations better, doesn't check if path and region are both given
             raise Exception("Onlu one option: lat, lon as indexer or path or region is supported")
 
         if lat_indexer or lon_indexer:
@@ -137,8 +135,28 @@ class FESOMDataArray(object):
     def isel(self, **indexers):
         return self._xrobj.isel(**indexers)
 
-    def plot_map(self):
-        pass
+    def plot_map(self, *args, **kwargs):
+        import cartopy.crs as ccrs
+        import matplotlib.pyplot as plt
+        from matplotlib.tri import Triangulation
+
+        data = self._xrobj.squeeze()
+        if len(data.dims) > 1 or "nod2" not in data.dims:
+            raise Exception('Not a spatial dataset')
+
+        projection = kwargs.pop('projection', ccrs.PlateCarree())
+        ax = kwargs.pop('ax', plt.axes(projection=projection))
+
+        minv, maxv = data.min().values, data.max().values
+        tri = Triangulation(data.lon.values.ravel(), data.lat.values.ravel())
+        data = data.fillna(minv - 9999)  # make sure it is out of data bounds
+        levels = kwargs.pop('levels', np.linspace(minv, maxv, 100))
+        colorbar = kwargs.pop('colorbar', True)
+        pl = ax.tripcolor(tri, data.values.ravel(), levels=levels, transform=ccrs.PlateCarree(), *args, **kwargs)
+
+        if colorbar:
+            plt.colorbar(pl, ax=ax)
+        return pl
 
     def plot_transect(self):
         pass
@@ -148,4 +166,3 @@ class FESOMDataArray(object):
 
     def regrid_like(self):
         raise NotImplementedError
-
