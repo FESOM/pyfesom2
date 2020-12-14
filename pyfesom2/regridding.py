@@ -303,7 +303,9 @@ def fesom2regular(
                 logging.info(
                     "Note: using precalculated file from {}".format(qhull_path)
                 )
-                logging.info("Note: using precalculated file from {}".format(qhull_path))
+                logging.info(
+                    "Note: using precalculated file from {}".format(qhull_path)
+                )
                 try:
                     qh = joblib.load(qhull_path)
                     loaded_qhull = True
