@@ -276,7 +276,6 @@ def fesom2regular(
                 logging.info(
                     "Note: using precalculated file from {}".format(qhull_path)
                 )
-                logging.info("Note: using precalculated file from {}".format(qhull_path))
                 try:
                     qh = joblib.load(qhull_path)
                     loaded_qhull = True
@@ -291,6 +290,7 @@ def fesom2regular(
                 for qhull_path in qhull_paths:
                     try:
                         joblib.dump(qh, qhull_path)
+                        break
                     except PermissionError:
                         continue
         data_interpolated = LinearNDInterpolator(qh, data)((lons, lats))
@@ -318,6 +318,7 @@ def fesom2regular(
                 for qhull_path in qhull_paths:
                     try:
                         joblib.dump(qh, qhull_path)
+                        break
                     except PermissionError:
                         continue
         data_interpolated = CloughTocher2DInterpolator(qh, data)((lons, lats))
