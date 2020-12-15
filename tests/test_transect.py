@@ -23,7 +23,7 @@ my_data_folder = os.path.join(THIS_DIR, "data")
 def test_get_transect():
 
     mesh_path = os.path.join(my_data_folder, "pi-grid")
-    mesh = load_mesh(mesh_path, abg=[50, 15, -90], usepickle=False, usejoblib=False)
+    mesh = load_mesh(mesh_path, usepickle=False, usejoblib=False)
     data_path = os.path.join(my_data_folder, "pi-results")
     data = get_data(data_path, "temp", [1948, 1949], mesh)
 
@@ -38,13 +38,14 @@ def test_get_transect():
     assert dist.max() == pytest.approx(258.87327988009883)
     assert dist.min() == 0
     assert transect_data.shape == (30, 47)
-    assert transect_data.min() == pytest.approx(-1.446849)
-    assert transect_data.max() == pytest.approx(0.38322645)
+    assert transect_data.min() == pytest.approx(-1.4216826)
+    assert transect_data.max() == pytest.approx(0.40222126)
+
 
 def test_get_transect_uv():
 
     mesh_path = os.path.join(my_data_folder, "pi-grid")
-    mesh = load_mesh(mesh_path, abg=[50, 15, -90], usepickle=False, usejoblib=False)
+    mesh = load_mesh(mesh_path, usepickle=False, usejoblib=False)
     data_path = os.path.join(my_data_folder, "pi-results")
     u = get_data(data_path, "u", [1948, 1949], mesh)
     v = get_data(data_path, "v", [1948, 1949], mesh)
@@ -60,20 +61,20 @@ def test_get_transect_uv():
 
     dist, rot_u, rot_v = get_transect_uv(u_nodes, v_nodes, mesh, lonlat, myangle=0)
 
-    assert dist.shape == (30.,)
-    assert rot_u.shape == (30,47)
-    assert rot_v.shape == (30,47)
-    assert rot_u.max() == pytest.approx(0.012118130919170302)
-    assert rot_u.min() == pytest.approx(-0.010595729181566588)
-    assert rot_v.max() == pytest.approx(0.014261195850716241)
-    assert rot_v.min() == pytest.approx(-0.0024032835331608696)
+    assert dist.shape == (30.0,)
+    assert rot_u.shape == (30, 47)
+    assert rot_v.shape == (30, 47)
+    assert rot_u.max() == pytest.approx(0.016885495243838144)
+    assert rot_u.min() == pytest.approx(-0.013676035556593993)
+    assert rot_v.max() == pytest.approx(0.010371393063137307)
+    assert rot_v.min() == pytest.approx(-0.0059979217658977626)
 
-    dist, rot_u_90, rot_v_90 = get_transect_uv(u_nodes, v_nodes, mesh, lonlat, myangle=90)
+    dist, rot_u_90, rot_v_90 = get_transect_uv(
+        u_nodes, v_nodes, mesh, lonlat, myangle=90
+    )
 
-    assert rot_u_90.max() == pytest.approx(0.014261195850716241)
-    assert rot_u_90.min() == pytest.approx(-0.0024032835331608696)
-    assert rot_v_90.max() == pytest.approx(0.012118130919170302) 
-    assert rot_v_90.min() == pytest.approx(-0.010595729181566588)
-
-
+    assert rot_u_90.max() == pytest.approx(0.010371393063137307)
+    assert rot_u_90.min() == pytest.approx(-0.005997921765897762)
+    assert rot_v_90.max() == pytest.approx(0.016885495243838144)
+    assert rot_v_90.min() == pytest.approx(-0.013676035556593993)
 
