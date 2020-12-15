@@ -46,7 +46,7 @@ def test_get_plot_levels():
     assert data_levels[3] == 50
 
 
-# @pytest.mark.skip(reason="slow")
+@pytest.mark.skip(reason="slow")
 def test_plot():
     mesh_path = os.path.join(my_data_folder, "pi-grid")
     data_path = os.path.join(my_data_folder, "pi-results")
