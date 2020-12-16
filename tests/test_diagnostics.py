@@ -33,29 +33,29 @@ def test_ice_integrals():
 
     data = get_data(data_path, "a_ice", 1948, mesh, depth=0, compute=False)
     ext = ice_ext(data, mesh)
-    assert ext.data[0] == pytest.approx(12710587600895.246)
+    assert ext.data[0] == pytest.approx(13656313334840.105)
 
     data = get_data(data_path, "a_ice", 1948, mesh, depth=0, compute=False)
     area = ice_area(data, mesh)
 
-    assert area.data[0] == pytest.approx(9066097785122.738)
+    assert area.data[0] == pytest.approx(10708206543060.156)
 
     data = get_data(data_path, "m_ice", 1948, mesh, depth=0, compute=False)
     vol = ice_vol(data, mesh)
 
-    assert vol.data[0] == pytest.approx(13403821068217.506)
+    assert vol.data[0] == pytest.approx(16189298440676.988)
 
     # work with xarray as input
     data = get_data(data_path, "a_ice", 1948, mesh, depth=0, how="ori", compute=False)
     ext = ice_ext(data, mesh)
     area = ice_area(data, mesh)
 
-    assert ext.data[0] == pytest.approx(12710587600895.246)
-    assert area.data[0] == pytest.approx(9066097785122.738)
+    assert ext.data[0] == pytest.approx(13656313334840.105)
+    assert area.data[0] == pytest.approx(10708206543060.156)
 
     data = get_data(data_path, "m_ice", 1948, mesh, depth=0, how="ori", compute=False)
     vol = ice_vol(data, mesh)
-    assert vol.data[0] == pytest.approx(13403821068217.506)
+    assert vol.data[0] == pytest.approx(16189298440676.988)
 
     # work with numpy array as input
     data = get_data(data_path, "a_ice", 1948, mesh, depth=0, how="ori", compute=True)
@@ -66,12 +66,12 @@ def test_ice_integrals():
     data = get_data(data_path, "a_ice", 1948, mesh, depth=0, how="ori", compute=True)
     area = ice_area(data, mesh)
 
-    assert ext.data[0] == pytest.approx(12710587600895.246)
-    assert area.data[0] == pytest.approx(9066097785122.738)
+    assert ext.data[0] == pytest.approx(13656313334840.105)
+    assert area.data[0] == pytest.approx(10708206543060.156)
 
     data = get_data(data_path, "m_ice", 1948, mesh, depth=0, how="ori", compute=True)
     vol = ice_vol(data, mesh)
-    assert vol.data[0] == pytest.approx(13403821068217.506)
+    assert vol.data[0] == pytest.approx(16189298440676.988)
 
 
 def test_get_meshdiag():
@@ -95,14 +95,14 @@ def test_hovm_data():
     hovm = hovm_data(data, mesh)
     hovm_masked = hovm_data(data, mesh, mask=mesh.y2 > 65)
     assert hovm.shape == (1, 47)
-    assert np.nanmean(hovm) == pytest.approx(7.446110751429013)
-    assert np.nanmean(hovm_masked) == pytest.approx(1.5497698038738918)
+    assert np.nanmean(hovm) == pytest.approx(7.7563997379730605)
+    assert np.nanmean(hovm_masked) == pytest.approx(-0.27283833841571203)
 
     # hovm first, then mean
     data = get_data(data_path, "temp", [1948, 1949], mesh, how="ori", compute=False)
     hovm = hovm_data(data, mesh)
     assert hovm.shape == (2, 47)
-    assert np.nanmean(hovm) == pytest.approx(7.446110751429013)
+    assert np.nanmean(hovm) == pytest.approx(7.756399738063542)
 
     # work on numpy array
     # mean first, the hovm
@@ -110,25 +110,25 @@ def test_hovm_data():
     hovm = hovm_data(data, mesh)
     hovm_masked = hovm_data(data, mesh, mask=mesh.y2 > 65)
     assert hovm.shape == (1, 47)
-    assert np.nanmean(hovm) == pytest.approx(7.446110751429013)
-    assert np.nanmean(hovm_masked) == pytest.approx(1.5497698038738918)
+    assert np.nanmean(hovm) == pytest.approx(7.756399738063542)
+    assert np.nanmean(hovm_masked) == pytest.approx(-0.27283833841571203)
 
     # hovm first, then mean
     data = get_data(data_path, "temp", [1948, 1949], mesh, how="ori", compute=True)
     hovm = hovm_data(data, mesh)
     assert hovm.shape == (2, 47)
-    assert np.nanmean(hovm) == pytest.approx(7.446110751429013)
+    assert np.nanmean(hovm) == pytest.approx(7.756399738063542)
 
     # test when only 1 time step of 3d field is in input
     data = get_data(data_path, "temp", [1948], mesh, how="mean", compute=False)
     hovm = hovm_data(data, mesh)
     assert hovm.shape == (1, 47)
-    assert np.nanmean(hovm) == pytest.approx(7.440160989229884)
+    assert np.nanmean(hovm) == pytest.approx(7.78673421084356)
 
     data = get_data(data_path, "temp", [1948], mesh, how="mean", compute=True)
     hovm = hovm_data(data, mesh)
     assert hovm.shape == (1, 47)
-    assert np.nanmean(hovm) == pytest.approx(7.440160989229884)
+    assert np.nanmean(hovm) == pytest.approx(7.78673421084356)
 
     # if we try to supply 2d variable
     with pytest.raises(ValueError):
@@ -160,47 +160,47 @@ def test_volmean_data():
     data = get_data(data_path, "temp", [1948, 1949], mesh, how="ori", compute=False)
     result = volmean_data(data, mesh)
     result_masked = volmean_data(data, mesh, mask=mesh.y2 > 65)
-    assert np.nanmean(result) == pytest.approx(3.3736459180632776)
-    assert np.nanmean(result_masked) == pytest.approx(1.417763437740272)
+    assert np.nanmean(result) == pytest.approx(3.7119907192642083)
+    assert np.nanmean(result_masked) == pytest.approx(-0.24242712456137577)
 
     # one point
     data = get_data(data_path, "temp", [1948], mesh, how="ori", compute=False)
     result = volmean_data(data, mesh)
-    assert np.nanmean(result) == pytest.approx(3.4039440198518953)
+    assert np.nanmean(result) == pytest.approx(3.7117417568686895)
 
     data = get_data(data_path, "temp", [1948, 1949], mesh, how="mean", compute=False)
     result = volmean_data(data, mesh)
-    assert np.nanmean(result) == pytest.approx(3.3736459180632776)
+    assert np.nanmean(result) == pytest.approx(3.711990719686431)
 
     # numpy array as input
     # time series
     data = get_data(data_path, "temp", [1948, 1949], mesh, how="ori", compute=True)
     result = volmean_data(data, mesh)
     result_masked = volmean_data(data, mesh, mask=mesh.y2 > 65)
-    assert np.nanmean(result) == pytest.approx(3.3736459180632776)
-    assert np.nanmean(result_masked) == pytest.approx(1.417763437740272)
+    assert np.nanmean(result) == pytest.approx(3.7119907192642083)
+    assert np.nanmean(result_masked) == pytest.approx(-0.24242712456137577)
 
     # one point
     data = get_data(data_path, "temp", [1948], mesh, how="ori", compute=True)
     result = volmean_data(data, mesh)
-    assert np.nanmean(result) == pytest.approx(3.4039440198518953)
+    assert np.nanmean(result) == pytest.approx(3.7117417568686895)
 
     data = get_data(data_path, "temp", [1948, 1949], mesh, how="mean", compute=True)
     result = volmean_data(data, mesh)
-    assert np.nanmean(result) == pytest.approx(3.3736459180632776)
+    assert np.nanmean(result) == pytest.approx(3.7119907192642083)
 
     # different depth ranges
     data = get_data(data_path, "temp", [1948], mesh, how="ori", compute=False)
     result = volmean_data(data, mesh, [0, 100])
-    assert np.nanmean(result) == pytest.approx(16.26645462001221)
+    assert np.nanmean(result) == pytest.approx(16.388829528613066)
 
     data = get_data(data_path, "temp", [1948], mesh, how="ori", compute=False)
     result = volmean_data(data, mesh, [0, "bottom"])
-    assert np.nanmean(result) == pytest.approx(3.4039440198518953)
+    assert np.nanmean(result) == pytest.approx(3.7117417568686895)
 
     data = get_data(data_path, "temp", [1948], mesh, how="ori", compute=False)
     result = volmean_data(data, mesh, [500, 500])
-    assert np.nanmean(result) == pytest.approx(6.339069486142839)
+    assert np.nanmean(result) == pytest.approx(7.0047902390234436)
 
 
 def test_xmoc_data():
@@ -211,43 +211,43 @@ def test_xmoc_data():
     # xarray as input
     data = get_data(data_path, "w", [1948], mesh, how="mean", compute=False)
     lats, moc = xmoc_data(mesh, data)
-    assert moc.mean() == pytest.approx(-5.283107985611987)
-    assert moc.max() == pytest.approx(32.49306582121843)
-    assert moc.min() == pytest.approx(-79.29266240207812)
+    assert moc.mean() == pytest.approx(2.5417427238839436)
+    assert moc.max() == pytest.approx(26.160841524062885)
+    assert moc.min() == pytest.approx(-35.76228176634966)
 
     # numpy as input
     data = get_data(data_path, "w", [1948], mesh, how="mean", compute=True)
     lats, moc = xmoc_data(mesh, data)
-    assert moc.mean() == pytest.approx(-5.283107985611987)
-    assert moc.max() == pytest.approx(32.49306582121843)
-    assert moc.min() == pytest.approx(-79.29266240207812)
+    assert moc.mean() == pytest.approx(2.5417427238839436)
+    assert moc.max() == pytest.approx(26.160841524062885)
+    assert moc.min() == pytest.approx(-35.76228176634966)
 
     # masked
     # xarray as input
     data = get_data(data_path, "w", [1948], mesh, how="mean", compute=False)
     lats, moc = xmoc_data(mesh, data, mask="Atlantic_MOC")
-    assert moc.mean() == pytest.approx(-6.4900976496575975)
-    assert moc.max() == pytest.approx(19.88617032403639)
-    assert moc.min() == pytest.approx(-49.8639074605277)
+    assert moc.mean() == pytest.approx(3.4352916853229294)
+    assert moc.max() == pytest.approx(15.208553641115678)
+    assert moc.min() == pytest.approx(-3.4331143935101145)
 
     # numpy as input
     data = get_data(data_path, "w", [1948], mesh, how="mean", compute=True)
     lats, moc = xmoc_data(mesh, data, mask="Atlantic_MOC")
-    assert moc.mean() == pytest.approx(-6.4900976496575975)
-    assert moc.max() == pytest.approx(19.88617032403639)
-    assert moc.min() == pytest.approx(-49.8639074605277)
+    assert moc.mean() == pytest.approx(3.4352916853229294)
+    assert moc.max() == pytest.approx(15.208553641115678)
+    assert moc.min() == pytest.approx(-3.4331143935101145)
 
     # different nlats
     # xarray as input
     data = get_data(data_path, "w", [1948], mesh, how="mean", compute=False)
     lats, moc = xmoc_data(mesh, data, nlats=30)
-    assert moc.mean() == pytest.approx(-5.5225348525691)
-    assert moc.max() == pytest.approx(32.37976644734857)
-    assert moc.min() == pytest.approx(-80.2349660966104)
+    assert moc.mean() == pytest.approx(2.471874164570943)
+    assert moc.max() == pytest.approx(25.358106934063304)
+    assert moc.min() == pytest.approx(-35.02300625098337)
 
     # numpy as input
     data = get_data(data_path, "w", [1948], mesh, how="mean", compute=True)
     lats, moc = xmoc_data(mesh, data, nlats=30)
-    assert moc.mean() == pytest.approx(-5.5225348525691)
-    assert moc.max() == pytest.approx(32.37976644734857)
-    assert moc.min() == pytest.approx(-80.2349660966104)
+    assert moc.mean() == pytest.approx(2.471874164570943)
+    assert moc.max() == pytest.approx(25.358106934063304)
+    assert moc.min() == pytest.approx(-35.02300625098337)
