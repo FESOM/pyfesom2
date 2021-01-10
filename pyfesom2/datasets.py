@@ -3,6 +3,7 @@ from typing import Sequence
 import xarray as xr
 
 import pyfesom2 as pf
+from pyfesom2.ut import get_no_cyclic
 
 datasets_dict = {"LCORE":
                      {"path": "https://swift.dkrz.de/v1/dkrz_02942825-0cab-44f3-ad37-80fd5d2e37e3/FESOM2_data/LCORE",
@@ -21,6 +22,7 @@ class ZarrDataset:
         self.var_list = var_list
         self.is_consolidated = consolidated
         self.dset_attrs = dset_attrs
+
     @property
     def merged_dataset(self):
         import fsspec  # delay import
@@ -29,6 +31,7 @@ class ZarrDataset:
         da = xr.merge(dataset_list)
         da.attrs.update(self.dset_attrs)
         return da
+
     @classmethod
     def from_dict(cls, path_var_dict):
         return cls(path_var_dict['path'], path_var_dict['vars'], dset_attrs={"Dataset URL": path_var_dict['user_path']})
@@ -56,8 +59,11 @@ def fesom_mesh_to_xr(path: str, alpha: int = 50, beta: int = 15, gamma: int = -9
     #                          [('nod2',midx)],name='nod2d')
     # lev_data = xr.DataArray(levels,[levels],dims='nz1',name='depth')
     # nod2d_dataset = xr.merge([nod2d_data,lev_data])
+    ncyclic_inds = get_no_cyclic(mesh, mesh.elem)
+    triangles = mesh.elem[ncyclic_inds]
     coords_dataset = xr.Dataset(coords={'lon': ('nod2', mesh.x2),
                                         'lat': ('nod2', mesh.y2),
+                                        'vertices': (('nele', 'three'), triangles),
                                         'nz': mesh.zlev,
                                         'nz1': (mesh.zlev[:-1] + mesh.zlev[1:]) / 2.0})
 
@@ -65,6 +71,7 @@ def fesom_mesh_to_xr(path: str, alpha: int = 50, beta: int = 15, gamma: int = -9
     coords_dataset.coords['lon'].attrs['units'] = 'degrees_east'
     coords_dataset.coords['lat'].attrs['long_name'] = 'latitude'
     coords_dataset.coords['lat'].attrs['units'] = 'degrees_north'
+    coords_dataset.coords['vertices'].attrs['long_name'] = 'Triangulation indices'
     coords_dataset.coords['nz1'].attrs['long_name'] = 'depth at half level'
     coords_dataset.coords['nz1'].attrs['units'] = 'm'
     coords_dataset.coords['nz'].attrs['long_name'] = 'depth'
@@ -72,8 +79,10 @@ def fesom_mesh_to_xr(path: str, alpha: int = 50, beta: int = 15, gamma: int = -9
     coords_dataset.attrs['Conventions'] = 'CF-1.7'
     return coords_dataset
 
-def open_dataset(path_or_pattern: str, mesh_path: str, abg: Sequence=[50, 15, -90],
-                 **kwargs) -> xr.Dataset:
-    da = xr.open_mfdataset(path_or_pattern, parallel=True, **kwargs)
+
+def open_dataset(path_or_pattern: str, mesh_path: str, abg: Sequence = [50, 15, -90],
+                 parallel=True, **kwargs) -> xr.Dataset:
+    combine = kwargs.pop('combine','by_coords')
+    da = xr.open_mfdataset(path_or_pattern, parallel=parallel, combine=combine, **kwargs)
     mesh = fesom_mesh_to_xr(mesh_path, *abg)
     return xr.merge([da, mesh])
