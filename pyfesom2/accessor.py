@@ -148,7 +148,7 @@ class FESOMDataArray(object):
         ax = kwargs.pop('ax', plt.axes(projection=projection))
 
         minv, maxv = data.min().values, data.max().values
-        tri = Triangulation(data.lon.values.ravel(), data.lat.values.ravel())
+        tri = Triangulation(data.lon, data.lat, data.vertices)
         data = data.fillna(minv - 9999)  # make sure it is out of data bounds
         levels = kwargs.pop('levels', np.linspace(minv, maxv, 100))
         colorbar = kwargs.pop('colorbar', True)
