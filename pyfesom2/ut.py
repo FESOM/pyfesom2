@@ -631,6 +631,9 @@ def cut_region(mesh, box):
     -------
     elem_no_nan : array
         elements that belong to the region defined by `box`.
+    no_nan_triangles: array
+        boolean array of element size with True for elements 
+        that belong to the `box`.
     """
     x_on_triangles = mesh.x2[mesh.elem]
     y_on_triangles = mesh.y2[mesh.elem]
@@ -653,7 +656,7 @@ def cut_region(mesh, box):
 
     elem_no_nan = mesh.elem[no_nan_triangles, :]
 
-    return elem_no_nan
+    return elem_no_nan, no_nan_triangles
 
 
 def get_cmap(cmap=None):

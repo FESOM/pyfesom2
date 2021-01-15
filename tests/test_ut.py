@@ -13,7 +13,7 @@ from pyfesom2 import get_mask
 from pyfesom2 import compute_face_coords
 from pyfesom2 import load_mesh
 from pyfesom2 import cut_region
-from pyfesom2 import get_cmap 
+from pyfesom2 import get_cmap
 from pyfesom2 import get_no_cyclic
 
 THIS_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -31,7 +31,7 @@ def test_get_mask():
 
     mask = get_mask(mesh, "Atlantic_Basin")
     assert mask.shape[0] == 3140
-    assert mask.dtype == np.dtype('bool')
+    assert mask.dtype == np.dtype("bool")
 
 
 def test_compute_face_coords():
@@ -51,21 +51,24 @@ def test_compute_face_coords():
 def test_cut_region():
     mesh_path = os.path.join(my_data_folder, "pi-grid")
     mesh = load_mesh(mesh_path, usepickle=False, usejoblib=False)
-    elem_no_nan = cut_region(mesh, box=[0, 30, 70, 85])
+    elem_no_nan, no_nan_triangles = cut_region(mesh, box=[0, 30, 70, 85])
     assert elem_no_nan.min() == 161
     assert elem_no_nan.max() == 742
     assert elem_no_nan.mean() == pytest.approx(382.5257270693512)
+    assert len(elem_no_nan) == 149
+    assert np.sum(no_nan_triangles) == 149
+    assert len(no_nan_triangles) == 5839
 
 
 def test_get_cmap():
-    colormap = get_cmap('Spectral_r')
-    assert colormap.name == 'Spectral_r'
-    colormap = get_cmap('thermal')
-    assert colormap.name == 'thermal'
+    colormap = get_cmap("Spectral_r")
+    assert colormap.name == "Spectral_r"
+    colormap = get_cmap("thermal")
+    assert colormap.name == "thermal"
     colormap = get_cmap()
-    assert colormap.name == 'Spectral_r'
+    assert colormap.name == "Spectral_r"
     colormap = get_cmap(cm.Accent)
-    assert colormap.name == 'Accent'
+    assert colormap.name == "Accent"
 
 
 def test_get_no_cyclic():
