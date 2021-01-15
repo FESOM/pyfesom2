@@ -342,8 +342,8 @@ def plot(
     qhull_path=None,
     basepath=None,
     interpolated_data=None,
-    lonreg = None,
-    latreg = None
+    lonreg=None,
+    latreg=None,
 ):
     """
     Plots interpolated 2d field on the map.
@@ -429,7 +429,7 @@ def plot(
     if lonreg is None:
         lonreg = np.linspace(left, right, lonNumber)
         latreg = np.linspace(down, up, latNumber)
-        
+
     lonreg2, latreg2 = np.meshgrid(lonreg, latreg)
 
     if interpolated_data is None:
@@ -902,6 +902,7 @@ def tplot(
     titles=None,
     lw=0.01,
     fontsize=12,
+    box_expand=1,
 ):
     """Plots original field on the cartopy map using tricontourf or tripcolor.
 
@@ -910,14 +911,17 @@ def tplot(
     mesh: mesh object
         FESOM2 mesh object
     data: np.array or list of np.arrays
-        FESOM 2 data on nodes 
-        (for u,v,u_ice and v_ice one have to first interpolate from elements to nodes (`tonodes` function)).
+        FESOM 2 data on nodes
+        (for u,v,u_ice and v_ice one have to first interpolate
+        from elements to nodes (`tonodes` function)).
         Can be ether one np.ndarray or list of np.ndarrays.
     cmap: str
-        Name of the colormap from cmocean package or from the standard matplotlib set.
+        Name of the colormap from cmocean package or from the
+        standard matplotlib set.
         By default `Spectral_r` will be used.
     box: list
-        Map boundaries in -180 180 -90 90 format that will be used for data selection and plotting (default [-180 180 -89 90]).
+        Map boundaries in -180 180 -90 90 format that will be used for data
+        selection and plotting (default [-180 180 -89 90]).
     mapproj: str
         Map projection. Options are Mercator (merc), Plate Carree (pc),
         North Polar Stereo (np), South Polar Stereo (sp),  Robinson (rob)
@@ -937,6 +941,10 @@ def tplot(
         Title of the plot (if string) or subplots (if list of strings)
     fontsize: float
         Font size of some of the plot elements.
+    box_expand: float
+        How much bigger the selected part of the mesh should be 
+        compared to the `box` to avoid white boundaries. 
+        Value is in degreed and default is 1.
     """
 
     if not isinstance(data, list):
@@ -955,6 +963,7 @@ def tplot(
         )
 
     colormap = get_cmap(cmap=cmap)
+    box_mesh = [box[0] - 1, box[1] + 1, box[2] - 1, box[3] + 1]
 
     fig, ax = create_proj_figure(mapproj, rowscol, figsize)
     if isinstance(ax, np.ndarray):
@@ -966,17 +975,26 @@ def tplot(
         data_levels = get_plot_levels(levels, data_to_plot, lev_to_data=True)
         #     ax.set_global()
         ax[ind].set_extent(box, crs=ccrs.PlateCarree())
+        elem_no_nan, no_nan_triangles = cut_region(mesh, box_mesh)
+        no_cyclic_elem2 = get_no_cyclic(mesh, elem_no_nan)
+        # masked values do not work in cartopy
+        if data_to_plot.shape[0] == mesh.n2d:
+            data_to_plot[data_to_plot == 0] = -99999
+            elem_to_plot = elem_no_nan[no_cyclic_elem2]
+        elif data_to_plot.shape[0] == mesh.e2d:
+            if ptype == "cf":
+                raise ValueError(
+                    "You are trying to plot data on elements using countourf, this will not work. Use `ptype='tri'` instead."
+                )
+            data_to_plot = data_to_plot[no_nan_triangles][no_cyclic_elem2]
+            data_to_plot[data_to_plot == 0] = np.nan
+            elem_to_plot = elem_no_nan[no_cyclic_elem2]
 
         if ptype == "tri":
-
-            elem_no_nan = cut_region(mesh, box)
-            no_cyclic_elem2 = get_no_cyclic(mesh, elem_no_nan)
-            # masked values do not work in cartopy
-            data_to_plot[data_to_plot == 0] = -99999
             image = ax[ind].tripcolor(
                 mesh.x2,
                 mesh.y2,
-                elem_no_nan[no_cyclic_elem2],
+                elem_to_plot,
                 data_to_plot,
                 transform=ccrs.PlateCarree(),
                 cmap=colormap,
@@ -987,14 +1005,10 @@ def tplot(
                 alpha=1,
             )
         elif ptype == "cf":
-            elem_no_nan = cut_region(mesh, box)
-            no_cyclic_elem2 = get_no_cyclic(mesh, elem_no_nan)
-            # masked values do not work in cartopy
-            data_to_plot[data_to_plot == 0] = -99999
             image = ax[ind].tricontourf(
                 mesh.x2,
                 mesh.y2,
-                elem_no_nan[no_cyclic_elem2],
+                elem_to_plot,
                 data_to_plot,
                 levels=data_levels,
                 transform=ccrs.PlateCarree(),
