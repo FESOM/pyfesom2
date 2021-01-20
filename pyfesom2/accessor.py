@@ -224,7 +224,6 @@ class FESOMDataArray2:
         if len(data.dims) > 1 or "nod2" not in data.dims:
             raise Exception('Not a spatial dataset')
 
-
         projection = kwargs.pop('projection', None)
         projection, tri = self._triangulate(data, projection)
 
@@ -287,7 +286,6 @@ class FESOMDataArray2:
 
         minv, maxv = data.min().values, data.max().values
 
-
         # pl=ax.tricontourf(tri, data, levels=np.linspace(minv, maxv,100))
         data = data.fillna(minv - 9999)  # make sure it is out of data bounds
         levels = kwargs.pop('levels', np.linspace(minv, maxv, 100))
@@ -307,38 +305,44 @@ class FESOMDataArray2:
         ax = kwargs.pop('ax', plt.axes(projection=projection))
         return ax.triplot(tri, *args, **kwargs)
 
-    def trimesh(self, levels=None, cmap='RdBu', colorbar=True, height=400, width=600,
-                colorbar_position="bottom", tools=['hover']):
-        import geoviews as gv
-        import holoviews as hv
-        from holoviews.operation.datashader import rasterize
-        import numpy as np
-        hv.extension('bokeh')
+    def trimesh(self, levels=None, cmap='RdBu', colorbar=True, height=350, width=600,
+                colorbar_position="bottom", projection=None, tools=['hover']):
+
+        try:
+            import geoviews as gv
+            import holoviews as hv
+            from holoviews.operation.datashader import rasterize
+            hv.extension('bokeh')
+        except ImportError as ex:
+            raise ImportError('Using trimesh needs geoviews[holoviews, bokeh] and datashader') from ex
 
         data = self._xrobj
         var_name = data.name
-        projection, tri = self._triangulate(data, ccrs.PlateCarree())
+        projection, tri = self._triangulate(data, ccrs.PlateCarree()) # not necessary
         tris = gv.Dataset(tri.triangles, kdims=['v0', 'v1', 'v2'])
         verts = gv.Dataset((tri.x, tri.y, data), kdims=['lon', 'lat'], vdims=[var_name])
         plot = gv.TriMesh((tris, verts))
-        plot_opts = {}
-        if isinstance(levels, int):
-            plot_opts.update({'color_levels':levels})
-        elif isinstance(levels, list):
-            if len(levels)>2:
-                plot_opts.update({'color_levels':len(levels)})
-                plot = plot.redim.range(var_name=(min(levels),max(levels)))
-            elif len(levels) == 2:
-                plot = plot.redim.range(var_name=levels)
-        elif levels is None:
-            pass
-        else:
-            raise Exception('Invalid levels')
 
+        plot_opts = {}
+        if projection:
+            plot_opts.update({'projection': projection})
+
+        if levels:
+            if isinstance(levels, int):
+                plot_opts.update({'color_levels': levels})
+            elif isinstance(levels, Sequence):
+                if len(levels) > 2:
+                    plot_opts.update({'color_levels': len(levels)})
+                    plot = plot.redim.range(var_name=(min(levels), max(levels)))
+                elif len(levels) == 2:
+                    plot = plot.redim.range(var_name=levels)
+            else:
+                raise Exception('Invalid levels, should be a tuple with limits or a sequence of values')
 
         return rasterize(plot).opts(tools=tools, width=width,
-                                    height=height, projection=projection,
+                                    height=height,
                                     cmap=cmap, colorbar=colorbar, **plot_opts)
+
 
 @xr.register_dataarray_accessor("pyfesom2")
 class FESOMDataArray(object):
