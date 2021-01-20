@@ -116,14 +116,14 @@ def get_plot_levels(levels, data, lev_to_data=False):
     data: numpy array of xarray
         Data, that should be plotted with this levels.
     lev_to_data: bool
-        Switch to correct the levels to the actual data range. 
+        Switch to correct the levels to the actual data range.
         This is needed for safe plotting on triangular grid with cartopy.
 
     Returns
     -------
     data_levels: numpy array
         resulted levels.
-        
+
     """
     if levels is not None:
         if len(levels) == 3:
@@ -149,7 +149,7 @@ def get_plot_levels(levels, data, lev_to_data=False):
 def levels_to_data(mmin, mmax, data):
     """Correct the levels to the actual data range.
 
-    This is needed to make cartopy happy. 
+    This is needed to make cartopy happy.
     Cartopy can't plot on triangular mesh when the color
     range is larger than the data range.
     """
@@ -275,7 +275,7 @@ def get_vector_forplot(
     left, right, down, up = box
 
     if (lonreg2 is None) and (latreg2 is None):
-        lonNumber, latNumber = [360, 180]
+        lonNumber, latNumber = res
 
         lonreg = np.linspace(left, right, lonNumber)
         latreg = np.linspace(down, up, latNumber)
@@ -389,17 +389,17 @@ def plot(
     inds_path : string
         Path to the file with inds. If not provided and dumpfile=True, it will be created.
     qhull_path : str
-         Path to the file with qhull (needed for linear and cubic interpolations). 
+         Path to the file with qhull (needed for linear and cubic interpolations).
          If not provided and dumpfile=True, it will be created.
     interpolated_data: np.array
          data interpolated to regular grid (you also have to provide lonreg and latreg).
          If provided, data will be plotted directly, without interpolation.
     lonreg: np.array
-         1D array of longitudes. Used in combination with `interpolated_data`, 
+         1D array of longitudes. Used in combination with `interpolated_data`,
          when you need to plot interpolated data directly.
     latreg: np.array
-         1D array of latitudes. Used in combination with `interpolated_data`, 
-         when you need to plot interpolated data directly.     
+         1D array of latitudes. Used in combination with `interpolated_data`,
+         when you need to plot interpolated data directly.
     basepath: str
         path where to store additional interpolation files. If None (default),
         the path of the mesh will be used.
@@ -597,7 +597,7 @@ def plot_vector(
 
 def plot_transect_map(lonlat, mesh, view="w", stock_img=False):
     """Plot map of the transect.
-    
+
     Parameters
     ----------
     lonlat : np.array
@@ -611,11 +611,11 @@ def plot_transect_map(lonlat, mesh, view="w", stock_img=False):
         sp - South Polar Stereo
     stock_imd: bool
         Show stock backgroung image. Usually makes things slower.
-    
+
     Returns
     -------
     ax: cartopy axis object
-    
+
     """
 
     nodes = transect_get_nodes(lonlat, mesh)
@@ -942,8 +942,8 @@ def tplot(
     fontsize: float
         Font size of some of the plot elements.
     box_expand: float
-        How much bigger the selected part of the mesh should be 
-        compared to the `box` to avoid white boundaries. 
+        How much bigger the selected part of the mesh should be
+        compared to the `box` to avoid white boundaries.
         Value is in degreed and default is 1.
     """
 
