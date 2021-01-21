@@ -63,7 +63,7 @@ def fesom_mesh_to_xr(path: str, alpha: int = 50, beta: int = 15, gamma: int = -9
     triangles = mesh.elem[ncyclic_inds]
     coords_dataset = xr.Dataset(coords={'lon': ('nod2', mesh.x2),
                                         'lat': ('nod2', mesh.y2),
-                                        'vertices': (('nele', 'three'), triangles),
+                                        'faces': (('nelem', 'three'), triangles),
                                         'nz': mesh.zlev,
                                         'nz1': (mesh.zlev[:-1] + mesh.zlev[1:]) / 2.0})
 
@@ -71,7 +71,7 @@ def fesom_mesh_to_xr(path: str, alpha: int = 50, beta: int = 15, gamma: int = -9
     coords_dataset.coords['lon'].attrs['units'] = 'degrees_east'
     coords_dataset.coords['lat'].attrs['long_name'] = 'latitude'
     coords_dataset.coords['lat'].attrs['units'] = 'degrees_north'
-    coords_dataset.coords['vertices'].attrs['long_name'] = 'Triangulation indices'
+    coords_dataset.coords['faces']['long_name'] = 'Triangulation Faces containing indices'
     coords_dataset.coords['nz1'].attrs['long_name'] = 'depth at half level'
     coords_dataset.coords['nz1'].attrs['units'] = 'm'
     coords_dataset.coords['nz'].attrs['long_name'] = 'depth'
