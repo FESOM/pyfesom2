@@ -73,11 +73,10 @@ MultiRegion = Union[SequenceType[Polygon], MultiPolygon]
 # Selection functions
 # TODO: Probably function names should be prefixed with spatial.
 
-def select_points(xrobj: Union[xr.Dataset, xr.DataArray], lon, lat, method='nearest', tolerance=None, tree=None):
+def select_points(xrobj: Union[xr.Dataset, xr.DataArray],
+                  lon, lat, method='nearest', tolerance=None, tree=None) -> Union[xr.Dataset, xr.DataArray]:
     """
-    Selects points from dataset or data array.
 
-    Selection is based on tree
     Parameters
     ----------
     xrobj
@@ -111,7 +110,8 @@ def select_points(xrobj: Union[xr.Dataset, xr.DataArray], lon, lat, method='near
     return xrobj.isel(nod2=ind)
 
 
-def select_region(xrobj: Union[xr.Dataset, xr.DataArray], region: Union[BoundingBox, Polygon]) -> xr.DataArray:
+def select_region(xrobj: Union[xr.Dataset, xr.DataArray],
+                  region: Union[BoundingBox, Polygon]) -> Union[xr.Dataset, xr.DataArray]:
     """
     Selects data for a region. region can be specified as a Bounding Box [West, Soutn, North, East ] or
     as shapely polygons or for multi region selection: a list of Polygons or MultiPolygon.
@@ -158,6 +158,49 @@ def select_region(xrobj: Union[xr.Dataset, xr.DataArray], region: Union[Bounding
     return data.sel(nod2=sel_indexer)
 
 
+def select(xrobj: Union[xr.Dataset, xr.DataArray], method='nearest',
+           tolerance=None, region=None, path=None, **indexers) -> Union[xr.Dataset, xr.DataArray]:
+    """
+    Wrapper that does selection
+    Parameters
+    ----------
+    xrobj
+    method
+    tolerance
+    region
+    path
+    indexers
+
+    Returns
+    -------
+
+    """
+    lat = indexers.pop('lat', None)
+    lon = indexers.pop('lon', None)
+    lat_indexer = True if lat is not None else False
+    lon_indexer = True if lon is not None else False
+
+    if not method == "nearest":
+        raise NotImplementedError("Only nearest method is currently supported")
+    if (lat_indexer or lon_indexer) and (region is not None or path is not None):
+        # TODO: do this combinations better, doesn't check if path and region are both given
+        raise Exception("Onlu one option: lat, lon as indexer or path or region is supported")
+
+    if lat_indexer or lon_indexer:
+        if lat_indexer and lon_indexer:
+            ret_arr = select_points(xrobj, lon, lat, method=method, tolerance=tolerance)
+        else:
+            raise NotImplementedError("Both lat, lon are needed as indexer, else use path or region")
+    elif region is not None:
+        ret_arr = select_region(xrobj, region)
+    elif path is not None:
+        raise NotImplementedError('Path option is not implemented yet')
+    else:
+        ret_arr = xrobj
+
+    return ret_arr.sel(**indexers, method=method)
+
+
 # Accessors
 
 @xr.register_dataset_accessor("pyfesom2")
@@ -170,8 +213,14 @@ class FESOMDataset:
             # setattr(self, str(datavar), xr_obj[datavar])
             setattr(self, str(datavar), FESOMDataArray2(xr_obj[datavar], xr_obj))
 
-    def select(self):
-        pass
+    def select(self, method='nearest', tolerance=None, region=None, path=None, **indexers):
+        self._xrobj[
+            'nod2ind'] = ('nod2',np.array(self._xrobj.nod2.values))  # add nod2 values so that after selection
+        # indicies in faces still point to right nodes
+        self._xrobj[
+            'nod2ind2'] = ('nod2',np.asarray(self._xrobj.nod2.values))  # add nod2 values so that after selection
+        sel_obj = select(self._xrobj, method='nearest', tolerance=None, region=None, path=None, **indexers)
+        return sel_obj
 
     def regrid(self):
         pass
@@ -306,7 +355,7 @@ class FESOMDataArray2:
         return ax.triplot(tri, *args, **kwargs)
 
     def trimesh(self, levels=None, cmap='RdBu', colorbar=True, height=350, width=600,
-                colorbar_position="bottom", projection=None, tools=['hover']):
+                colorbar_position="bottom", projection=None, tools=['hover'], **hv_kwopts):
 
         try:
             import geoviews as gv
@@ -318,12 +367,12 @@ class FESOMDataArray2:
 
         data = self._xrobj
         var_name = data.name
-        projection, tri = self._triangulate(data, ccrs.PlateCarree()) # not necessary
+        projection, tri = self._triangulate(data, ccrs.PlateCarree())  # not necessary
         tris = gv.Dataset(tri.triangles, kdims=['v0', 'v1', 'v2'])
         verts = gv.Dataset((tri.x, tri.y, data), kdims=['lon', 'lat'], vdims=[var_name])
         plot = gv.TriMesh((tris, verts))
 
-        plot_opts = {}
+        plot_opts = {**hv_kwopts}
         if projection:
             plot_opts.update({'projection': projection})
 
@@ -342,6 +391,10 @@ class FESOMDataArray2:
         return rasterize(plot).opts(tools=tools, width=width,
                                     height=height,
                                     cmap=cmap, colorbar=colorbar, **plot_opts)
+
+    def select(self, method='nearest', tolerance=None, region=None, path=None, **indexers):
+        sel_obj = select(self._xrobj, method='nearest', tolerance=None, region=None, path=None, **indexers)
+        return sel_obj.to_dataset()
 
 
 @xr.register_dataarray_accessor("pyfesom2")
@@ -454,7 +507,7 @@ class FESOMDataArray(object):
         elif region is not None:
             ret_arr = self.select_region(region)
         elif path is not None:
-            raise NotADirectoryError('Path option is not implemented yet')
+            raise NotImplementedError('Path option is not implemented yet')
         else:
             print('in else')
             ret_arr = self._xrobj
