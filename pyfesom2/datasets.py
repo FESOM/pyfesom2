@@ -63,10 +63,9 @@ def fesom_mesh_to_xr(path: str, alpha: int = 50, beta: int = 15, gamma: int = -9
     triangles = mesh.elem[ncyclic_inds]
     coords_dataset = xr.Dataset(coords={'lon': ('nod2', mesh.x2),
                                         'lat': ('nod2', mesh.y2),
-                                        'faces': (('nelem', 'three'), triangles),
+                                        'faces': (('nelem', 'three'), triangles.astype('uint32')),
                                         'nz': mesh.zlev,
                                         'nz1': (mesh.zlev[:-1] + mesh.zlev[1:]) / 2.0})
-
     coords_dataset.coords['lon'].attrs['long_name'] = 'longitude'
     coords_dataset.coords['lon'].attrs['units'] = 'degrees_east'
     coords_dataset.coords['lat'].attrs['long_name'] = 'latitude'
@@ -80,7 +79,7 @@ def fesom_mesh_to_xr(path: str, alpha: int = 50, beta: int = 15, gamma: int = -9
     return coords_dataset
 
 
-def open_dataset(path_or_pattern: str, mesh_path: str, abg: Sequence = [50, 15, -90],
+def open_dataset(path_or_pattern: str, mesh_path: str, abg: Sequence = (50, 15, -90),
                  parallel=True, **kwargs) -> xr.Dataset:
     combine = kwargs.pop('combine','by_coords')
     da = xr.open_mfdataset(path_or_pattern, parallel=parallel, combine=combine, **kwargs)
