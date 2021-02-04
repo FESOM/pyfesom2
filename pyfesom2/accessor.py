@@ -279,14 +279,16 @@ class FESOMDataset:
     def _repr_html_(self):
         return self._xrobj._repr_html_()
 
-def trimesh_plot(darr,tris, time, nz1):
+
+def trimesh_plot(darr, tris, time, nz1):
     import geoviews as gv
     tris = np.asarray(tris)
-    data = darr.sel(time=time,nz1=nz1)
+    data = darr.sel(time=time, nz1=nz1)
     var_name = data.name
-    var_da =  gv.Dataset((darr.lon,darr.lat,data),
-                         kdims=['lon','lat'], vdims=[var_name])
+    var_da = gv.Dataset((darr.lon, darr.lat, data),
+                        kdims=['lon', 'lat'], vdims=[var_name])
     return gv.TriMesh((tris, var_da))
+
 
 class FESOMDataArray:
     """ A Awapper around Dataarray"""
@@ -403,7 +405,7 @@ class FESOMDataArray:
         return ax.triplot(tri, *args, **kwargs)
 
     def trimesh(self, levels=None, cmap='RdBu', colorbar=True, height=350, width=600,
-                colorbar_position="bottom", projection=None, tools=['hover'], **hv_kwopts):
+                colorbar_position="bottom", projection=None, coastline=True, tools=['hover'], **hv_kwopts):
         try:
             import geoviews as gv
             import holoviews as hv
@@ -414,7 +416,7 @@ class FESOMDataArray:
 
         trimesh_fn = functools.partial(trimesh_plot, darr=self._xrobj, tris=self._context_dataset.faces)
         var_name = self._xrobj.name
-        hvd = hv.Dataset(self._xrobj.drop_vars(['lon','lat']))
+        hvd = hv.Dataset(self._xrobj.drop_vars(['lon', 'lat']))
         dmap = hv.DynamicMap(trimesh_fn,
                              kdims=hvd.kdims).redim.values(nz1=self._xrobj.nz1.values,
                                                            time=self._xrobj.time.values)
@@ -440,11 +442,17 @@ class FESOMDataArray:
                 raise Exception('Invalid levels, should be a tuple with limits or a sequence of values')
         else:
             dmap = dmap.opts(framewise=True)
-        return rasterize(dmap).opts(width=width,
+
+        plot = rasterize(dmap).opts(width=width,
                                     height=height,
                                     cmap=cmap, colorbar=colorbar, tools=tools, **plot_opts)
+        if coastline:
+            return plot * gv.feature.coastline
+        return plot
 
     def select(self, method='nearest', tolerance=None, region=None, path=None, **indexers):
-        sel_obj = select(self._xrobj, method='nearest', tolerance=None, region=None, path=None, **indexers)
-        return sel_obj.to_dataset()
-
+        sel_obj = self._xrobj.to_dataset()
+        sel_obj = sel_obj.assign_coords({'faces': (self._context_dataset.faces.dims,
+                                                   self._context_dataset.faces.values)})
+        sel_obj = select(sel_obj, method='nearest', tolerance=tolerance, region=region, path=path, **indexers)
+        return sel_obj
