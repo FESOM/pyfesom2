@@ -261,7 +261,7 @@ def select_depths(uplow, mesh):
     ----------
     uplow: list
         if None, all depths will be selected
-        if e.g. [2000, 'depth'] all from model depth closest to 200 down to depth will be selected
+        if e.g. [2000, 'bottom'] all from model depth closest to 2000 down to depth will be selected
         if e.g. [0, 700] all between 0 and closest depth to 700 will be selected.
         if e.g. [500, 500] only model level closest to 500 will be selected.
     mesh: mesh object
@@ -306,7 +306,7 @@ def volmean_data(data, mesh, uplow=None, meshdiag=None, runid="fesom", mask=None
         FESOM2 mesh object.
     uplow: list
         if None, all depths will be selected
-        if e.g. [2000, 'depth'] all from model depth closest to 200 down to depth will be selected
+        if e.g. [2000, 'bottom'] all from model depth closest to 2000 down to depth will be selected
         if e.g. [0, 700] all between 0 and closest depth to 700 will be selected.
         if e.g. [500, 500] only model level closest to 500 will be selected.
     meshdiag: str
