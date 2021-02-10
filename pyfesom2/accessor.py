@@ -72,10 +72,33 @@ MultiRegion = Union[SequenceType[Polygon], MultiPolygon]
 
 
 # Selection functions
-# TODO: Probably function names should be prefixed with spatial.
+
+def distance_along_trajectory(lons, lats):
+    from cartopy.geodesic import Geodesic
+    geod = Geodesic()
+    points = np.c_[lons, lats]
+    dists = np.zeros(lons.shape[0])
+    dists[1:] = np.cumsum(geod.inverse(points[0:-1], points[1:])[:, 0])
+    return dists
+
+
+def normalize_distance(distance_array_in_m):
+    """Returns best representation for
+    distances in m or km based on all values
+    of array
+    """
+    distance_array_in_km = distance_array_in_m / 1000.0
+    len_array = distance_array_in_m.shape[0]
+    # if more then 1/3 of points are best suited to be expressed in m then m else km
+    if np.count_nonzero(distance_array_in_km < 1) > len_array / 3:
+        return "m", distance_array_in_m
+    else:
+        return "km", distance_array_in_km
+
 
 def select_points(xrobj: Union[xr.Dataset, xr.DataArray],
-                  lon, lat, method='nearest', tolerance=None, tree=None) -> Union[xr.Dataset, xr.DataArray]:
+                  lon, lat, method='nearest', tolerance=None, tree=None, return_distance=True) -> Union[
+    xr.Dataset, xr.DataArray]:
     """
 
     Parameters
@@ -97,22 +120,30 @@ def select_points(xrobj: Union[xr.Dataset, xr.DataArray],
         raise NotImplementedError("Spatial selection currently supports only nearest neighbor lookup")
     geocentric_crs, geodetic_crs = Geocentric(), Geodetic()
     if tree is None:
-        src_pts = geodetic_crs.transform_points(geodetic_crs, xrobj.lon.values, xrobj.lat.values)
-        tree = cKDTree(src_pts)
-    dst_pts = geodetic_crs.transform_points(geodetic_crs, np.array(lon), np.array(lat))
+        src_pts = geocentric_crs.transform_points(geodetic_crs, xrobj.lon.values, xrobj.lat.values)
+        tree = cKDTree(src_pts, leaf_size=32, compact_nodes=False, balanced_tree=False)
+
+    dst_pts = geocentric_crs.transform_points(geodetic_crs, np.array(lon), np.array(lat))
 
     if tolerance is None:
-        # query is faster when no tolerance is specified
         _, ind = tree.query(dst_pts)
     else:
-        inds = tree.query_ball_point(dst_pts, r=tolerance, n_jobs=-1)[0]
-        # find min dist
-        ind = inds
-    return xrobj.isel(nod2=ind)
+        # inds = tree.query_ball_point(dst_pts, r=tolerance, n_jobs=-1)[0]
+        # _, ind = tree.query(dst_pts, r=tolerance)
+        # ind = inds[0]
+        raise NotImplementedError('tolerance is currently not supported.')
+    retobj = xrobj.isel(nod2=ind)
+    if return_distance:
+        dist = distance_along_trajectory(lon, lat)
+        dist_units, dist = normalize_distance(dist)
+        retobj['nod2'] = dist
+        retobj.nod2.attrs['units'] = dist_units
+        retobj.nod2.attrs['long_name'] = f"distance along path"
+    return retobj
 
 
 class SimpleMesh:
-    """Wrapper that fakes pyfesom's mesh for purposes of this module"""
+    """Wrapper that fakes pyfesom's mesh object for purposes of this module"""
 
     def __init__(self, lon, lat, faces):
         self.x2 = lon
@@ -210,16 +241,11 @@ def select(xrobj: Union[xr.Dataset, xr.DataArray], method='nearest',
     if lat_indexer or lon_indexer:
         if lat_indexer and lon_indexer:
             if method == 'nearest':
-                if tolerance:
-                    raise NotImplementedError('tolerance is not supported for method: nearest, try method:'
-                                              'projected_nearest')
-                ret_arr = sel_nn_points(xrobj, lon, lat)
-            elif method == 'projected_nearest':
                 ret_arr = select_points(xrobj, lon, lat, method=method, tolerance=tolerance)
             else:
-                raise NotImplementedError("Only methods 'nearest, projected_nearest' are currently supported")
+                raise NotImplementedError("Only method='nearest' is currently supported.")
         else:
-            raise NotImplementedError("Both lat, lon are needed as indexers, else use path or region")
+            raise NotImplementedError("Both lat, lon are needed as indexers, else use path or region.")
     elif region is not None:
         ret_arr = select_region(xrobj, region)
     elif path is not None:
