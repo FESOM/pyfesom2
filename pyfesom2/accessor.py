@@ -76,6 +76,7 @@ MultiRegion = Union[SequenceType[Polygon], MultiPolygon]
 def distance_along_trajectory(lons, lats):
     from cartopy.geodesic import Geodesic
     geod = Geodesic()
+    lons, lats = np.array(lons, ndmin=1, copy=False), np.array(lons, ndmin=1, copy=False)
     points = np.c_[lons, lats]
     dists = np.zeros(lons.shape[0])
     dists[1:] = np.cumsum(geod.inverse(points[0:-1], points[1:])[:, 0])
@@ -97,7 +98,7 @@ def normalize_distance(distance_array_in_m):
 
 
 def select_points(xrobj: Union[xr.Dataset, xr.DataArray],
-                  lon, lat, method='nearest', tolerance=None, tree=None, return_distance=True) -> Union[
+                  lon, lat, method='nearest', tolerance=None, tree=None, return_distance=True, **other_dims) -> Union[
     xr.Dataset, xr.DataArray]:
     """
 
@@ -112,7 +113,7 @@ def select_points(xrobj: Union[xr.Dataset, xr.DataArray],
 
     Returns
     -------
-
+    TODO: check id all dims are of same length.
     """
     from cartopy.crs import Geocentric, Geodetic
     from scipy.spatial import cKDTree
@@ -120,10 +121,10 @@ def select_points(xrobj: Union[xr.Dataset, xr.DataArray],
         raise NotImplementedError("Spatial selection currently supports only nearest neighbor lookup")
     geocentric_crs, geodetic_crs = Geocentric(), Geodetic()
     if tree is None:
-        src_pts = geocentric_crs.transform_points(geodetic_crs, xrobj.lon.values, xrobj.lat.values)
-        tree = cKDTree(src_pts, leaf_size=32, compact_nodes=False, balanced_tree=False)
+        src_pts = geocentric_crs.transform_points(geodetic_crs, np.asarray(xrobj.lon), np.asarray(xrobj.lat))
+        tree = cKDTree(src_pts, leafsize=32, compact_nodes=False, balanced_tree=False)
 
-    dst_pts = geocentric_crs.transform_points(geodetic_crs, np.array(lon), np.array(lat))
+    dst_pts = geocentric_crs.transform_points(geodetic_crs, np.asarray(lon), np.asarray(lat))
 
     if tolerance is None:
         _, ind = tree.query(dst_pts)
@@ -132,13 +133,17 @@ def select_points(xrobj: Union[xr.Dataset, xr.DataArray],
         # _, ind = tree.query(dst_pts, r=tolerance)
         # ind = inds[0]
         raise NotImplementedError('tolerance is currently not supported.')
-    retobj = xrobj.isel(nod2=ind)
+
+    other_dims = {k: xr.DataArray(np.array(v, ndmin=1), dims='points') for k, v in other_dims.items()}
+    sel_indexer = {'nod2': xr.DataArray(ind, dims='points'), **other_dims}
+    retobj = xrobj.isel(nod2=xr.DataArray(ind, dims='points')).sel(**other_dims, method=method)
+
     if return_distance:
         dist = distance_along_trajectory(lon, lat)
         dist_units, dist = normalize_distance(dist)
-        retobj['nod2'] = dist
-        retobj.nod2.attrs['units'] = dist_units
-        retobj.nod2.attrs['long_name'] = f"distance along path"
+        retobj = retobj.assign_coords({'distance': ('points', dist)})
+        retobj.distance.attrs['units'] = dist_units
+        retobj.distance.attrs['long_name'] = f"distance along trajectoru"
     return retobj
 
 
@@ -306,10 +311,10 @@ class FESOMDataset:
         return self._xrobj._repr_html_()
 
 
-def trimesh_plot(darr, tris, time, nz1):
+def trimesh_plot(darr, tris, **other_dims):
     import geoviews as gv
     tris = np.asarray(tris)
-    data = darr.sel(time=time, nz1=nz1)
+    data = darr.sel(**other_dims)
     var_name = data.name
     var_da = gv.Dataset((darr.lon, darr.lat, data),
                         kdims=['lon', 'lat'], vdims=[var_name])
@@ -443,12 +448,13 @@ class FESOMDataArray:
         trimesh_fn = functools.partial(trimesh_plot, darr=self._xrobj, tris=self._context_dataset.faces)
         var_name = self._xrobj.name
         hvd = hv.Dataset(self._xrobj.drop_vars(['lon', 'lat']))
+        non_plot_dims = {dim:self._xrobj[dim].values for dim in self._xrobj.dims if dim!='nod2'}
         dmap = hv.DynamicMap(trimesh_fn,
-                             kdims=hvd.kdims).redim.values(nz1=self._xrobj.nz1.values,
-                                                           time=self._xrobj.time.values)
-        dmap = dmap.redim.default(nz1=self._xrobj.nz1.values[0])
-        dmap = dmap.redim.unit(nz1='m')
-        dmap = dmap.redim.label(nz1='level')
+                             kdims=list(non_plot_dims.keys())).redim.values(**non_plot_dims)
+        if 'nz1' in non_plot_dims.keys():
+             dmap = dmap.redim.default(nz1=self._xrobj.nz1.values[0])
+             dmap = dmap.redim.unit(nz1='m')
+             dmap = dmap.redim.label(nz1='level')
 
         plot_opts = {**hv_kwopts}
         if projection:
@@ -474,6 +480,47 @@ class FESOMDataArray:
                                     cmap=cmap, colorbar=colorbar, tools=tools, **plot_opts)
         if coastline:
             return plot * gv.feature.coastline
+        return plot
+
+    def plot_transect(self, lon, lat, plot_type='auto', **indexers_plot_kwargs):
+        """
+        default plot_type
+        """
+        default_plot_types = ('line', 'contourf')  # 1d and 2d defualts
+        extra_dims = []
+        extra_dims = [k for k in indexers_plot_kwargs.keys() if
+                      k in self._xrobj.coords]  # coords is used insead of dims because xarray will raise error in selection
+        extra_indexers = {dim: indexers_plot_kwargs.pop(dim) for dim in extra_dims}
+        sel = select_points(self._xrobj, lon=lon, lat=lat, **extra_indexers)
+        dim_len = len(sel.dims)  # determines plot type, 1d or 2d
+
+        # make time as default bottom x-axis if present (else formatting gets hard)
+        xdims = ('time', 'distance') if 'time' in extra_dims else ('distance', None)
+        if 'time' in extra_dims:
+            sel['points'] = sel.time
+        else:
+            sel['points'] = sel.distance
+
+        sel = sel.transpose(..., 'points')  # push points to last for making it default xaxis for plots
+
+        # use xarray plotting as it formats datetime axis with ease and defaults cbar...
+        if dim_len == 1:
+            plot_type = default_plot_types[0] if plot_type == 'auto' else plot_type
+            plot_fn = getattr(sel.plot, plot_type)
+            plot = plot_fn(**indexers_plot_kwargs)[0]
+        elif dim_len == 2:
+            plot_type = default_plot_types[1] if plot_type == 'auto' else plot_type
+            plot_fn = getattr(sel.plot, plot_type)
+            plot = plot_fn(**indexers_plot_kwargs)
+        else:
+            raise Exception('A 2-d plot can have 1-2 dimensions, variable {sel.name} had {sel.dims}.')
+
+        ax = plot.ax if hasattr(plot, 'ax') else plot.axes  # akward some plots have it as ax, some as axes
+
+        if xdims[0] == 'time':
+            ax2 = ax.twiny()
+            ax2.set_xlim(sel.distance.min(), sel.distance.max())
+            ax2.set_xlabel(f'distance [{sel.distance.units}]')
         return plot
 
     def select(self, method='nearest', tolerance=None, region=None, path=None, **indexers):
