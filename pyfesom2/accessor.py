@@ -201,21 +201,6 @@ def select_region(xrobj: xr.Dataset,
     return ret
 
 
-def sel_nn_points(ds, lon, lat):
-    lon, lat = np.asarray(lon), np.asarray(lat)
-    bounds = (lon.min(), lon.max(), lat.min(), lat.max())
-    sel = select_bbox(ds, bounds)
-    tris = Triangulation(sel.lon, sel.lat, triangles=sel.faces)
-    tf = tris.get_trifinder()
-    inds = tf(lon, lat)
-    new_faces = sel.faces[inds[inds > -1]]
-    inds, inv_index = np.unique(new_faces.values.ravel(), return_inverse=True)
-    new_faces = inv_index.reshape(new_faces.shape)
-    ret = sel.isel(nod2=inds)
-    ret = ret.drop('faces')
-    ret = ret.assign_coords({'faces': (('nelem', 'three'), new_faces)})
-    return ret
-
 
 def select(xrobj: Union[xr.Dataset, xr.DataArray], method='nearest',
            tolerance=None, region=None, path=None, **indexers) -> Union[xr.Dataset, xr.DataArray]:
