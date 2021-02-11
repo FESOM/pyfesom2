@@ -135,8 +135,7 @@ def select_points(xrobj: Union[xr.Dataset, xr.DataArray],
         raise NotImplementedError('tolerance is currently not supported.')
 
     other_dims = {k: xr.DataArray(np.array(v, ndmin=1), dims='points') for k, v in other_dims.items()}
-    sel_indexer = {'nod2': xr.DataArray(ind, dims='points'), **other_dims}
-    retobj = xrobj.isel(nod2=xr.DataArray(ind, dims='points')).sel(**other_dims, method=method)
+    retobj = xrobj.isel(nod2=xr.DataArray(ind-1, dims='points')).sel(**other_dims, method=method)
 
     if return_distance:
         dist = distance_along_trajectory(lon, lat)
@@ -247,6 +246,7 @@ def select(xrobj: Union[xr.Dataset, xr.DataArray], method='nearest',
         if lat_indexer and lon_indexer:
             if method == 'nearest':
                 ret_arr = select_points(xrobj, lon, lat, method=method, tolerance=tolerance)
+                ret_arr = ret_arr.drop_vars('faces')
             else:
                 raise NotImplementedError("Only method='nearest' is currently supported.")
         else:
@@ -258,7 +258,7 @@ def select(xrobj: Union[xr.Dataset, xr.DataArray], method='nearest',
     else:
         ret_arr = xrobj
 
-    return ret_arr.sel(**indexers, method=method)
+    return ret_arr.sel(**indexers, method=method).squeeze()
 
 
 # Accessors
