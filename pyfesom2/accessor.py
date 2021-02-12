@@ -112,47 +112,10 @@ class SimpleMesh:
 
 ## Selection functions
 
-def select_points(xrobj: Union[xr.Dataset, xr.DataArray],
-                  lon, lat, method='nearest', tolerance=None, tree=None, return_distance=True, **other_dims) -> Union[
-    xr.Dataset, xr.DataArray]:
-    """
-    TODO: check id all dims are of same length.
-    """
-    from cartopy.crs import Geocentric, Geodetic
-    from scipy.spatial import cKDTree
-    if not method == 'nearest':
-        raise NotImplementedError("Spatial selection currently supports only nearest neighbor lookup")
-    geocentric_crs, geodetic_crs = Geocentric(), Geodetic()
-    if tree is None:
-        src_pts = geocentric_crs.transform_points(geodetic_crs, np.asarray(xrobj.lon), np.asarray(xrobj.lat))
-        tree = cKDTree(src_pts, leafsize=32, compact_nodes=False, balanced_tree=False)
-
-    dst_pts = geocentric_crs.transform_points(geodetic_crs, np.asarray(lon), np.asarray(lat))
-
-    if tolerance is None:
-        _, ind = tree.query(dst_pts)
-    else:
-        # inds = tree.query_ball_point(dst_pts, r=tolerance, n_jobs=-1)[0]
-        # _, ind = tree.query(dst_pts, r=tolerance)
-        # ind = inds[0]
-        raise NotImplementedError('tolerance is currently not supported.')
-
-    other_dims = {k: xr.DataArray(np.array(v, ndmin=1), dims='points') for k, v in other_dims.items()}
-    retobj = xrobj.isel(nod2=xr.DataArray(ind - 1, dims='points')).sel(**other_dims, method=method)
-
-    if return_distance:
-        dist = distance_along_trajectory(lon, lat)
-        dist_units, dist = normalize_distance(dist)
-        retobj = retobj.assign_coords({'distance': ('points', dist)})
-        retobj.distance.attrs['units'] = dist_units
-        retobj.distance.attrs['long_name'] = f"distance along trajectoru"
-    return retobj
-
-
 def select_bbox(ds: xr.Dataset, bbox: BoundingBox) -> xr.Dataset:
     """bbox as xmin,xmax, ymin, ymax"""
     from .ut import cut_region
-    data = ds.drop('faces')
+    data = ds.drop_vars('faces')
     mesh = SimpleMesh(ds.lon, ds.lat, ds.faces)
     cut_faces = cut_region(mesh, bbox)
     uniq, inv_index = np.unique(cut_faces.faces.values.ravel(), return_inverse=True)
@@ -193,6 +156,45 @@ def select_region(xrobj: xr.Dataset,
     ret = sel.isel(nod2=uniq)
     ret = ret.assign_coords({'faces': (('nelem', 'three'), new_faces)})
     return ret
+
+
+def select_points(xrobj: Union[xr.Dataset, xr.DataArray],
+                  lon, lat, method='nearest', tolerance=None, tree=None, return_distance=True, **other_dims) -> Union[
+    xr.Dataset, xr.DataArray]:
+    """
+    TODO: check id all dims are of same length.
+    """
+    from cartopy.crs import Geocentric, Geodetic
+    from scipy.spatial import cKDTree
+    if not method == 'nearest':
+        raise NotImplementedError("Spatial selection currently supports only nearest neighbor lookup")
+    geocentric_crs, geodetic_crs = Geocentric(), Geodetic()
+    if tree is None:
+        src_pts = geocentric_crs.transform_points(geodetic_crs, np.asarray(xrobj.lon), np.asarray(xrobj.lat))
+        tree = cKDTree(src_pts, leafsize=32, compact_nodes=False, balanced_tree=False)
+
+    dst_pts = geocentric_crs.transform_points(geodetic_crs, np.asarray(lon), np.asarray(lat))
+
+    if tolerance is None:
+        _, ind = tree.query(dst_pts)
+    else:
+        # inds = tree.query_ball_point(dst_pts, r=tolerance, n_jobs=-1)[0]
+        # _, ind = tree.query(dst_pts, r=tolerance)
+        # ind = inds[0]
+        raise NotImplementedError('tolerance is currently not supported.')
+
+    other_dims = {k: xr.DataArray(np.array(v, ndmin=1), dims='points') for k, v in other_dims.items()}
+    retobj = xrobj.isel(nod2=xr.DataArray(ind - 1, dims='points')).sel(**other_dims, method=method)
+
+    if return_distance:
+        dist = distance_along_trajectory(lon, lat)
+        dist_units, dist = normalize_distance(dist)
+        retobj = retobj.assign_coords({'distance': ('points', dist)})
+        retobj.distance.attrs['units'] = dist_units
+        retobj.distance.attrs['long_name'] = f"distance along trajectoru"
+    return retobj
+
+
 
 
 def select(xrobj: Union[xr.Dataset, xr.DataArray], method='nearest',
