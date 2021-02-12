@@ -51,7 +51,7 @@ One other way to think for future would be to subclass xarray's Dataset and Data
 but might be worth it in this case. It might need painful re-implement/tweak xarray's open_dataset kind of methods.
 Another option could be to have a datastore for fesom data (not well-thought.
 
-TODO: possibly add projection as a setting flag.
+TODO:
       set plot type interactive or not as setting.
 """
 
@@ -71,15 +71,19 @@ BoundingBox = SequenceType[float]
 MultiRegion = Union[SequenceType[Polygon], MultiPolygon]
 
 
-# Selection functions
+# Selection
+
+## Utilities for selection
 
 def distance_along_trajectory(lons, lats):
     from cartopy.geodesic import Geodesic
     geod = Geodesic()
-    lons, lats = np.array(lons, ndmin=1, copy=False), np.array(lons, ndmin=1, copy=False)
+    lons, lats = np.array(lons, ndmin=1, copy=False), np.array(lats, ndmin=1, copy=False)
     points = np.c_[lons, lats]
     dists = np.zeros(lons.shape[0])
-    dists[1:] = np.cumsum(geod.inverse(points[0:-1], points[1:])[:, 0])
+    print(points)
+    temp_dist = geod.inverse(points[0:-1], points[1:])[:, 0]
+    dists[1:] = np.cumsum(temp_dist)
     return dists
 
 
@@ -91,28 +95,27 @@ def normalize_distance(distance_array_in_m):
     distance_array_in_km = distance_array_in_m / 1000.0
     len_array = distance_array_in_m.shape[0]
     # if more then 1/3 of points are best suited to be expressed in m then m else km
-    if np.count_nonzero(distance_array_in_km < 1) > len_array / 3:
+    if np.count_nonzero(distance_array_in_km < 1) > len_array // 3:
         return "m", distance_array_in_m
     else:
         return "km", distance_array_in_km
 
 
+class SimpleMesh:
+    """Wrapper that fakes pyfesom's mesh object for purposes of this module"""
+
+    def __init__(self, lon, lat, faces):
+        self.x2 = lon
+        self.y2 = lat
+        self.elem = faces
+
+
+## Selection functions
+
 def select_points(xrobj: Union[xr.Dataset, xr.DataArray],
                   lon, lat, method='nearest', tolerance=None, tree=None, return_distance=True, **other_dims) -> Union[
     xr.Dataset, xr.DataArray]:
     """
-
-    Parameters
-    ----------
-    xrobj
-    lon
-    lat
-    method
-    tolerance
-    tree
-
-    Returns
-    -------
     TODO: check id all dims are of same length.
     """
     from cartopy.crs import Geocentric, Geodetic
@@ -135,7 +138,7 @@ def select_points(xrobj: Union[xr.Dataset, xr.DataArray],
         raise NotImplementedError('tolerance is currently not supported.')
 
     other_dims = {k: xr.DataArray(np.array(v, ndmin=1), dims='points') for k, v in other_dims.items()}
-    retobj = xrobj.isel(nod2=xr.DataArray(ind-1, dims='points')).sel(**other_dims, method=method)
+    retobj = xrobj.isel(nod2=xr.DataArray(ind - 1, dims='points')).sel(**other_dims, method=method)
 
     if return_distance:
         dist = distance_along_trajectory(lon, lat)
@@ -144,15 +147,6 @@ def select_points(xrobj: Union[xr.Dataset, xr.DataArray],
         retobj.distance.attrs['units'] = dist_units
         retobj.distance.attrs['long_name'] = f"distance along trajectoru"
     return retobj
-
-
-class SimpleMesh:
-    """Wrapper that fakes pyfesom's mesh object for purposes of this module"""
-
-    def __init__(self, lon, lat, faces):
-        self.x2 = lon
-        self.y2 = lat
-        self.elem = faces
 
 
 def select_bbox(ds: xr.Dataset, bbox: BoundingBox) -> xr.Dataset:
@@ -201,22 +195,10 @@ def select_region(xrobj: xr.Dataset,
     return ret
 
 
-
 def select(xrobj: Union[xr.Dataset, xr.DataArray], method='nearest',
            tolerance=None, region=None, path=None, **indexers) -> Union[xr.Dataset, xr.DataArray]:
     """
-    Wrapper that does selection
-    Parameters
-    ----------
-    xrobj
-    method
-    tolerance
-    region
-    path
-    indexers
-    Returns
-    -------
-
+    Higher level interface that does different kinds of selection
     """
     lat = indexers.pop('lat', None)
     lon = indexers.pop('lon', None)
@@ -248,6 +230,19 @@ def select(xrobj: Union[xr.Dataset, xr.DataArray], method='nearest',
 
 # Accessors
 
+## Accessor Utils
+
+def trimesh_plot(darr, tris, **other_dims):
+    import geoviews as gv
+    tris = np.asarray(tris)
+    data = darr.sel(**other_dims)
+    var_name = data.name
+    var_da = gv.Dataset((darr.lon, darr.lat, data),
+                        kdims=['lon', 'lat'], vdims=[var_name])
+    return gv.TriMesh((tris, var_da))
+
+
+## Dataset accessor
 @xr.register_dataset_accessor("pyfesom2")
 class FESOMDataset:
     def __init__(self, xr_dataset: xr.Dataset):
@@ -272,17 +267,6 @@ class FESOMDataset:
         return self._xrobj.plot(*args, **kwargs)
 
     def triplot(self, *args, **kwargs):
-        """
-        Plot mesh
-        Parameters
-        ----------
-        args
-        kwargs
-
-        Returns
-        -------
-
-        """
         data = self._xrobj
         tri = Triangulation(data.lon, data.lat, triangles=data.faces)
         projection = kwargs.pop('projection', ccrs.PlateCarree())
@@ -296,18 +280,8 @@ class FESOMDataset:
         return self._xrobj._repr_html_()
 
 
-def trimesh_plot(darr, tris, **other_dims):
-    import geoviews as gv
-    tris = np.asarray(tris)
-    data = darr.sel(**other_dims)
-    var_name = data.name
-    var_da = gv.Dataset((darr.lon, darr.lat, data),
-                        kdims=['lon', 'lat'], vdims=[var_name])
-    return gv.TriMesh((tris, var_da))
-
-
 class FESOMDataArray:
-    """ A Awapper around Dataarray"""
+    """ A wrapper around Dataarray, that passes dataset context around"""
 
     def __init__(self, xr_dataarray: xr.DataArray, context_dataset=None):
         self._xrobj = xrobj = xr_dataarray
@@ -319,6 +293,13 @@ class FESOMDataArray:
 
     def _repr_html_(self):
         return self._xrobj._repr_html_()
+
+    def select(self, method='nearest', tolerance=None, region=None, path=None, **indexers):
+        sel_obj = self._xrobj.to_dataset()
+        sel_obj = sel_obj.assign_coords({'faces': (self._context_dataset.faces.dims,
+                                                   self._context_dataset.faces.values)})
+        sel_obj = select(sel_obj, method='nearest', tolerance=tolerance, region=region, path=path, **indexers)
+        return sel_obj
 
     def tripcolor(self, *args, **kwargs):
         data = self._xrobj.squeeze()
@@ -433,13 +414,13 @@ class FESOMDataArray:
         trimesh_fn = functools.partial(trimesh_plot, darr=self._xrobj, tris=self._context_dataset.faces)
         var_name = self._xrobj.name
         hvd = hv.Dataset(self._xrobj.drop_vars(['lon', 'lat']))
-        non_plot_dims = {dim:self._xrobj[dim].values for dim in self._xrobj.dims if dim!='nod2'}
+        non_plot_dims = {dim: self._xrobj[dim].values for dim in self._xrobj.dims if dim != 'nod2'}
         dmap = hv.DynamicMap(trimesh_fn,
                              kdims=list(non_plot_dims.keys())).redim.values(**non_plot_dims)
         if 'nz1' in non_plot_dims.keys():
-             dmap = dmap.redim.default(nz1=self._xrobj.nz1.values[0])
-             dmap = dmap.redim.unit(nz1='m')
-             dmap = dmap.redim.label(nz1='level')
+            dmap = dmap.redim.default(nz1=self._xrobj.nz1.values[0])
+            dmap = dmap.redim.unit(nz1='m')
+            dmap = dmap.redim.label(nz1='level')
 
         plot_opts = {**hv_kwopts}
         if projection:
@@ -488,7 +469,7 @@ class FESOMDataArray:
 
         sel = sel.transpose(..., 'points')  # push points to last for making it default xaxis for plots
 
-        # use xarray plotting as it formats datetime axis with ease and defaults cbar...
+        # use xarray plotting as it formats datetime axis with ease and adds sensible default to plot.
         if dim_len == 1:
             plot_type = default_plot_types[0] if plot_type == 'auto' else plot_type
             plot_fn = getattr(sel.plot, plot_type)
@@ -507,10 +488,3 @@ class FESOMDataArray:
             ax2.set_xlim(sel.distance.min(), sel.distance.max())
             ax2.set_xlabel(f'distance [{sel.distance.units}]')
         return plot
-
-    def select(self, method='nearest', tolerance=None, region=None, path=None, **indexers):
-        sel_obj = self._xrobj.to_dataset()
-        sel_obj = sel_obj.assign_coords({'faces': (self._context_dataset.faces.dims,
-                                                   self._context_dataset.faces.values)})
-        sel_obj = select(sel_obj, method='nearest', tolerance=tolerance, region=region, path=path, **indexers)
-        return sel_obj
