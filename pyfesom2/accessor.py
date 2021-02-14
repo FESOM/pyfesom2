@@ -57,7 +57,7 @@ TODO:
 
 import functools
 from collections.abc import Sequence  # python>3.3?
-from typing import Union, Sequence as SequenceType, Tuple
+from typing import Optional, Sequence as SequenceType, Tuple, Union
 
 import cartopy.crs as ccrs
 import matplotlib.pyplot as plt
@@ -81,7 +81,6 @@ def distance_along_trajectory(lons, lats):
     lons, lats = np.array(lons, ndmin=1, copy=False), np.array(lats, ndmin=1, copy=False)
     points = np.c_[lons, lats]
     dists = np.zeros(lons.shape[0])
-    print(points)
     temp_dist = geod.inverse(points[0:-1], points[1:])[:, 0]
     dists[1:] = np.cumsum(temp_dist)
     return dists
@@ -89,12 +88,11 @@ def distance_along_trajectory(lons, lats):
 
 def normalize_distance(distance_array_in_m):
     """Returns best representation for
-    distances in m or km based on all values
-    of array
+    distances in m or km.
     """
     distance_array_in_km = distance_array_in_m / 1000.0
     len_array = distance_array_in_m.shape[0]
-    # if more then 1/3 of points are best suited to be expressed in m then m else km
+    # if more then 1/3 of points are best suited to be expressed in m else in km
     if np.count_nonzero(distance_array_in_km < 1) > len_array // 3:
         return "m", distance_array_in_m
     else:
@@ -112,15 +110,27 @@ class SimpleMesh:
 
 ## Selection functions
 
-def select_bbox(ds: xr.Dataset, bbox: BoundingBox) -> xr.Dataset:
-    """bbox as xmin,xmax, ymin, ymax"""
+def select_bbox(xr_obj: Union[xr.DataArray, xr.Dataset],
+                bbox: BoundingBox,
+                faces: Optional[Union[np.ndarray, xr.DataArray]] = None) -> xr.Dataset:
+    """bbox as xmin, ymin, xmax, ymax"""
     from .ut import cut_region
-    data = ds.drop_vars('faces')
-    mesh = SimpleMesh(ds.lon, ds.lat, ds.faces)
-    cut_faces = cut_region(mesh, bbox)
-    uniq, inv_index = np.unique(cut_faces.faces.values.ravel(), return_inverse=True)
+    faces = getattr(xr_obj, "faces", faces)
+    if faces is None:
+        raise ValueError(f"When passing a dataset it needs have faces in coords, or"
+                         f"faces need to be passed explicitly.\n"
+                         f"When passing a data array, argument faces can't be None,"
+                         f"faces must be indices[nelem,3] that define triangles.")
+
+    mesh = SimpleMesh(xr_obj.lon, xr_obj.lat, faces)
+    # cut region takes xmin, xmax, ymin, ymax
+    cut_faces,_ = cut_region(mesh, [bbox[0],bbox[2],bbox[1], bbox[3]])
+    cut_faces = np.asarray(cut_faces)
+    uniq, inv_index = np.unique(cut_faces.ravel(), return_inverse=True)
     new_faces = inv_index.reshape(cut_faces.shape)
-    ret = data.isel(nod2=uniq)
+    ret = xr_obj.isel(nod2=uniq)
+    if isinstance(xr_obj, xr.DataArray):
+        ret = ret.to_dataset()
     ret = ret.assign_coords({'faces': (('nelem', 'three'), new_faces)})
     return ret
 
@@ -193,8 +203,6 @@ def select_points(xrobj: Union[xr.Dataset, xr.DataArray],
         retobj.distance.attrs['units'] = dist_units
         retobj.distance.attrs['long_name'] = f"distance along trajectoru"
     return retobj
-
-
 
 
 def select(xrobj: Union[xr.Dataset, xr.DataArray], method='nearest',
@@ -454,16 +462,18 @@ class FESOMDataArray:
         """
         default plot_type
         """
-        default_plot_types = ('line', 'contourf')  # 1d and 2d defualts
-        extra_dims = []
+        default_plot_types = ('line', 'contourf')  # 1d and 2d defaults
         extra_dims = [k for k in indexers_plot_kwargs.keys() if
-                      k in self._xrobj.coords]  # coords is used insead of dims because xarray will raise error in selection
+                      k in self._xrobj.coords]  # coords is used instead of dims because xarray will raise error
+        # in selection if user passes a invalid dim otherwise we would have to.
+
         extra_indexers = {dim: indexers_plot_kwargs.pop(dim) for dim in extra_dims}
         sel = select_points(self._xrobj, lon=lon, lat=lat, **extra_indexers)
         dim_len = len(sel.dims)  # determines plot type, 1d or 2d
 
         # make time as default bottom x-axis if present (else formatting gets hard)
-        xdims = ('time', 'distance') if 'time' in extra_dims else ('distance', None)
+        xax_dims = ('time', 'distance') if 'time' in extra_dims else ('distance', None)
+
         if 'time' in extra_dims:
             sel['points'] = sel.time
         else:
@@ -481,11 +491,11 @@ class FESOMDataArray:
             plot_fn = getattr(sel.plot, plot_type)
             plot = plot_fn(**indexers_plot_kwargs)
         else:
-            raise Exception('A 2-d plot can have 1-2 dimensions, variable {sel.name} had {sel.dims}.')
+            raise Exception(f'A 2-d plot can have 1-2 dimensions, variable {sel.name} has dimensions: {sel.dims}.')
 
         ax = plot.ax if hasattr(plot, 'ax') else plot.axes  # akward some plots have it as ax, some as axes
 
-        if xdims[0] == 'time':
+        if xax_dims[1]:  # then it must be distance according to above.
             ax2 = ax.twiny()
             ax2.set_xlim(sel.distance.min(), sel.distance.max())
             ax2.set_xlabel(f'distance [{sel.distance.units}]')
