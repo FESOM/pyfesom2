@@ -135,7 +135,7 @@ def select_bbox(xr_obj: Union[xr.DataArray, xr.Dataset],
     return ret
 
 
-def select_region(xrobj: xr.Dataset,
+def select_region(xr_obj: Union[xr.DataArray, xr.Dataset],
                   region: Union[BoundingBox, Polygon]) -> xr.Dataset:
     from shapely.geometry import box, Polygon
     if isinstance(region, Sequence) and len(region) == 4:
@@ -145,7 +145,7 @@ def select_region(xrobj: xr.Dataset,
     else:
         raise NotImplementedError(f'Supplied region data {region} is not yet supported')
     left, down, right, top = sel_polygon.bounds
-    sel = select_bbox(xrobj, [left, right, down, top])
+    sel = select_bbox(xr_obj, [left, down, right, top])
     if sel_polygon == sel_polygon.envelope:
         return sel
 
