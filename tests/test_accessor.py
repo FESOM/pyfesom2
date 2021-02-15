@@ -1,4 +1,5 @@
 import numpy as np
+from shapely.geometry import box, Polygon
 import pytest
 
 from pyfesom2.datasets import LCORE, open_dataset
@@ -119,6 +120,7 @@ def test_normalize_distances():
 
 bbox_tests = [
     (-10, 50, 50, 80),  # LL -> UR
+    box(-10, 50, 50, 80),
     # use bad values and check
     # smaller then grid size
     # invalid bounds.
@@ -129,16 +131,18 @@ bbox_tests = [
 def test_select_bbox(dataset, bbox):
     from pyfesom2.accessor import select_bbox
 
+
     sda = select_bbox(dataset, bbox)
     slon_min, slat_min, slon_max, slat_max = (sda.lon.min(), sda.lat.min(),
                                               sda.lon.max(), sda.lon.max())
     # check within bbox's bounds
     # because pyfesom2.ut's cut_region uses closed bounds and sel is only when all nodes
     # of triangle are in bounds.
+
     assert slon_min >= bbox[0] and slon_max <= bbox[2]
     assert slat_min >= bbox[1] and slat_max <= bbox[3]
 
-    # test passing data arrays
+    # selection on data arrays
     data_var = list(dataset.data_vars.keys())[0]
     with pytest.raises(ValueError):
         select_bbox(dataset[data_var], bbox)
@@ -148,3 +152,5 @@ def test_select_bbox(dataset, bbox):
                                               sda.lon.max(), sda.lon.max())
     assert slon_min >= bbox[0] and slon_max <= bbox[2]
     assert slat_min >= bbox[1] and slat_max <= bbox[3]
+
+
