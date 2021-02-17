@@ -1,6 +1,6 @@
 import numpy as np
-from shapely.geometry import box, Polygon
 import pytest
+from shapely.geometry import box
 
 from pyfesom2.datasets import LCORE, open_dataset
 
@@ -17,7 +17,7 @@ def lcore_dataset(request):
 def local_dataset(request):
     import os.path
     cur_dir = os.path.dirname(request.fspath)
-    data_path = os.path.join(cur_dir, "data", "pi-results", "*.nc")
+    data_path = os.path.join(cur_dir, "data", "pi-results", "temp.fesom.*.nc")
     mesh_path = os.path.join(cur_dir, "data", "pi-grid")
     da = open_dataset(data_path, mesh_path=mesh_path)
     yield da
@@ -32,7 +32,7 @@ def random_dataset(request):
     if request.param is not None:
         data_size = request.param
     else:
-        data_size = 36 * 18  # default
+        data_size = 36 * 18  # default, it covers more edge cases
     lons = np.random.uniform(-180., 180., data_size)
     lats = np.random.uniform(-90., 90., data_size)
     tris = Triangulation(lons, lats)
@@ -119,10 +119,9 @@ def test_normalize_distances():
 
 
 bbox_tests = [
-    (-10, 50, 50, 80),  # LL -> UR
-    box(-10, 50, 50, 80),
+    (-10, 50, 60, 80),  # LL -> UR (minx, miny, maxx, maxy)
     # use bad values and check
-    # smaller then grid size
+    # bounds smaller then grid size
     # invalid bounds.
 ]
 
@@ -131,7 +130,7 @@ bbox_tests = [
 def test_select_bbox(dataset, bbox):
     from pyfesom2.accessor import select_bbox
 
-
+    # selection on datasets
     sda = select_bbox(dataset, bbox)
     slon_min, slat_min, slon_max, slat_max = (sda.lon.min(), sda.lat.min(),
                                               sda.lon.max(), sda.lon.max())
@@ -154,3 +153,72 @@ def test_select_bbox(dataset, bbox):
     assert slat_min >= bbox[1] and slat_max <= bbox[3]
 
 
+region_tests = [
+    *bbox_tests,  # bbox tests should be valid inputs for select_region
+    # *[box(*bbox) for bbox in bbox_tests],  # bbox tests cst s shapely's box
+    # Polygon([(-70, 30), (-10, 0), (-10, 60)]),  # a triangle in atlantic
+    # in future add complex region
+    # polygons from pyfesom's ut
+]
+
+
+@pytest.mark.parametrize("region", region_tests)
+def test_select_region(dataset, region):
+    from typing import Sequence
+    import warnings
+    from shapely.geometry import MultiPoint
+    from pyfesom2.accessor import select_region
+    #     # convex hull of returned dataset
+    if isinstance(region, Sequence):
+        outer_polygon = box(*region)
+    else:
+        outer_polygon = region
+
+    sda = select_region(dataset, region)
+
+    if len(sda.lon) == 0:
+        with pytest.warns(UserWarning):
+            warnings.warn("Found no points for the region in the domain.", UserWarning)
+        assert not hasattr(sda, "faces")
+
+    mp = MultiPoint(np.vstack((sda.lon, sda.lat)).T)
+    print(outer_polygon, mp.convex_hull)
+    assert outer_polygon.contains(mp.convex_hull)
+
+
+@pytest.mark.parametrize("npoints", [10])
+def test_select_points(dataset, npoints, request):
+    from pyfesom2.accessor import select_points
+    # dataset = local_dataset # makes it easy to change fixture
+    # select random points from datapoints
+    random_pts = np.random.choice(len(dataset.nod2), npoints)  # replace=True by default
+    lats = dataset.lat[random_pts]
+    lons = dataset.lon[random_pts]
+
+    # pass lons and lats as numpy array
+    sda = select_points(dataset, lons.values, lats.values)
+    assert np.array_equal(sda.lon.values, lons.values) & np.array_equal(sda.lat.values, lats.values)
+
+    # test passing lon and lat as scalars
+    slon, slat = np.array(lons.values[0], ndmin=1), np.array(lats.values[0], ndmin=1)  # to match shapes
+    sda = select_points(dataset, float(slon), float(slat))
+    assert np.array_equal(sda.lon.values, slon) & np.array_equal(sda.lat.values, slat)
+
+    # selection on data arrays
+    data_var = list(dataset.data_vars.keys())[0]
+    sda = select_points(dataset[data_var], lons, lats)
+    assert np.array_equal(sda.lon.values, lons) & np.array_equal(sda.lat.values, lats)
+
+    # pass lons and lats as xarray data array
+    sda = select_points(dataset, lons, lats)
+    assert np.array_equal(sda.lon.values, lons) & np.array_equal(sda.lat.values, lats)
+
+    # check other attrs
+    assert 'points' in sda.dims, 'point selection will always have points in dimensions'
+    assert 'faces' not in sda, 'faces are not returned by select points'
+
+    assert 'distance' in sda.coords, 'by default select points returns distance as coordinate'
+    assert np.isclose(sda.distance[0], 0.0), ' distance to first point is always 0.'
+
+    sda = select_points(dataset, lons, lats, return_distance=False)
+    assert 'distance' not in sda, ' point selection with return_distance=False does not have distance'
