@@ -56,6 +56,7 @@ TODO:
 """
 
 import functools
+import warnings
 from collections.abc import Sequence  # python>3.3?
 from typing import Optional, Sequence as SequenceType, Tuple, Union
 
@@ -113,7 +114,8 @@ class SimpleMesh:
 def select_bbox(xr_obj: Union[xr.DataArray, xr.Dataset],
                 bbox: BoundingBox,
                 faces: Optional[Union[np.ndarray, xr.DataArray]] = None) -> xr.Dataset:
-    """bbox as xmin, ymin, xmax, ymax"""
+    """bbox as xmin, ymin, xmax, ymax
+    doesn't tke shapely as input"""
     from .ut import cut_region
     faces = getattr(xr_obj, "faces", faces)
     if faces is None:
@@ -123,8 +125,9 @@ def select_bbox(xr_obj: Union[xr.DataArray, xr.Dataset],
                          f"faces must be indices[nelem,3] that define triangles.")
 
     mesh = SimpleMesh(xr_obj.lon, xr_obj.lat, faces)
+    bbox = np.asarray(bbox)
     # cut region takes xmin, xmax, ymin, ymax
-    cut_faces,_ = cut_region(mesh, [bbox[0],bbox[2],bbox[1], bbox[3]])
+    cut_faces, _ = cut_region(mesh, [bbox[0], bbox[2], bbox[1], bbox[3]])
     cut_faces = np.asarray(cut_faces)
     uniq, inv_index = np.unique(cut_faces.ravel(), return_inverse=True)
     new_faces = inv_index.reshape(cut_faces.shape)
@@ -136,7 +139,9 @@ def select_bbox(xr_obj: Union[xr.DataArray, xr.Dataset],
 
 
 def select_region(xr_obj: Union[xr.DataArray, xr.Dataset],
-                  region: Union[BoundingBox, Polygon]) -> xr.Dataset:
+                  region: Union[BoundingBox, Polygon],
+                  faces: Optional[Union[np.ndarray, xr.DataArray]] = None
+                  ) -> xr.Dataset:
     from shapely.geometry import box, Polygon
     if isinstance(region, Sequence) and len(region) == 4:
         sel_polygon = box(*region)
@@ -144,26 +149,44 @@ def select_region(xr_obj: Union[xr.DataArray, xr.Dataset],
         sel_polygon = region
     else:
         raise NotImplementedError(f'Supplied region data {region} is not yet supported')
+
+    faces = getattr(xr_obj, "faces", faces)
+    if faces is None:
+        raise ValueError(f"When passing a dataset it needs have faces in coords, or"
+                         f"faces need to be passed explicitly.\n"
+                         f"When passing a data array, argument faces can't be None,"
+                         f"faces must be indices[nelem,3] that define triangles.")
+
     left, down, right, top = sel_polygon.bounds
     sel = select_bbox(xr_obj, [left, down, right, top])
+    # return bbox selection if region is a box
     if sel_polygon == sel_polygon.envelope:
         return sel
 
     as_mp = asMultiPoint(np.vstack((sel.lon, sel.lat)).T)  # asMultiPoint saves memory according to docs
 
-    vals = np.asarray(as_mp.intersection(sel_polygon))
-
-    in_lon, in_lat = vals.T
+    pt_vals = np.asarray(as_mp.intersection(sel_polygon))
+    in_lon, in_lat = pt_vals.T
     sel_inds = (
         np.isin(sel.lon.values, in_lon, assume_unique=True) & np.isin(sel.lat.values, in_lat, assume_unique=True))
 
-    mesh = SimpleMesh(sel.lon, sel.lat, sel.faces)
+    # mesh = SimpleMesh(sel.lon, sel.lat, sel.faces)
     nod2_inds = np.nonzero(sel_inds)  # nonzero works only for bool arrays to get inds
     # indices of nod2 that correspond to polygon
-    new_elem = mesh.elem[np.mean(np.isin(mesh.elem, nod2_inds), axis=1) == 1]
-    uniq, inv_index = np.unique(new_elem.values.ravel(), return_inverse=True)
-    new_faces = inv_index.reshape(new_elem.shape)
+    new_faces = faces[np.mean(np.isin(faces, nod2_inds), axis=1) == 1]
+    uniq, inv_index = np.unique(new_faces.values.ravel(), return_inverse=True)
+    new_faces = inv_index.reshape(new_faces.shape)
     ret = sel.isel(nod2=uniq)
+
+    if hasattr(ret, 'faces'):
+        ret = ret.drop_vars('faces')
+    if not len(uniq) == 0:
+        warnings.warn('Found no points for the region in the domain.')
+        return ret  # empty dataset
+
+    if isinstance(xr_obj, xr.DataArray):
+        ret = ret.to_dataset()
+
     ret = ret.assign_coords({'faces': (('nelem', 'three'), new_faces)})
     return ret
 
@@ -184,7 +207,6 @@ def select_points(xrobj: Union[xr.Dataset, xr.DataArray],
         tree = cKDTree(src_pts, leafsize=32, compact_nodes=False, balanced_tree=False)
 
     dst_pts = geocentric_crs.transform_points(geodetic_crs, np.asarray(lon), np.asarray(lat))
-
     if tolerance is None:
         _, ind = tree.query(dst_pts)
     else:
@@ -194,15 +216,19 @@ def select_points(xrobj: Union[xr.Dataset, xr.DataArray],
         raise NotImplementedError('tolerance is currently not supported.')
 
     other_dims = {k: xr.DataArray(np.array(v, ndmin=1), dims='points') for k, v in other_dims.items()}
-    retobj = xrobj.isel(nod2=xr.DataArray(ind - 1, dims='points')).sel(**other_dims, method=method)
+    ret_obj = xrobj.isel(nod2=xr.DataArray(ind, dims='points')).sel(**other_dims, method=method)
 
+    # from faces, which will not be useful in returned dataset
+    # unless we reindex them, but is there a use case for that?
+    if 'faces' in ret_obj.coords:
+        ret_obj = ret_obj.drop_vars('faces')
     if return_distance:
         dist = distance_along_trajectory(lon, lat)
         dist_units, dist = normalize_distance(dist)
-        retobj = retobj.assign_coords({'distance': ('points', dist)})
-        retobj.distance.attrs['units'] = dist_units
-        retobj.distance.attrs['long_name'] = f"distance along trajectoru"
-    return retobj
+        ret_obj = ret_obj.assign_coords({'distance': ('points', dist)})
+        ret_obj.distance.attrs['units'] = dist_units
+        ret_obj.distance.attrs['long_name'] = f"distance along trajectory"
+    return ret_obj
 
 
 def select(xrobj: Union[xr.Dataset, xr.DataArray], method='nearest',
@@ -217,7 +243,7 @@ def select(xrobj: Union[xr.Dataset, xr.DataArray], method='nearest',
 
     if (lat_indexer or lon_indexer) and (region is not None or path is not None):
         # TODO: do this combinations better, doesn't check if path and region are both given
-        raise Exception("Onlu one option: lat, lon as indexer or path or region is supported")
+        raise Exception("Only one option: lat, lon as indexer or path or region is supported")
 
     if lat_indexer or lon_indexer:
         if lat_indexer and lon_indexer:
@@ -260,7 +286,6 @@ class FESOMDataset:
         # TODO: check valid fesom data?
         self._tree = None
         for datavar in xr_obj.data_vars:
-            # setattr(self, str(datavar), xr_obj[datavar])
             setattr(self, str(datavar), FESOMDataArray(xr_obj[datavar], xr_obj))
 
     def select(self, method='nearest', tolerance=None, region=None, path=None, **indexers):
