@@ -57,19 +57,19 @@ TODO:
 
 import functools
 import warnings
-from collections.abc import Sequence  # python>3.3?
-from typing import Optional, Sequence as SequenceType, Tuple, Union
+from typing import Optional, Sequence, Tuple, Union, MutableMapping
 
 import cartopy.crs as ccrs
 import matplotlib.pyplot as plt
 import numpy as np
 import xarray as xr
 from matplotlib.tri import Triangulation
-from shapely.geometry import MultiPolygon, Polygon, asMultiPoint
+from shapely.geometry import MultiPolygon, Polygon, asMultiPoint, LineString
 
 # New Types
-BoundingBox = SequenceType[float]
-MultiRegion = Union[SequenceType[Polygon], MultiPolygon]
+BoundingBox = Sequence[float]
+Region = Union[BoundingBox, Polygon]
+MultiRegion = Union[Sequence[Polygon], MultiPolygon]
 
 
 # Selection
@@ -139,7 +139,7 @@ def select_bbox(xr_obj: Union[xr.DataArray, xr.Dataset],
 
 
 def select_region(xr_obj: Union[xr.DataArray, xr.Dataset],
-                  region: Union[BoundingBox, Polygon],
+                  region: Region,
                   faces: Optional[Union[np.ndarray, xr.DataArray]] = None
                   ) -> xr.Dataset:
     from shapely.geometry import box, Polygon
@@ -193,8 +193,8 @@ def select_region(xr_obj: Union[xr.DataArray, xr.Dataset],
 
 
 def select_points(xrobj: Union[xr.Dataset, xr.DataArray],
-                  lon, lat, method='nearest', tolerance=None, tree=None, return_distance=True, **other_dims) -> Union[
-    xr.Dataset, xr.DataArray]:
+                  lon: Union[float, np.ndarray], lat: Union[float, np.ndarray], method='nearest', tolerance=None,
+                  tree=None, return_distance=True, **other_dims) -> Union[xr.Dataset, xr.DataArray]:
     """
     TODO: check id all dims are of same length.
     """
@@ -240,7 +240,9 @@ def select_points(xrobj: Union[xr.Dataset, xr.DataArray],
 
 
 def select(xrobj: Union[xr.Dataset, xr.DataArray], method='nearest',
-           tolerance=None, region=None, path=None, **indexers) -> Union[xr.Dataset, xr.DataArray]:
+           tolerance=None, region: Optional[Region] = None,
+           path=Optional[Union[LineString, Sequence[float], MutableMapping]], tree=None,
+           **indexers) -> Union[xr.Dataset, xr.DataArray]:
     """
     Higher level interface that does different kinds of selection
     """
@@ -253,10 +255,12 @@ def select(xrobj: Union[xr.Dataset, xr.DataArray], method='nearest',
         # TODO: do this combinations better, doesn't check if path and region are both given
         raise Exception("Only one option: lat, lon as indexer or path or region is supported")
 
+    ret_arr = xrobj
+
     if lat_indexer or lon_indexer:
         if lat_indexer and lon_indexer:
             if method == 'nearest':
-                ret_arr = select_points(xrobj, lon, lat, method=method, tolerance=tolerance)
+                ret_arr = select_points(xrobj, lon, lat, method=method, tolerance=tolerance, tree=tree)
                 ret_arr = ret_arr.drop_vars('faces')
             else:
                 raise NotImplementedError("Only method='nearest' is currently supported.")
@@ -265,16 +269,25 @@ def select(xrobj: Union[xr.Dataset, xr.DataArray], method='nearest',
     elif region is not None:
         ret_arr = select_region(xrobj, region)
     elif path is not None:
-        raise NotImplementedError('Path option is not implemented yet')
-    else:
-        ret_arr = xrobj
+        if isinstance(path, Sequence) or isinstance(path, LineString):
+            path = np.asarray(path).T
+            if not np.ndim(path) == 2:
+                raise ValueError('Path of more then 2 columns (lons, lats) is ambiguous, use dictionary instead')
+            else:
+                lon, lat = path
+                ret_arr = select_points(xrobj, lon, lat, method=method, tolerance=tolerance, tree=tree)
+        elif isinstance(path, dict):
+            ret_arr = select_points(xrobj, method=method, tolerance=tolerance, tree=tree, **path)
+        else:
+            raise ValueError('Invalid path argument it can only be sequence of (lons, lats), shapely 2D LineString or'
+                             'dictionary containing coords.')
 
     return ret_arr.sel(**indexers, method=method).squeeze()
 
 
 # Accessors
 
-## Accessor Utils
+# Accessor Utils
 
 def trimesh_plot(darr, tris, **other_dims):
     import geoviews as gv
@@ -286,25 +299,20 @@ def trimesh_plot(darr, tris, **other_dims):
     return gv.TriMesh((tris, var_da))
 
 
-## Dataset accessor
+# Dataset accessor
+
 @xr.register_dataset_accessor("pyfesom2")
 class FESOMDataset:
     def __init__(self, xr_dataset: xr.Dataset):
         self._xrobj = xr_obj = xr_dataset
-        # TODO: check valid fesom data?
-        self._tree = None
-        for datavar in xr_obj.data_vars:
-            setattr(self, str(datavar), FESOMDataArray(xr_obj[datavar], xr_obj))
+        # TODO: check valid fesom data? otherwise accessor is available on all xarray datasets
+        self._tree_obj = None
+        for datavar in xr_obj.data_vars.keys():
+            setattr(self, datavar, FESOMDataArray(xr_obj[datavar], xr_obj))
 
     def select(self, method='nearest', tolerance=None, region=None, path=None, **indexers):
         sel_obj = select(self._xrobj, method='nearest', tolerance=tolerance, region=region, path=path, **indexers)
         return sel_obj
-
-    def regrid(self):
-        pass
-
-    def regrid_like(self):
-        pass
 
     def plot(self, *args, **kwargs):
         return self._xrobj.plot(*args, **kwargs)
@@ -315,6 +323,22 @@ class FESOMDataset:
         projection = kwargs.pop('projection', ccrs.PlateCarree())
         ax = kwargs.pop('ax', plt.axes(projection=projection))
         return ax.triplot(tri, *args, **kwargs)
+
+    def _build_tree(self):
+        from cartopy.crs import Geocentric, Geodetic
+        from scipy.spatial import cKDTree
+        geocentric_crs, geodetic_crs = Geocentric(), Geodetic()
+        src_pts = geocentric_crs.transform_points(geodetic_crs, np.asarray(self._xrobj.lon),
+                                                  np.asarray(self._xrobj.lat))
+        self._tree_obj = cKDTree(src_pts, leafsize=32, compact_nodes=False, balanced_tree=False)
+        return self._tree_obj
+
+    @property
+    def _tree(self):
+        """Property to hide tree from jupyter"""
+        if self._tree_obj is not None:
+            return self._tree_obj
+        return self._build_tree()
 
     def __repr__(self):
         return self._xrobj.__repr__()
@@ -341,8 +365,16 @@ class FESOMDataArray:
         sel_obj = self._xrobj.to_dataset()
         sel_obj = sel_obj.assign_coords({'faces': (self._context_dataset.faces.dims,
                                                    self._context_dataset.faces.values)})
-        sel_obj = select(sel_obj, method='nearest', tolerance=tolerance, region=region, path=path, **indexers)
+        tree = self._context_dataset._tree
+        sel_obj = select(sel_obj, method='nearest', tolerance=tolerance, region=region, path=path, tree=tree,
+                         **indexers)
         return sel_obj
+
+    def select_points(self, lon: Union[float, np.ndarray], lat: Union[float, np.ndarray], method='nearest',
+                      tolerance=None,
+                      tree=None, return_distance=True, **other_dims):
+        tree = self._context_dataset._tree
+        return select_points(self._xrobj, method=method, tolerance=tolerance, tree=tree, **other_dims)
 
     def tripcolor(self, *args, **kwargs):
         data = self._xrobj.squeeze()
@@ -445,7 +477,7 @@ class FESOMDataArray:
         return ax.triplot(tri, *args, **kwargs)
 
     def trimesh(self, levels=None, cmap='RdBu', colorbar=True, height=350, width=600,
-                colorbar_position="bottom", projection=None, coastline=True, tools=['hover'], **hv_kwopts):
+                colorbar_position="bottom", projection=None, coastline=True, tools=('hover'), **hv_kwopts):
         try:
             import geoviews as gv
             import holoviews as hv
