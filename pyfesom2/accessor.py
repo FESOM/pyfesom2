@@ -270,7 +270,11 @@ def select(xrobj: Union[xr.Dataset, xr.DataArray], method='nearest',
         ret_arr = select_region(xrobj, region)
     elif path is not None:
         if isinstance(path, Sequence) or isinstance(path, LineString):
-            path = np.asarray(path).T
+            if isinstance(path, LineString):
+                path = np.asarray(path).T
+            else:
+                path = np.asarray(path)
+
             if not np.ndim(path) == 2:
                 raise ValueError('Path of more then 2 columns (lons, lats) is ambiguous, use dictionary instead')
             else:
@@ -314,6 +318,12 @@ class FESOMDataset:
         sel_obj = select(self._xrobj, method='nearest', tolerance=tolerance, region=region, path=path, **indexers)
         return sel_obj
 
+    def select_points(self, lon: Union[float, np.ndarray], lat: Union[float, np.ndarray], method='nearest',
+                      tolerance=None,
+                      tree=None, return_distance=True, **other_dims):
+        tree = self._tree
+        return select_points(self._xrobj, method=method, tolerance=tolerance, tree=tree, **other_dims)
+
     def plot(self, *args, **kwargs):
         return self._xrobj.plot(*args, **kwargs)
 
@@ -335,7 +345,7 @@ class FESOMDataset:
 
     @property
     def _tree(self):
-        """Property to hide tree from jupyter"""
+        """Property to regulate tree access, _tree to hide from jupyter notebook"""
         if self._tree_obj is not None:
             return self._tree_obj
         return self._build_tree()
@@ -355,17 +365,11 @@ class FESOMDataArray:
         self._context_dataset = context = context_dataset
         self._native_projection = ccrs.PlateCarree()
 
-    def __repr__(self):
-        return f"Wrapped {self._xrobj.__repr__()}\n{super().__repr__()}"
-
-    def _repr_html_(self):
-        return self._xrobj._repr_html_()
-
     def select(self, method='nearest', tolerance=None, region=None, path=None, **indexers):
         sel_obj = self._xrobj.to_dataset()
         sel_obj = sel_obj.assign_coords({'faces': (self._context_dataset.faces.dims,
                                                    self._context_dataset.faces.values)})
-        tree = self._context_dataset._tree
+        tree = self._context_dataset.pyfesom2._tree
         sel_obj = select(sel_obj, method='nearest', tolerance=tolerance, region=region, path=path, tree=tree,
                          **indexers)
         return sel_obj
@@ -373,7 +377,7 @@ class FESOMDataArray:
     def select_points(self, lon: Union[float, np.ndarray], lat: Union[float, np.ndarray], method='nearest',
                       tolerance=None,
                       tree=None, return_distance=True, **other_dims):
-        tree = self._context_dataset._tree
+        tree = self._context_dataset.pyfesom2._tree
         return select_points(self._xrobj, method=method, tolerance=tolerance, tree=tree, **other_dims)
 
     def tripcolor(self, *args, **kwargs):
@@ -565,3 +569,9 @@ class FESOMDataArray:
             ax2.set_xlim(sel.distance.min(), sel.distance.max())
             ax2.set_xlabel(f'distance [{sel.distance.units}]')
         return plot
+
+    def __repr__(self):
+        return f"Wrapped {self._xrobj.__repr__()}\n{super().__repr__()}"
+
+    def _repr_html_(self):
+        return self._xrobj._repr_html_()
