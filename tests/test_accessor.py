@@ -1,6 +1,6 @@
 import numpy as np
 import pytest
-from shapely.geometry import box
+from shapely.geometry import box, Polygon
 
 from pyfesom2.datasets import open_dataset
 
@@ -168,8 +168,8 @@ def test_select_bbox(dataset, bbox):
 
 region_tests = [
     *bbox_tests,  # bbox tests should be valid inputs for select_region
-    # *[box(*bbox) for bbox in bbox_tests],  # bbox tests cst s shapely's box
-    # Polygon([(-70, 30), (-10, 0), (-10, 60)]),  # a triangle in atlantic
+    *[box(*bbox) for bbox in bbox_tests],  # bbox tests cst s shapely's box
+    Polygon([(-70, 30), (-10, 0), (-10, 60)]),  # a triangle in atlantic
     # in future add complex region
     # polygons from pyfesom's ut
 ]
@@ -267,19 +267,35 @@ def test_select_points_advanced(random_nd_dataset, npoints):
 
 
 def test_dataset_accessor(dataset):
-    import pyfesom2
-
     assert hasattr(dataset, "pyfesom2")
 
-    dataset_methods = ["select", "plot", "triplot"]
+    dataset_methods = ["select", "select_points", "plot", "triplot"]
     for method in dataset_methods:
         assert hasattr(dataset.pyfesom2, method)
 
+
+def test_accessor_on_dataarrays(dataset):
+    from shapely.geometry import LineString
     for data_var in dataset.data_vars.keys():
         assert hasattr(dataset.pyfesom2, data_var)
 
+    data_var = list(dataset.data_vars.keys())[0]
 
-def test_accessor_on_dataarays(dataset):
-    import pyfesom2
+    # TODO: do this better, not extensive
+    # test select region
+    for region in region_tests:
+        assert getattr(dataset.pyfesom2, data_var).select(region=region) is not None
 
+    # test select points
+    npoints = 10
+    lons = np.linspace(-180, 180, npoints)
+    lats = np.linspace(-90, 90, npoints)
 
+    assert getattr(dataset.pyfesom2, data_var).select(
+        path=(lons, lats)) is not None, 'select cannot take lon,lat as sequence'
+    shapely_path = LineString(np.column_stack([lons, lats]))
+    assert getattr(dataset.pyfesom2, data_var).select(
+        path=shapely_path) is not None, 'select cannot take lon,lat as LineString'
+    dict_path = {'lon': lons, 'lat': lats}
+    assert getattr(dataset.pyfesom2, data_var).select(
+        path=dict_path) is not None, 'select cannot take lon,lat as dictionary'
