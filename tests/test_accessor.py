@@ -249,6 +249,7 @@ def test_select_points_advanced(random_nd_dataset, npoints):
     """Test trajectory like selection on time, level dimensions"""
     import pandas as pd
     from pyfesom2.accessor import select_points
+
     dataset = random_nd_dataset
     random_pts = np.random.choice(len(dataset.nod2), npoints)  # replace=True by default
     lats = dataset.lat[random_pts].values
@@ -263,3 +264,22 @@ def test_select_points_advanced(random_nd_dataset, npoints):
     assert len(sda.lon) == len(sda.lat) == len(sda.nz1) == len(sda.time)
     assert all([coord in sda.coords for coord in ['lon', 'lat', 'time', 'nz1']])
     assert not all([dim in sda.dims for dim in ('time', 'nz1')])
+
+
+def test_dataset_accessor(dataset):
+    import pyfesom2
+
+    assert hasattr(dataset, "pyfesom2")
+
+    dataset_methods = ["select", "plot", "triplot"]
+    for method in dataset_methods:
+        assert hasattr(dataset.pyfesom2, method)
+
+    for data_var in dataset.data_vars.keys():
+        assert hasattr(dataset.pyfesom2, data_var)
+
+
+def test_accessor_on_dataarays(dataset):
+    import pyfesom2
+
+
