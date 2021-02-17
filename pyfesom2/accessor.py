@@ -178,8 +178,9 @@ def select_region(xr_obj: Union[xr.DataArray, xr.Dataset],
     new_faces = inv_index.reshape(new_faces.shape)
     ret = sel.isel(nod2=uniq)
 
-    if hasattr(ret, 'faces'):
+    if 'faces' in ret.coords:
         ret = ret.drop_vars('faces')
+
     if not len(uniq) == 0:
         warnings.warn('Found no points for the region in the domain.')
         return ret  # empty dataset
@@ -199,6 +200,13 @@ def select_points(xrobj: Union[xr.Dataset, xr.DataArray],
     """
     from cartopy.crs import Geocentric, Geodetic
     from scipy.spatial import cKDTree
+    src_lons, src_lats = np.asarray(xrobj.lon), np.asarray(xrobj.lat)
+
+    set_len_dims = {np.size(lon), np.size(lat), *[np.size(val) for val in other_dims.values()]}
+
+    if len(set_len_dims) > 1:
+        raise ValueError('For point selection length of all supplied dims args should be same.')
+
     if not method == 'nearest':
         raise NotImplementedError("Spatial selection currently supports only nearest neighbor lookup")
     geocentric_crs, geodetic_crs = Geocentric(), Geodetic()

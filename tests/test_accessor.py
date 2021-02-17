@@ -2,17 +2,10 @@ import numpy as np
 import pytest
 from shapely.geometry import box
 
-from pyfesom2.datasets import LCORE, open_dataset
+from pyfesom2.datasets import open_dataset
 
 
-# TODO: skipping A01 because chunksize is too small, leading to slow sel
-@pytest.fixture(scope='module', params=[LCORE])  # , A01])
-def lcore_dataset(request):
-    da = request.param.load()
-    yield da
-
-
-# push this to test config so that it is available globally
+# TODO: push this to test config conftest.py so that it is available globally
 @pytest.fixture(scope='module')
 def local_dataset(request):
     import os.path
@@ -23,31 +16,53 @@ def local_dataset(request):
     yield da
 
 
-# use scope function so that we can change grid size dynamically,
-# but merged dataset needs to be changed appropriately
+# use scope=function if we want to change grid size dynamically for each test case,
+# but merged dataset then needs to be changed appropriately to take the param.
 @pytest.fixture(scope='module', params=[36 * 18, 360 * 180])  # same pts as 10deg, 1deg reg grid
-def random_dataset(request):
-    import xarray as xr
+def random_spatial_dataset(request):
     from matplotlib.tri import Triangulation
+    import xarray as xr
+
     if request.param is not None:
-        data_size = request.param
+        spatial_size = request.param
     else:
-        data_size = 36 * 18  # default, it covers more edge cases
-    lons = np.random.uniform(-180., 180., data_size)
-    lats = np.random.uniform(-90., 90., data_size)
+        spatial_size = 36 * 18  # default, it covers more edge cases
+
+    lons = np.random.uniform(-180., 180., spatial_size)
+    lats = np.random.uniform(-90., 90., spatial_size)
     tris = Triangulation(lons, lats)
     dataset = xr.Dataset(coords={'lon'  : ('nod2', lons),
                                  'lat'  : ('nod2', lats),
                                  'faces': (('nelem', 'three'), tris.triangles)})
-    dataset['dummy_var'] = ('nod2', np.random.uniform(0., 1., data_size))
+    dataset['dummy_2d_var'] = ('nod2', np.random.uniform(0., 1., spatial_size))
 
     yield dataset
 
 
-# merged dataset fixture
-@pytest.fixture(params=["local_dataset", "random_dataset"])
-def dataset(local_dataset, random_dataset, request):
+@pytest.fixture
+def random_nd_dataset(random_spatial_dataset):
+    import pandas as pd
+    times = pd.date_range('2019-01-01', freq='m', periods=12)
+    nz1 = np.linspace(0, -5000, 40)
+    dataset = random_spatial_dataset.assign_coords({'time': times, 'nz1': nz1})
+    dummy_nd_var = np.random.uniform(0., 1., (len(times), len(random_spatial_dataset.nod2), len(nz1)))
+    dataset['dummy_nd_var'] = (('time', 'nod2', 'nz1'), dummy_nd_var)
+    yield dataset
+
+
+# merged dataset fixture using just 2 for now
+@pytest.fixture(params=["local_dataset", "random_spatial_dataset"])
+def dataset(local_dataset, random_spatial_dataset, request):
     yield request.getfixturevalue(request.param)
+
+
+# TODO: skipping because remote datasets need to be fixed for plotting and optimized for remote transfer:
+#  current unsorted points leads to too much data transfer, atleast when remote dataset contains faces,
+#  integrate this in dataset fixture as a param and mark it slow
+# @pytest.fixture(scope='module', params=[LCORE, A01])
+# def lcore_dataset(request):
+#     da = request.param.load()
+#     yield da
 
 
 # def test_dataarray_accessor(dataset):
@@ -95,9 +110,7 @@ def test_distance_along_trajectory():
     lons = np.linspace(-10, 180, 100)
     lats = np.zeros(lons.shape, dtype=lons.dtype)  # at equator
     dists = distance_along_trajectory(lons, lats)
-    print(dists, dists.shape)
     assert np.isclose(dists[0], 0.), "Distance to first point must always be zero."
-    print(dists[1], dists[-1], dists[1] * (n - 1))
     assert np.isclose(dists[1] * (n - 1), dists[-1]), "Total distance along linearly spaced trajectory doesn't " \
                                                       "match (n-1)*individual distance."
 
@@ -179,11 +192,10 @@ def test_select_region(dataset, region):
     if len(sda.lon) == 0:
         with pytest.warns(UserWarning):
             warnings.warn("Found no points for the region in the domain.", UserWarning)
-        assert not hasattr(sda, "faces")
-
-    mp = MultiPoint(np.vstack((sda.lon, sda.lat)).T)
-    print(outer_polygon, mp.convex_hull)
-    assert outer_polygon.contains(mp.convex_hull)
+        # assert not hasattr(sda, "faces")
+    else:
+        mp = MultiPoint(np.vstack((sda.lon, sda.lat)).T)
+        assert outer_polygon.contains(mp.convex_hull)
 
 
 @pytest.mark.parametrize("npoints", [10])
@@ -215,6 +227,7 @@ def test_select_points(dataset, npoints, request):
 
     # check other attrs
     assert 'points' in sda.dims, 'point selection will always have points in dimensions'
+    assert len(sda.points) == npoints, 'length of selected points should be same as lats, lons'
     assert 'faces' not in sda, 'faces are not returned by select points'
 
     assert 'distance' in sda.coords, 'by default select points returns distance as coordinate'
@@ -222,3 +235,31 @@ def test_select_points(dataset, npoints, request):
 
     sda = select_points(dataset, lons, lats, return_distance=False)
     assert 'distance' not in sda, ' point selection with return_distance=False does not have distance'
+
+    # test against points not necessarily in dataset
+    npoints = 20
+    lons = np.linspace(-180, 180, npoints)
+    lats = np.linspace(-90, 90, npoints)
+    sda = select_points(dataset, lons, lats)
+    assert len(sda.points) == npoints
+
+
+@pytest.mark.parametrize("npoints", [10])
+def test_select_points_advanced(random_nd_dataset, npoints):
+    """Test trajectory like selection on time, level dimensions"""
+    import pandas as pd
+    from pyfesom2.accessor import select_points
+    dataset = random_nd_dataset
+    random_pts = np.random.choice(len(dataset.nod2), npoints)  # replace=True by default
+    lats = dataset.lat[random_pts].values
+    lons = dataset.lon[random_pts].values
+    nz1 = np.random.choice(dataset.nz1.values, npoints)
+    # not linearly increasing times are awkward for trajectory
+    linear_times = pd.date_range(dataset.time.min().values, dataset.time.max().values, periods=npoints)
+
+    sda = select_points(dataset, lon=lons, lat=lats, time=linear_times, nz1=nz1)
+
+    assert len(sda.points) == npoints
+    assert len(sda.lon) == len(sda.lat) == len(sda.nz1) == len(sda.time)
+    assert all([coord in sda.coords for coord in ['lon', 'lat', 'time', 'nz1']])
+    assert not all([dim in sda.dims for dim in ('time', 'nz1')])
