@@ -194,7 +194,7 @@ def select_region(xr_obj: Union[xr.DataArray, xr.Dataset],
 
 def select_points(xrobj: Union[xr.Dataset, xr.DataArray],
                   lon: Union[float, np.ndarray], lat: Union[float, np.ndarray], method='nearest', tolerance=None,
-                  tree=None, return_distance=True, **other_dims) -> Union[xr.Dataset, xr.DataArray]:
+                  tree=None, return_distance=True, selection_dim_name="nod2", **other_dims) -> Union[xr.Dataset, xr.DataArray]:
     """
     TODO: check id all dims are of same length.
     """
@@ -223,8 +223,8 @@ def select_points(xrobj: Union[xr.Dataset, xr.DataArray],
         # ind = inds[0]
         raise NotImplementedError('tolerance is currently not supported.')
 
-    other_dims = {k: xr.DataArray(np.array(v, ndmin=1), dims='points') for k, v in other_dims.items()}
-    ret_obj = xrobj.isel(nod2=xr.DataArray(ind, dims='points')).sel(**other_dims, method=method)
+    other_dims = {k: xr.DataArray(np.array(v, ndmin=1), dims=selection_dim_name) for k, v in other_dims.items()}
+    ret_obj = xrobj.isel(nod2=xr.DataArray(ind, dims=selection_dim_name)).sel(**other_dims, method=method)
 
     # from faces, which will not be useful in returned dataset
     # unless we reindex them, but is there a use case for that?
@@ -233,7 +233,7 @@ def select_points(xrobj: Union[xr.Dataset, xr.DataArray],
     if return_distance:
         dist = distance_along_trajectory(lon, lat)
         dist_units, dist = normalize_distance(dist)
-        ret_obj = ret_obj.assign_coords({'distance': ('points', dist)})
+        ret_obj = ret_obj.assign_coords({'distance': (selection_dim_name, dist)})
         ret_obj.distance.attrs['units'] = dist_units
         ret_obj.distance.attrs['long_name'] = f"distance along trajectory"
     return ret_obj
@@ -261,7 +261,6 @@ def select(xrobj: Union[xr.Dataset, xr.DataArray], method='nearest',
         if lat_indexer and lon_indexer:
             if method == 'nearest':
                 ret_arr = select_points(xrobj, lon, lat, method=method, tolerance=tolerance, tree=tree)
-                ret_arr = ret_arr.drop_vars('faces')
             else:
                 raise NotImplementedError("Only method='nearest' is currently supported.")
         else:
@@ -286,7 +285,7 @@ def select(xrobj: Union[xr.Dataset, xr.DataArray], method='nearest',
             raise ValueError('Invalid path argument it can only be sequence of (lons, lats), shapely 2D LineString or'
                              'dictionary containing coords.')
 
-    return ret_arr.sel(**indexers, method=method).squeeze()
+    return ret_arr #.sel(**indexers, method=method).squeeze()
 
 
 # Accessors
@@ -370,6 +369,7 @@ class FESOMDataArray:
         sel_obj = sel_obj.assign_coords({'faces': (self._context_dataset.faces.dims,
                                                    self._context_dataset.faces.values)})
         tree = self._context_dataset.pyfesom2._tree
+        print('DUMP',sel_obj, indexers)
         sel_obj = select(sel_obj, method='nearest', tolerance=tolerance, region=region, path=path, tree=tree,
                          **indexers)
         return sel_obj
@@ -481,7 +481,7 @@ class FESOMDataArray:
         return ax.triplot(tri, *args, **kwargs)
 
     def trimesh(self, levels=None, cmap='RdBu', colorbar=True, height=350, width=600,
-                colorbar_position="bottom", projection=None, coastline=True, tools=('hover'), **hv_kwopts):
+                colorbar_position="bottom", projection=None, coastline=True, tools=['hover'], **hv_kwopts):
         try:
             import geoviews as gv
             import holoviews as hv
@@ -537,7 +537,9 @@ class FESOMDataArray:
         # in selection if user passes a invalid dim otherwise we would have to.
 
         extra_indexers = {dim: indexers_plot_kwargs.pop(dim) for dim in extra_dims}
-        sel = select_points(self._xrobj, lon=lon, lat=lat, **extra_indexers)
+        tree = self._context_dataset.pyfesom2._tree
+        lon, lat = np.asarray(lon), np.asarray(lat)
+        sel = select_points(self._xrobj, lon=lon, lat=lat, tree=tree, **extra_indexers)
         dim_len = len(sel.dims)  # determines plot type, 1d or 2d
 
         # make time as default bottom x-axis if present (else formatting gets hard)
