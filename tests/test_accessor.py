@@ -226,8 +226,8 @@ def test_select_points(dataset, npoints, request):
     assert np.array_equal(sda.lon.values, lons) & np.array_equal(sda.lat.values, lats)
 
     # check other attrs
-    assert 'points' in sda.dims, 'point selection will always have points in dimensions'
-    assert len(sda.points) == npoints, 'length of selected points should be same as lats, lons'
+    assert 'nod2' in sda.dims, 'point selection will always have points in dimensions'
+    assert len(sda.nod2) == npoints, 'length of selected points should be same as lats, lons'
     assert 'faces' not in sda, 'faces are not returned by select points'
 
     assert 'distance' in sda.coords, 'by default select points returns distance as coordinate'
@@ -241,7 +241,7 @@ def test_select_points(dataset, npoints, request):
     lons = np.linspace(-180, 180, npoints)
     lats = np.linspace(-90, 90, npoints)
     sda = select_points(dataset, lons, lats)
-    assert len(sda.points) == npoints
+    assert len(sda.nod2) == npoints
 
 
 @pytest.mark.parametrize("npoints", [10])
@@ -258,7 +258,9 @@ def test_select_points_advanced(random_nd_dataset, npoints):
     # not linearly increasing times are awkward for trajectory
     linear_times = pd.date_range(dataset.time.min().values, dataset.time.max().values, periods=npoints)
 
-    sda = select_points(dataset, lon=lons, lat=lats, time=linear_times, nz1=nz1)
+    # checking if dimension name of selection can be changed
+    sda = select_points(dataset, lon=lons, lat=lats, time=linear_times, nz1=nz1, selection_dim_name='points')
+    assert "points" in sda.dims
 
     assert len(sda.points) == npoints
     assert len(sda.lon) == len(sda.lat) == len(sda.nz1) == len(sda.time)
