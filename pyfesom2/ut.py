@@ -14,7 +14,6 @@ import matplotlib.pylab as plt
 import numpy as np
 import pkg_resources
 import shapely
-import xarray as xr
 from cmocean import cm as cmo
 
 try:
@@ -617,7 +616,7 @@ def set_standard_attrs(da):
 
 def cut_region(mesh, box):
     """
-    Cut region from the mesh.
+    Return mesh elements (triangles) and their indices corresponding to a bounding box.
 
     Parameters
     ----------
@@ -635,26 +634,20 @@ def cut_region(mesh, box):
         boolean array of element size with True for elements
         that belong to the `box`.
     """
-    x_on_triangles = mesh.x2[mesh.elem]
-    y_on_triangles = mesh.y2[mesh.elem]
-
     left, right, down, up = box
 
     selection = (
-        (x_on_triangles >= left)
-        & (x_on_triangles <= right)
-        & (y_on_triangles >= down)
-        & (y_on_triangles <= up)
+        (mesh.x2 >= left)
+        & (mesh.x2 <= right)
+        & (mesh.y2 >= down)
+        & (mesh.y2 <= up)
     )
-    #     indd = np.where((mesh.x2>=left) & (mesh.x2<=right) & (mesh.y2>=down) & (mesh.y2<=up))
-    # vvv = ((dd>=0) & (xx>=7.5) & (xx<=8.2) & (yy>=54) & (yy<=54.5))
-    mask = selection.mean(axis=1)
 
-    mask[mask != 1] = np.nan
+    elem_selection = selection[mesh.elem]
 
-    no_nan_triangles = np.invert(np.isnan(mask))
+    no_nan_triangles = np.all(elem_selection, axis=1)
 
-    elem_no_nan = mesh.elem[no_nan_triangles, :]
+    elem_no_nan = mesh.elem[no_nan_triangles]
 
     return elem_no_nan, no_nan_triangles
 
