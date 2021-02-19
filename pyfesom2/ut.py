@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 #
 # This file is part of pyfesom2
-# Original code by Dmitry Sidorenko, Nikolay Koldunov, Lukrecia Stulic, 
+# Original code by Dmitry Sidorenko, Nikolay Koldunov, Lukrecia Stulic,
 # Qiang Wang, Sergey Danilov and Patrick Scholz
 #
 
@@ -83,8 +83,8 @@ def scalar_r2g(al, be, ga, rlon, rlat):
     yg = rotate_matrix[1, 0] * xr + rotate_matrix[1, 1] * yr + rotate_matrix[1, 2] * zr
     zg = (
         rotate_matrix[2, 0] * xr + rotate_matrix[2, 1] * yr + rotate_matrix[2, 2] * zr
-    )  
-    
+    )
+
     # Geographical coordinates:
     lat = np.arcsin(zg)
     lon = np.arctan2(yg, xg)
@@ -287,7 +287,7 @@ def tunnel_fast1d(latvar, lonvar, lonlat):
         lonvar : ndarray
             1d array with lons
         lonlat : ndarray
-            2d array with the shape of [2, number_of_point], 
+            2d array with the shape of [2, number_of_point],
             that contain coordinates of the points
 
     Returns:
@@ -632,7 +632,7 @@ def cut_region(mesh, box):
     elem_no_nan : array
         elements that belong to the region defined by `box`.
     no_nan_triangles: array
-        boolean array of element size with True for elements 
+        boolean array of element size with True for elements
         that belong to the `box`.
     """
     x_on_triangles = mesh.x2[mesh.elem]
@@ -696,6 +696,5 @@ def get_cmap(cmap=None):
 def get_no_cyclic(mesh, elem_no_nan):
     """Compute non cyclic elements of the mesh."""
     d = mesh.x2[elem_no_nan].max(axis=1) - mesh.x2[elem_no_nan].min(axis=1)
-    no_cyclic_elem = [i for (i, val) in enumerate(d) if val < 100]
-
-    return no_cyclic_elem
+    no_cyclic_elem = np.argwhere(d < 100)
+    return no_cyclic_elem.ravel()
