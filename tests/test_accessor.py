@@ -50,15 +50,38 @@ def random_nd_dataset(random_spatial_dataset):
     yield dataset
 
 
-# merged dataset fixture using just 2 for now
+# merged dataset fixture using just 2 for now, in future add remote too
 @pytest.fixture(params=["local_dataset", "random_spatial_dataset"])
 def dataset(local_dataset, random_spatial_dataset, request):
     yield request.getfixturevalue(request.param)
 
 
+@pytest.fixture(scope='module')
+def five_point_dataset():
+    """
+    A five point dataset defined at four corners of -180,-90 -> 180,-90 -> 180, 90 -> 0,0 -> -180,90,
+    four corners of global map and center. This gives a very controlled fesom-like-triangular mesh with predictable
+    triangulation (in ccw): [[0,1,3],[1,2,3], [2,4,3], [4,0,3]]. This makes testing of point selection, region
+    selections on both nodes and faces easy. This can also be used to test interpolations.
+    """
+    import xarray as xr
+    lons = [-180., 180., 180., 0., -180.]
+    lats = [-90., -90., 90., 0., 90.]
+    faces = np.array([[0, 1, 3],
+                      [1, 2, 3],
+                      [2, 4, 3],
+                      [4, 0, 3]])  # no of faces = 2*nodes - 2*boundary nodes -2
+    dataset = xr.Dataset(coords={'lon'  : ('nod2', lons),
+                                 'lat'  : ('nod2', lats),
+                                 'faces': (('nelem', 'three'), faces)}
+                         )
+    dataset['dummy_2d_var'] = ('nod2', np.random.uniform(0., 1., len(lons)))
+    yield dataset
+
+
 # TODO: skipping because remote datasets need to be fixed for plotting and optimized for remote transfer:
-#  current unsorted points leads to too much data transfer, atleast when remote dataset contains faces,
-#  integrate this in dataset fixture as a param and mark it slow
+#     current unsorted points leads to too much data transfer, atleast when remote dataset contains faces,
+#     integrate this in dataset fixture as a param and mark it slow
 # @pytest.fixture(scope='module', params=[LCORE, A01])
 # def lcore_dataset(request):
 #     da = request.param.load()
@@ -100,19 +123,6 @@ def dataset(local_dataset, random_spatial_dataset, request):
 #     if "time" in dataset.dims:
 #         mintime, maxtime = dataset.time.min(), dataset.time.max()
 #         sel_arr = dataset[vars[0]].pyfesom2.sel(time=mintime, region=bbox)
-
-
-def test_distance_along_trajectory():
-    """ Check if cumsum of n linerly spaced points at constant latitude is distance to one*n-1_
-    """
-    from pyfesom2.accessor import distance_along_trajectory
-    n = 100
-    lons = np.linspace(-10, 180, 100)
-    lats = np.zeros(lons.shape, dtype=lons.dtype)  # at equator
-    dists = distance_along_trajectory(lons, lats)
-    assert np.isclose(dists[0], 0.), "Distance to first point must always be zero."
-    assert np.isclose(dists[1] * (n - 1), dists[-1]), "Total distance along linearly spaced trajectory doesn't " \
-                                                      "match (n-1)*individual distance."
 
 
 def test_normalize_distances():
@@ -281,23 +291,23 @@ def test_accessor_on_dataarrays(dataset):
     for data_var in dataset.data_vars.keys():
         assert hasattr(dataset.pyfesom2, data_var)
 
-    data_var = list(dataset.data_vars.keys())[0]
+        data_var = list(dataset.data_vars.keys())[0]
 
-    # TODO: do this better, not extensive
-    # test select region
-    for region in region_tests:
-        assert getattr(dataset.pyfesom2, data_var).select(region=region) is not None
+        # TODO: do this better, not extensive
+        # test select region
+        for region in region_tests:
+            assert getattr(dataset.pyfesom2, data_var).select(region=region) is not None
 
-    # test select points
-    npoints = 10
-    lons = np.linspace(-180, 180, npoints)
-    lats = np.linspace(-90, 90, npoints)
+        # test select points
+        npoints = 10
+        lons = np.linspace(-180, 180, npoints)
+        lats = np.linspace(-90, 90, npoints)
 
-    assert getattr(dataset.pyfesom2, data_var).select(
-        path=(lons, lats)) is not None, 'select cannot take lon,lat as sequence'
-    shapely_path = LineString(np.column_stack([lons, lats]))
-    assert getattr(dataset.pyfesom2, data_var).select(
-        path=shapely_path) is not None, 'select cannot take lon,lat as LineString'
-    dict_path = {'lon': lons, 'lat': lats}
-    assert getattr(dataset.pyfesom2, data_var).select(
-        path=dict_path) is not None, 'select cannot take lon,lat as dictionary'
+        assert getattr(dataset.pyfesom2, data_var).select(
+            path=(lons, lats)) is not None, 'select cannot take lon,lat as sequence'
+        shapely_path = LineString(np.column_stack([lons, lats]))
+        assert getattr(dataset.pyfesom2, data_var).select(
+            path=shapely_path) is not None, 'select cannot take lon,lat as LineString'
+        dict_path = {'lon': lons, 'lat': lats}
+        assert getattr(dataset.pyfesom2, data_var).select(
+            path=dict_path) is not None, 'select cannot take lon,lat as dictionary'
