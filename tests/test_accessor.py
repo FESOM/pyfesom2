@@ -63,6 +63,7 @@ def five_point_dataset():
     four corners of global map and center. This gives a very controlled fesom-like-triangular mesh with predictable
     triangulation (in ccw): [[0,1,3],[1,2,3], [2,4,3], [4,0,3]]. This makes testing of point selection, region
     selections on both nodes and faces easy. This can also be used to test interpolations.
+    in practice use nodes slightly inside domain adjusted by 1 deg, to accommodate shapely's contains.
     """
     import xarray as xr
     lons = [-180., 180., 180., 0., -180.]
@@ -276,6 +277,20 @@ def test_select_points_advanced(random_nd_dataset, npoints):
     assert len(sda.lon) == len(sda.lat) == len(sda.nz1) == len(sda.time)
     assert all([coord in sda.coords for coord in ['lon', 'lat', 'time', 'nz1']])
     assert not all([dim in sda.dims for dim in ('time', 'nz1')])
+
+
+def test_selection_5pt_dataset(five_point_dataset):
+    from shapely.geometry import box
+    from pyfesom2.accessor import select_region
+    dataset = five_point_dataset
+    region = [0., -90., 180., 90.]  # right half
+    sh_region = box(*region).buffer(1e-6)
+    sel_da = select_region(dataset, region=sh_region)
+
+    assert len(sel_da.nod2) == 3  # 3 points
+    assert sel_da.faces.shape == (1, 3)  # 1 triangle
+    assert np.all(np.isin([0., 180.], sel_da.lon))
+    assert np.all(np.isin([-90., 90., 0.], sel_da.lat))
 
 
 def test_dataset_accessor(dataset):

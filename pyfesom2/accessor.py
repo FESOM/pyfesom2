@@ -64,7 +64,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import xarray as xr
 from matplotlib.tri import Triangulation
-from shapely.geometry import MultiPolygon, Polygon, asMultiPoint, LineString
+from shapely.geometry import MultiPolygon, Polygon, LineString
 
 # New Types
 BoundingBox = Sequence[float]
@@ -143,10 +143,13 @@ def select_region(xr_obj: Union[xr.DataArray, xr.Dataset],
                   faces: Optional[Union[np.ndarray, xr.DataArray]] = None
                   ) -> xr.Dataset:
     from shapely.geometry import box, Polygon
+    from shapely.prepared import prep
+    from shapely.vectorized import contains as vectorized_contains
+
     if isinstance(region, Sequence) and len(region) == 4:
-        sel_polygon = box(*region)
+        region = box(*region)
     elif isinstance(region, Polygon):
-        sel_polygon = region
+        region = region
     else:
         raise NotImplementedError(f'Supplied region data {region} is not yet supported')
 
@@ -156,34 +159,33 @@ def select_region(xr_obj: Union[xr.DataArray, xr.Dataset],
                          f"faces need to be passed explicitly.\n"
                          f"When passing a data array, argument faces can't be None,"
                          f"faces must be indices[nelem,3] that define triangles.")
+    faces = np.asarray(faces)
 
-    left, down, right, top = sel_polygon.bounds
-    sel = select_bbox(xr_obj, [left, down, right, top])
-    # return bbox selection if region is a box
-    if sel_polygon == sel_polygon.envelope:
-        return sel
+    # buffer is necessry to facilitte floating point comparisions
+    # buffer can be thought as tolerance around region in degrees
+    # its value should be at least precision of data type of lats, lons (np.finfo)
+    region = region.buffer(1e-6)
+    prep_region = prep(region)
+    selection = vectorized_contains(prep_region, np.asarray(xr_obj.lon), np.asarray(xr_obj.lat))
+    if np.count_nonzero(selection) == 0:
+        warnings.warn('No points in domain are within region, returning original data.')
+        return xr_obj
 
-    as_mp = asMultiPoint(np.vstack((sel.lon, sel.lat)).T)  # asMultiPoint saves memory according to docs
-
-    pt_vals = np.asarray(as_mp.intersection(sel_polygon))
-    in_lon, in_lat = pt_vals.T
-    sel_inds = (
-        np.isin(sel.lon.values, in_lon, assume_unique=True) & np.isin(sel.lat.values, in_lat, assume_unique=True))
-
-    # mesh = SimpleMesh(sel.lon, sel.lat, sel.faces)
-    nod2_inds = np.nonzero(sel_inds)  # nonzero works only for bool arrays to get inds
-    # indices of nod2 that correspond to polygon
-    new_faces = faces[np.mean(np.isin(faces, nod2_inds), axis=1) == 1]
-    uniq, inv_index = np.unique(new_faces.values.ravel(), return_inverse=True)
-    new_faces = inv_index.reshape(new_faces.shape)
-    ret = sel.isel(nod2=uniq)
+    selection = selection[faces]
+    face_mask = np.all(selection, axis=1)
+    cut_faces = faces[face_mask]
+    cut_faces = np.array(cut_faces, ndmin=1)
+    uniq, inv_index = np.unique(cut_faces.ravel(), return_inverse=True)
+    new_faces = inv_index.reshape(cut_faces.shape)
+    ret = xr_obj.isel(nod2=uniq)
 
     if 'faces' in ret.coords:
         ret = ret.drop_vars('faces')
 
-    if not len(uniq) == 0:
-        warnings.warn('Found no points for the region in the domain.')
-        return ret  # empty dataset
+    if len(uniq) == 0:
+        warnings.warn("No found points for the region are contained in dataset's triangulation (faces), "
+                      "returning object without faces.")
+        return ret  # no faces in coords
 
     if isinstance(xr_obj, xr.DataArray):
         ret = ret.to_dataset()
@@ -194,7 +196,8 @@ def select_region(xr_obj: Union[xr.DataArray, xr.Dataset],
 
 def select_points(xrobj: Union[xr.Dataset, xr.DataArray],
                   lon: Union[float, np.ndarray], lat: Union[float, np.ndarray], method='nearest', tolerance=None,
-                  tree=None, return_distance=True, selection_dim_name="nod2", **other_dims) -> Union[xr.Dataset, xr.DataArray]:
+                  tree=None, return_distance=True, selection_dim_name="nod2", **other_dims) -> Union[
+    xr.Dataset, xr.DataArray]:
     """
     TODO: check id all dims are of same length.
     """
@@ -244,7 +247,7 @@ def select(xrobj: Union[xr.Dataset, xr.DataArray], method='nearest',
            path=Optional[Union[LineString, Sequence[float], MutableMapping]], tree=None,
            **indexers) -> Union[xr.Dataset, xr.DataArray]:
     """
-    Higher level interface that does different kinds of selection
+    Higher level interface that does different kinds of selection emulates xarray's sel method.
     """
     lat = indexers.pop('lat', None)
     lon = indexers.pop('lon', None)
@@ -285,7 +288,7 @@ def select(xrobj: Union[xr.Dataset, xr.DataArray], method='nearest',
             raise ValueError('Invalid path argument it can only be sequence of (lons, lats), shapely 2D LineString or'
                              'dictionary containing coords.')
 
-    return ret_arr #.sel(**indexers, method=method).squeeze()
+    return ret_arr  # .sel(**indexers, method=method).squeeze()
 
 
 # Accessors
@@ -369,7 +372,6 @@ class FESOMDataArray:
         sel_obj = sel_obj.assign_coords({'faces': (self._context_dataset.faces.dims,
                                                    self._context_dataset.faces.values)})
         tree = self._context_dataset.pyfesom2._tree
-        print('DUMP',sel_obj, indexers)
         sel_obj = select(sel_obj, method='nearest', tolerance=tolerance, region=region, path=path, tree=tree,
                          **indexers)
         return sel_obj
