@@ -5,14 +5,19 @@ import xarray as xr
 import pyfesom2 as pf
 from pyfesom2.ut import get_no_cyclic
 
-datasets_dict = {"LCORE":
-                     {"path": "https://swift.dkrz.de/v1/dkrz_02942825-0cab-44f3-ad37-80fd5d2e37e3/FESOM2_data/LCORE",
+datasets_dict = {"LCORE"  :
+                     {"path"     : "https://swift.dkrz.de/v1/dkrz_02942825-0cab-44f3-ad37-80fd5d2e37e3/FESOM2_data/LCORE",
                       "user_path": "https://swiftbrowser.dkrz.de/objects/FESOM2_data/LCORE",
-                      "vars": ["temp", "salt", "a_ice", "m_ice", "ssh", "sst"]},
-                 "A01":
-                     {"path": "https://swift.dkrz.de/v1/dkrz_02942825-0cab-44f3-ad37-80fd5d2e37e3/FESOM2_data/A01",
+                      "vars"     : ["temp", "salt", "a_ice", "m_ice", "ssh", "sst"]},
+                 "A01"    :
+                     {"path"     : "https://swift.dkrz.de/v1/dkrz_02942825-0cab-44f3-ad37-80fd5d2e37e3/FESOM2_data/A01",
                       "user_path": "https://swiftbrowser.dkrz.de/objects/FESOM2_data/A01",
-                      "vars": [""]},
+                      "vars"     : [""]},
+                 "pi-grid":
+                     {
+                         'path'     : "https://swift.dkrz.de/v1/dkrz_035d8f6ff058403bb42f8302e6badfbc/pyfesom2/tutorial/pi-grid",
+                         "vars"     : ['a_ice', 'm_ice', 'temp', 'u', 'v', 'w', 'mesh'],
+                         "user_path": " https://swiftbrowser.dkrz.de/public/dkrz_035d8f6ff058403bb42f8302e6badfbc/pyfesom2/tutorial/pi-grid"}
                  }
 
 
@@ -42,9 +47,10 @@ class ZarrDataset:
 
 LCORE = ZarrDataset.from_dict(datasets_dict['LCORE'])
 A01 = ZarrDataset.from_dict(datasets_dict['A01'])
+tutorial = ZarrDataset.from_dict(datasets_dict['pi-grid'])
 
 
-def fesom_mesh_to_xr(path: str, alpha: int = 50, beta: int = 15, gamma: int = -90) -> xr.Dataset:
+def fesom_mesh_to_xr(path: str, alpha: int = 0, beta: int = 0, gamma: int = 0) -> xr.Dataset:
     # nod2d = pd.read_csv(path+"/nod2d.out")
     mesh = pf.load_mesh(path, abg=[alpha, beta, gamma])
     # midx = pd.MultiIndex.from_arrays([mesh.x2,mesh.y2], names=['lon','lat'])
@@ -61,11 +67,11 @@ def fesom_mesh_to_xr(path: str, alpha: int = 50, beta: int = 15, gamma: int = -9
     # nod2d_dataset = xr.merge([nod2d_data,lev_data])
     ncyclic_inds = get_no_cyclic(mesh, mesh.elem)
     triangles = mesh.elem[ncyclic_inds]
-    coords_dataset = xr.Dataset(coords={'lon': ('nod2', mesh.x2),
-                                        'lat': ('nod2', mesh.y2),
+    coords_dataset = xr.Dataset(coords={'lon'  : ('nod2', mesh.x2),
+                                        'lat'  : ('nod2', mesh.y2),
                                         'faces': (('nelem', 'three'), triangles.astype('uint32')),
-                                        'nz': mesh.zlev,
-                                        'nz1': (mesh.zlev[:-1] + mesh.zlev[1:]) / 2.0})
+                                        'nz'   : mesh.zlev,
+                                        'nz1'  : (mesh.zlev[:-1] + mesh.zlev[1:]) / 2.0})
     coords_dataset.coords['lon'].attrs['long_name'] = 'longitude'
     coords_dataset.coords['lon'].attrs['units'] = 'degrees_east'
     coords_dataset.coords['lat'].attrs['long_name'] = 'latitude'
@@ -81,7 +87,7 @@ def fesom_mesh_to_xr(path: str, alpha: int = 50, beta: int = 15, gamma: int = -9
 
 def open_dataset(path_or_pattern: str, mesh_path: str, abg: Sequence = (50, 15, -90),
                  parallel=True, **kwargs) -> xr.Dataset:
-    combine = kwargs.pop('combine','by_coords')
+    combine = kwargs.pop('combine', 'by_coords')
     da = xr.open_mfdataset(path_or_pattern, parallel=parallel, combine=combine, **kwargs)
     mesh = fesom_mesh_to_xr(mesh_path, *abg)
     return xr.merge([da, mesh])
