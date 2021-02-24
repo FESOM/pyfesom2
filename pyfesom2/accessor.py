@@ -263,7 +263,8 @@ def select(xrobj: Union[xr.Dataset, xr.DataArray], method='nearest',
     if lat_indexer or lon_indexer:
         if lat_indexer and lon_indexer:
             if method == 'nearest':
-                ret_arr = select_points(xrobj, lon, lat, method=method, tolerance=tolerance, tree=tree)
+                ret_arr = select_points(xrobj, lon, lat, method=method, tolerance=tolerance, tree=tree,
+                                        return_distance=False)
             else:
                 raise NotImplementedError("Only method='nearest' is currently supported.")
         else:
@@ -288,7 +289,17 @@ def select(xrobj: Union[xr.Dataset, xr.DataArray], method='nearest',
             raise ValueError('Invalid path argument it can only be sequence of (lons, lats), shapely 2D LineString or'
                              'dictionary containing coords.')
 
-    return ret_arr  # .sel(**indexers, method=method).squeeze()
+    # xarray doesn't support slice indexer when method argument is passed.
+    # allow mixing indexers with values and slices.
+    slice_indexers = {dim: dim_val for dim, dim_val in indexers.items() if isinstance(dim_val, slice)}
+
+    if slice_indexers:
+        ret_arr = ret_arr.sel(**slice_indexers)
+        # remove slice indexers from indexers
+        for dim in slice_indexers.keys():
+            indexers.pop(dim)
+
+    return ret_arr.sel(**indexers, method=method)
 
 
 # Accessors
@@ -324,7 +335,7 @@ class FESOMDataset:
                       tolerance=None,
                       tree=None, return_distance=True, **other_dims):
         tree = self._tree
-        return select_points(self._xrobj, method=method, tolerance=tolerance, tree=tree, **other_dims)
+        return select_points(self._xrobj, lon, lat, method=method, tolerance=tolerance, tree=tree, **other_dims)
 
     def plot(self, *args, **kwargs):
         return self._xrobj.plot(*args, **kwargs)
@@ -380,7 +391,7 @@ class FESOMDataArray:
                       tolerance=None,
                       tree=None, return_distance=True, **other_dims):
         tree = self._context_dataset.pyfesom2._tree
-        return select_points(self._xrobj, method=method, tolerance=tolerance, tree=tree, **other_dims)
+        return select_points(self._xrobj, lon, lat, method=method, tolerance=tolerance, tree=tree, **other_dims)
 
     def tripcolor(self, *args, **kwargs):
         data = self._xrobj.squeeze()
