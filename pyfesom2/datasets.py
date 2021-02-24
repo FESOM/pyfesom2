@@ -47,7 +47,7 @@ class ZarrDataset:
 
 LCORE = ZarrDataset.from_dict(datasets_dict['LCORE'])
 A01 = ZarrDataset.from_dict(datasets_dict['A01'])
-tutorial = ZarrDataset.from_dict(datasets_dict['pi-grid'])
+tutorial_dataset = ZarrDataset.from_dict(datasets_dict['pi-grid'])
 
 
 def fesom_mesh_to_xr(path: str, alpha: int = 0, beta: int = 0, gamma: int = 0) -> xr.Dataset:
