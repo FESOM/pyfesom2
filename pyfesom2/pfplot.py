@@ -171,7 +171,7 @@ def pfplot():
         how="mean",
         ncfile=None,
         compute=True,
-
+    )
     fig = plot(
         mesh=mesh,
         data=data,
