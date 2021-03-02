@@ -553,17 +553,18 @@ class FESOMDataArray:
         tree = self._context_dataset.pyfesom2._tree
         lon, lat = np.asarray(lon), np.asarray(lat)
         sel = select_points(self._xrobj, lon=lon, lat=lat, tree=tree, **extra_indexers)
+        sel = sel.squeeze() # squeeze out dims with len 1
         dim_len = len(sel.dims)  # determines plot type, 1d or 2d
 
         # make time as default bottom x-axis if present (else formatting gets hard)
         xax_dims = ('time', 'distance') if 'time' in extra_dims else ('distance', None)
 
         if 'time' in extra_dims:
-            sel['points'] = sel.time
+            sel['nod2'] = sel.time
         else:
-            sel['points'] = sel.distance
+            sel['nod2'] = sel.distance
 
-        sel = sel.transpose(..., 'points')  # push points to last for making it default xaxis for plots
+        sel = sel.transpose(..., 'nod2')  # push points to last for making it default xaxis for plots
 
         # use xarray plotting as it formats datetime axis with ease and adds sensible default to plot.
         if dim_len == 1:

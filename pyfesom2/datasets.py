@@ -49,6 +49,18 @@ LCORE = ZarrDataset.from_dict(datasets_dict['LCORE'])
 A01 = ZarrDataset.from_dict(datasets_dict['A01'])
 tutorial_dataset = ZarrDataset.from_dict(datasets_dict['pi-grid'])
 
+class R42:
+    def __init__(self):
+        r42_rdata = xr.open_dataset("/home/suvarchal/AWI/fesom2/R4.2/R4.2_data/temp.fesom.1948.nc")
+        r42_grid=xr.open_dataset("/home/suvarchal/AWI/pyfesom2_temp/pyfesom2/notebooks/r42_grid_fixed_lev.nc")
+        self.r42_dataset = xr.merge([r42_rdata, r42_grid])
+    @property
+    def dataset(self):
+        return self.r42_dataset
+    def load(self):
+        return self.dataset
+
+r42_dataset = R42()
 
 def fesom_mesh_to_xr(path: str, alpha: int = 0, beta: int = 0, gamma: int = 0) -> xr.Dataset:
     # nod2d = pd.read_csv(path+"/nod2d.out")
