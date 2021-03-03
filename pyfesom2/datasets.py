@@ -49,18 +49,23 @@ LCORE = ZarrDataset.from_dict(datasets_dict['LCORE'])
 A01 = ZarrDataset.from_dict(datasets_dict['A01'])
 tutorial_dataset = ZarrDataset.from_dict(datasets_dict['pi-grid'])
 
+
 class R42:
     def __init__(self):
         r42_rdata = xr.open_dataset("/home/suvarchal/AWI/fesom2/R4.2/R4.2_data/temp.fesom.1948.nc")
-        r42_grid=xr.open_dataset("/home/suvarchal/AWI/pyfesom2_temp/pyfesom2/notebooks/r42_grid_fixed_lev.nc")
+        r42_grid = xr.open_dataset("/home/suvarchal/AWI/pyfesom2_temp/pyfesom2/notebooks/r42_grid_fixed_lev.nc")
         self.r42_dataset = xr.merge([r42_rdata, r42_grid])
+
     @property
     def dataset(self):
         return self.r42_dataset
+
     def load(self):
         return self.dataset
 
+
 r42_dataset = R42()
+
 
 def fesom_mesh_to_xr(path: str, alpha: int = 0, beta: int = 0, gamma: int = 0) -> xr.Dataset:
     # nod2d = pd.read_csv(path+"/nod2d.out")
@@ -103,3 +108,64 @@ def open_dataset(path_or_pattern: str, mesh_path: str, abg: Sequence = (50, 15, 
     da = xr.open_mfdataset(path_or_pattern, parallel=parallel, combine=combine, **kwargs)
     mesh = fesom_mesh_to_xr(mesh_path, *abg)
     return xr.merge([da, mesh])
+
+
+import warnings
+from typing import Sequence, Optional
+
+
+def fesom_like(spatial_size: int, spatial_extent: Sequence[float, float, float, float] = (-180, -90, 180, 90),
+               times: Optional[int] = None, levels: Optional[int] = None, holes: Optional[int] = None,
+               var_name: str = 'fesom_var'):
+    from matplotlib.tri import Triangulation
+    import pandas as pd
+    import numpy as np
+    try:
+        import dask.array as da
+        random_function = da.random.uniform
+    except ImportError:
+        random_function = None
+        warnings.warn("Dask is not available, only coordinate dataset is returned to save memory. \n"
+                      "Data variable can still be assigned to coordinate dataset as: \n"
+                      "dataset[var_name]= (('time', 'nz1', 'nod2'), dataarray[ntimes, nlevels, spatial_size])")
+
+    minx, miny, maxx, maxy = spatial_extent
+    lons = np.random.uniform(minx, maxx, spatial_size)
+    lats = np.random.uniform(miny, maxy, spatial_size)
+    tri_obj = Triangulation(lons, lats)
+    tri_arr = tri_obj.triangles
+
+    if holes is not None:
+        if isinstance(holes, int):
+            tri_arr = tri_arr[:-1 * holes]
+        else:
+            raise ValueError('holes needs be None or integer')
+
+    other_dims = {}
+    if times is not None:
+        if isinstance(times, int):
+            other_dims['time'] = pd.date_range('2010-01-01', freq='M', periods=times)
+        else:
+            other_dims['time'] = times
+
+    if levels is not None:
+        if isinstance(levels, int):
+            other_dims['nz1'] = np.linspace(0, -6000, levels)
+        else:
+            other_dims['nz1'] = levels
+
+    dataset = xr.Dataset(coords={**other_dims,
+                                 'lon'  : ('nod2', lons),
+                                 'lat'  : ('nod2', lats),
+                                 'faces': (('nelem', 'three'), tri_arr),
+                                 })
+
+    if random_function is not None:
+        dims_sizes = [(dim, len(dataset[dim])) for dim in dataset.dims if dim not in ['three', 'nelem']]
+        # Sort order of dims in data variable by size.
+        # Technically use OrderedDict but dict preserves order mostly.
+        dims_sizes_dict = dict(sorted(dims_sizes, key=lambda kv: kv[1]))
+        dims = list(dims_sizes_dict.keys())
+        dim_sizes = list(dims_sizes_dict.values())
+        dataset[var_name] = (dims, random_function(0., 1., dim_sizes))
+    return dataset
