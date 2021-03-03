@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 #
 # This file is part of pyfesom2
-# Original code by Dmitry Sidorenko, Nikolay Koldunov, Lukrecia Stulic, 
+# Original code by Dmitry Sidorenko, Nikolay Koldunov, Lukrecia Stulic,
 # Qiang Wang, Sergey Danilov and Patrick Scholz
 #
 
@@ -14,7 +14,6 @@ import matplotlib.pylab as plt
 import numpy as np
 import pkg_resources
 import shapely
-import xarray as xr
 from cmocean import cm as cmo
 
 try:
@@ -83,8 +82,8 @@ def scalar_r2g(al, be, ga, rlon, rlat):
     yg = rotate_matrix[1, 0] * xr + rotate_matrix[1, 1] * yr + rotate_matrix[1, 2] * zr
     zg = (
         rotate_matrix[2, 0] * xr + rotate_matrix[2, 1] * yr + rotate_matrix[2, 2] * zr
-    )  
-    
+    )
+
     # Geographical coordinates:
     lat = np.arcsin(zg)
     lon = np.arctan2(yg, xg)
@@ -287,7 +286,7 @@ def tunnel_fast1d(latvar, lonvar, lonlat):
         lonvar : ndarray
             1d array with lons
         lonlat : ndarray
-            2d array with the shape of [2, number_of_point], 
+            2d array with the shape of [2, number_of_point],
             that contain coordinates of the points
 
     Returns:
@@ -617,7 +616,7 @@ def set_standard_attrs(da):
 
 def cut_region(mesh, box):
     """
-    Cut region from the mesh.
+    Return mesh elements (triangles) and their indices corresponding to a bounding box.
 
     Parameters
     ----------
@@ -632,29 +631,23 @@ def cut_region(mesh, box):
     elem_no_nan : array
         elements that belong to the region defined by `box`.
     no_nan_triangles: array
-        boolean array of element size with True for elements 
+        boolean array of element size with True for elements
         that belong to the `box`.
     """
-    x_on_triangles = mesh.x2[mesh.elem]
-    y_on_triangles = mesh.y2[mesh.elem]
-
     left, right, down, up = box
 
     selection = (
-        (x_on_triangles >= left)
-        & (x_on_triangles <= right)
-        & (y_on_triangles >= down)
-        & (y_on_triangles <= up)
+        (mesh.x2 >= left)
+        & (mesh.x2 <= right)
+        & (mesh.y2 >= down)
+        & (mesh.y2 <= up)
     )
-    #     indd = np.where((mesh.x2>=left) & (mesh.x2<=right) & (mesh.y2>=down) & (mesh.y2<=up))
-    # vvv = ((dd>=0) & (xx>=7.5) & (xx<=8.2) & (yy>=54) & (yy<=54.5))
-    mask = selection.mean(axis=1)
 
-    mask[mask != 1] = np.nan
+    elem_selection = selection[mesh.elem]
 
-    no_nan_triangles = np.invert(np.isnan(mask))
+    no_nan_triangles = np.all(elem_selection, axis=1)
 
-    elem_no_nan = mesh.elem[no_nan_triangles, :]
+    elem_no_nan = mesh.elem[no_nan_triangles]
 
     return elem_no_nan, no_nan_triangles
 
@@ -696,6 +689,5 @@ def get_cmap(cmap=None):
 def get_no_cyclic(mesh, elem_no_nan):
     """Compute non cyclic elements of the mesh."""
     d = mesh.x2[elem_no_nan].max(axis=1) - mesh.x2[elem_no_nan].min(axis=1)
-    no_cyclic_elem = [i for (i, val) in enumerate(d) if val < 100]
-
-    return no_cyclic_elem
+    no_cyclic_elem = np.argwhere(d < 100)
+    return no_cyclic_elem.ravel()

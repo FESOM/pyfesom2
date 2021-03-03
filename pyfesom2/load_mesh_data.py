@@ -293,8 +293,9 @@ class fesom_mesh(object):
         self.x2, self.y2 = scalar_r2g(
             self.alpha, self.beta, self.gamma, self.x2, self.y2
         )
+
         d = self.x2[self.elem].max(axis=1) - self.x2[self.elem].min(axis=1)
-        self.no_cyclic_elem = [i for (i, val) in enumerate(d) if val < 100]
+        self.no_cyclic_elem = np.argwhere(d < 100).ravel()
 
         with open(self.aux3dfile) as f:
             self.nlev = int(next(f))
