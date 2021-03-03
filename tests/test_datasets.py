@@ -6,6 +6,7 @@ from pyfesom2 import datasets
 
 @pytest.fixture(scope="module", params=[datasets.LCORE, datasets.A01])
 def remote_dataset(request):
+    print(request.param)
     da = request.param.load()
     yield da
 

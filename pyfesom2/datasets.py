@@ -13,27 +13,27 @@ from . import load_mesh
 from .ut import get_no_cyclic
 
 datasets_dict = {"LCORE"  :
-                     {"path"     : "https://swift.dkrz.de/v1/dkrz_02942825-0cab-44f3-ad37-80fd5d2e37e3/FESOM2_data/LCORE",
-                      "user_path": "https://swiftbrowser.dkrz.de/objects/FESOM2_data/LCORE",
-                      "vars"     : ["temp", "salt", "a_ice", "m_ice", "ssh", "sst"]},
+                     {"path_url"     : "https://swift.dkrz.de/v1/dkrz_02942825-0cab-44f3-ad37-80fd5d2e37e3/FESOM2_data/LCORE",
+                      "Dataset URL": "https://swiftbrowser.dkrz.de/public/dkrz_02942825-0cab-44f3-ad37-80fd5d2e37e3/FESOM2_data/LCORE",
+                      "var_list"     : ["temp", "salt", "a_ice", "m_ice", "ssh", "sst"]},
                  "A01"    :
-                     {"path"     : "https://swift.dkrz.de/v1/dkrz_02942825-0cab-44f3-ad37-80fd5d2e37e3/FESOM2_data/A01",
-                      "user_path": "https://swiftbrowser.dkrz.de/objects/FESOM2_data/A01",
-                      "vars"     : [""]},
+                     {"path_url"     : "https://swift.dkrz.de/v1/dkrz_02942825-0cab-44f3-ad37-80fd5d2e37e3/FESOM2_data/A01",
+                      "Dataset URL": "https://swiftbrowser.dkrz.de/public/dkrz_02942825-0cab-44f3-ad37-80fd5d2e37e3/FESOM2_data/A01",
+                      "var_list"     : [""]},
                  "pi-grid":
                      {
-                         'path'     : "https://swift.dkrz.de/v1/dkrz_035d8f6ff058403bb42f8302e6badfbc/pyfesom2/tutorial/pi-grid",
-                         "vars"     : ['a_ice', 'm_ice', 'temp', 'u', 'v', 'w', 'mesh'],
-                         "user_path": " https://swiftbrowser.dkrz.de/public/dkrz_035d8f6ff058403bb42f8302e6badfbc/pyfesom2/tutorial/pi-grid"}
+                         'path_url'     : "https://swift.dkrz.de/v1/dkrz_035d8f6ff058403bb42f8302e6badfbc/pyfesom2/tutorial/pi-grid",
+                         "var_list"     : ['a_ice', 'm_ice', 'temp', 'u', 'v', 'w', 'mesh'],
+                         "Dataset URL": "https://swiftbrowser.dkrz.de/public/dkrz_035d8f6ff058403bb42f8302e6badfbc/pyfesom2/tutorial/pi-grid"}
                  }
 
 
 class ZarrDataset:
-    def __init__(self, path_url, var_list=[], consolidated=True, dset_attrs={}):
-        self.path_url = path_url  # can also be local path remove fsspec inthat case
+    def __init__(self, path_url, var_list=[], consolidated=True, **kwargs):
+        self.path_url = path_url  # can also be local path remove fsspec in that case
         self.var_list = var_list
         self.is_consolidated = consolidated
-        self.dset_attrs = dset_attrs
+        self.dset_attrs = kwargs
 
     @property
     def merged_dataset(self):
@@ -44,17 +44,13 @@ class ZarrDataset:
         da.attrs.update(self.dset_attrs)
         return da
 
-    @classmethod
-    def from_dict(cls, path_var_dict):
-        return cls(path_var_dict['path'], path_var_dict['vars'], dset_attrs={"Dataset URL": path_var_dict['user_path']})
-
     def load(self):
         return self.merged_dataset
 
 
-LCORE = ZarrDataset.from_dict(datasets_dict['LCORE'])
-A01 = ZarrDataset.from_dict(datasets_dict['A01'])
-tutorial_dataset = ZarrDataset.from_dict(datasets_dict['pi-grid'])
+LCORE = ZarrDataset(**datasets_dict['LCORE'])
+A01 = ZarrDataset(**datasets_dict['A01'])
+tutorial_dataset = ZarrDataset(**datasets_dict['pi-grid'])
 
 
 class R42:
