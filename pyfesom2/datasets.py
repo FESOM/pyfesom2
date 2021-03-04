@@ -92,20 +92,7 @@ cmip6_hr = RemoteZarrDataset(**all_datasets['AWI-CM-HR'])
 
 
 def fesom_mesh_to_xr(path: str, alpha: int = 0, beta: int = 0, gamma: int = 0) -> xr.Dataset:
-    # nod2d = pd.read_csv(path+"/nod2d.out")
     mesh = load_mesh(path, abg=[alpha, beta, gamma])
-    # midx = pd.MultiIndex.from_arrays([mesh.x2,mesh.y2], names=['lon','lat'])
-    # with open(path+"/aux3d.out", "rt") as f:
-    #    num_levels = int(f.readline())
-    # levels = pd.read_csv(path+"/aux3d.out", skiprows=1,
-    #                     nrows=num_levels, header=None)
-    # dtype=np.float32)
-    # num_levels = mesh.nlev-1 # using -1 for now
-    # levels = mesh.zlev[:-1]
-    # nod2d_data = xr.DataArray(nod2d.index.values.astype(np.int32),
-    #                          [('nod2',midx)],name='nod2d')
-    # lev_data = xr.DataArray(levels,[levels],dims='nz1',name='depth')
-    # nod2d_dataset = xr.merge([nod2d_data,lev_data])
     ncyclic_inds = get_no_cyclic(mesh, mesh.elem)
     triangles = mesh.elem[ncyclic_inds]
     coords_dataset = xr.Dataset(coords={'lon'  : ('nod2', mesh.x2),
@@ -126,7 +113,7 @@ def fesom_mesh_to_xr(path: str, alpha: int = 0, beta: int = 0, gamma: int = 0) -
     return coords_dataset
 
 
-def open_dataset(path_or_pattern: str, mesh_path: str, abg: Sequence = (50, 15, -90),
+def open_dataset(path_or_pattern: str, mesh_path: str, abg: Sequence = (0, 0, 0),
                  parallel=True, **kwargs) -> xr.Dataset:
     combine = kwargs.pop('combine', 'by_coords')
     da = xr.open_mfdataset(path_or_pattern, parallel=parallel, combine=combine, **kwargs)
