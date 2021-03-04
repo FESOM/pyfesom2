@@ -1,10 +1,5 @@
-import xarray as xr
-
-import pyfesom2 as pf
-from pyfesom2.ut import get_no_cyclic
 import warnings
-from typing import Sequence, Optional
-import warnings
+from typing import Sequence
 from typing import Tuple, Optional
 
 import xarray as xr
@@ -12,45 +7,69 @@ import xarray as xr
 from . import load_mesh
 from .ut import get_no_cyclic
 
-datasets_dict = {"LCORE"  :
-                     {"path_url"     : "https://swift.dkrz.de/v1/dkrz_02942825-0cab-44f3-ad37-80fd5d2e37e3/FESOM2_data/LCORE",
-                      "Dataset URL": "https://swiftbrowser.dkrz.de/public/dkrz_02942825-0cab-44f3-ad37-80fd5d2e37e3/FESOM2_data/LCORE",
-                      "var_list"     : ["temp", "salt", "a_ice", "m_ice", "ssh", "sst"]},
-                 "A01"    :
-                     {"path_url"     : "https://swift.dkrz.de/v1/dkrz_02942825-0cab-44f3-ad37-80fd5d2e37e3/FESOM2_data/A01",
-                      "Dataset URL": "https://swiftbrowser.dkrz.de/public/dkrz_02942825-0cab-44f3-ad37-80fd5d2e37e3/FESOM2_data/A01",
-                      "var_list"     : [""]},
-                 "pi-grid":
-                     {
-                         'path_url'     : "https://swift.dkrz.de/v1/dkrz_035d8f6ff058403bb42f8302e6badfbc/pyfesom2/tutorial/pi-grid",
-                         "var_list"     : ['a_ice', 'm_ice', 'temp', 'u', 'v', 'w', 'mesh'],
-                         "Dataset URL": "https://swiftbrowser.dkrz.de/public/dkrz_035d8f6ff058403bb42f8302e6badfbc/pyfesom2/tutorial/pi-grid"}
-                 }
+cmip6_grids_dict = {'AWI-CM-LR': {
+    "path_url"   : "https://swift.dkrz.de/v1/dkrz_035d8f6ff058403bb42f8302e6badfbc/pyfesom2/cmip6-grids/zarr/awicm-lr",
+    "Dataset URL": "https://swiftbrowser.dkrz.de/public/dkrz_035d8f6ff058403bb42f8302e6badfbc/pyfesom2/cmip6-grids/zarr/awicm-lr"},
+    'AWI-CM-MR'                : {
+        "path_url"   : "https://swift.dkrz.de/v1/dkrz_035d8f6ff058403bb42f8302e6badfbc/pyfesom2/cmip6-grids/zarr/awicm-mr",
+        "Dataset URL": "https://swiftbrowser.dkrz.de/public/dkrz_035d8f6ff058403bb42f8302e6badfbc/pyfesom2/cmip6-grids/zarr/awicm-mr"},
+    'AWI-CM-HR'                : {
+        "path_url"   : "https://swift.dkrz.de/v1/dkrz_035d8f6ff058403bb42f8302e6badfbc/pyfesom2/cmip6-grids/zarr/awicm-hr",
+        "Dataset URL": "https://swiftbrowser.dkrz.de/public/dkrz_035d8f6ff058403bb42f8302e6badfbc/pyfesom2/cmip6-grids/zarr/awicm-hr"}}
+
+datasets_dict = {"LCORE": {
+    "path_url"   : "https://swift.dkrz.de/v1/dkrz_02942825-0cab-44f3-ad37-80fd5d2e37e3/FESOM2_data/LCORE",
+    "Dataset URL": "https://swiftbrowser.dkrz.de/public/dkrz_02942825-0cab-44f3-ad37-80fd5d2e37e3/FESOM2_data/LCORE",
+    "var_list"   : ["temp", "salt", "a_ice", "m_ice", "ssh", "sst"]},
+    "A01"               : {
+        "path_url"   : "https://swift.dkrz.de/v1/dkrz_02942825-0cab-44f3-ad37-80fd5d2e37e3/FESOM2_data/A01",
+        "Dataset URL": "https://swiftbrowser.dkrz.de/public/dkrz_02942825-0cab-44f3-ad37-80fd5d2e37e3/FESOM2_data/A01"},
+    "pi-grid"           : {
+        'path_url'   : "https://swift.dkrz.de/v1/dkrz_035d8f6ff058403bb42f8302e6badfbc/pyfesom2/tutorial/pi-grid",
+        "var_list"   : ['a_ice', 'm_ice', 'temp', 'u', 'v', 'w', 'mesh'],
+        "Dataset URL": "https://swiftbrowser.dkrz.de/public/dkrz_035d8f6ff058403bb42f8302e6badfbc/pyfesom2/tutorial/pi-grid"},
+    **cmip6_grids_dict
+}
 
 
-class ZarrDataset:
-    def __init__(self, path_url, var_list=[], consolidated=True, **kwargs):
+class RemoteZarrDataset:
+    """Fetches a remote Zarr dataset.
+
+    Dataset is only loaded on .load() for dataset containg more variables
+    """
+
+    def __init__(self, path_url, var_list=None, consolidated=True, **kwargs):
         self.path_url = path_url  # can also be local path remove fsspec in that case
         self.var_list = var_list
         self.is_consolidated = consolidated
         self.dset_attrs = kwargs
+        self._ds = None
 
     @property
     def merged_dataset(self):
         import fsspec  # delay import
-        urls = [self.path_url + "/" + var for var in self.var_list]
-        dataset_list = [xr.open_zarr(fsspec.get_mapper(url), consolidated=self.is_consolidated) for url in urls]
-        da = xr.merge(dataset_list)
-        da.attrs.update(self.dset_attrs)
-        return da
+        if self._ds is None:
+            if self.var_list is not None:
+                urls = [self.path_url + "/" + var for var in self.var_list]
+                dataset_list = [xr.open_zarr(fsspec.get_mapper(url), consolidated=self.is_consolidated) for url in urls]
+                self._ds = xr.merge(dataset_list)
+            else:
+                self._ds = xr.open_zarr(self.path_url, consolidated=True)
+
+            self._ds.attrs.update(self.dset_attrs)
+        return self._ds
 
     def load(self):
         return self.merged_dataset
 
 
-LCORE = ZarrDataset(**datasets_dict['LCORE'])
-A01 = ZarrDataset(**datasets_dict['A01'])
-tutorial_dataset = ZarrDataset(**datasets_dict['pi-grid'])
+lcore = RemoteZarrDataset(**datasets_dict['LCORE'])
+arctic_1km = RemoteZarrDataset(**datasets_dict['A01'])
+tutorial_dataset = RemoteZarrDataset(**datasets_dict['pi-grid'])
+
+cmip6_lr = RemoteZarrDataset(**datasets_dict['AWI-CM-LR'])
+cmip6_mr = RemoteZarrDataset(**datasets_dict['AWI-CM-MR'])
+cmip6_hr = RemoteZarrDataset(**datasets_dict['AWI-CM-HR'])
 
 
 class R42:
