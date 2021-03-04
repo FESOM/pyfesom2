@@ -89,4 +89,4 @@ def test_fesom_like():
     nholes=2
     prev_triangles = len(ds.nelem)
     ds = datasets.fesom_like(ncells, holes=nholes)
-    check_dataset(ds)
+    assert len(ds.nelem)+nholes == prev_triangles
