@@ -4,7 +4,7 @@ import xarray as xr
 from pyfesom2 import datasets
 
 
-@pytest.fixture(scope="module", params=[datasets.lcore, datasets.arctic_1km, datasets.tutorial_dataset,
+@pytest.fixture(scope="module", params=[datasets.core, datasets.arctic_1km, datasets.tutorial_dataset,
                                         datasets.rossby42, datasets.rossby42_level, datasets.rossby42_spatial])
 def remote_dataset(request):
     da = request.param.load()

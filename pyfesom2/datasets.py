@@ -34,7 +34,7 @@ frontier_datasets = {
         "Dataset URL": "https://swiftbrowser.dkrz.de/public/dkrz_035d8f6ff058403bb42f8302e6badfbc/pyfesom2/frontier/rossby42_spatial_aceess"}}
 
 all_datasets = {
-    "LCORE"  : {
+    "CORE"  : {
         "path_url"   : "https://swift.dkrz.de/v1/dkrz_02942825-0cab-44f3-ad37-80fd5d2e37e3/FESOM2_data/LCORE",
         "Dataset URL": "https://swiftbrowser.dkrz.de/public/dkrz_02942825-0cab-44f3-ad37-80fd5d2e37e3/FESOM2_data/LCORE",
         "var_list"   : ["temp", "salt", "a_ice", "m_ice", "ssh", "sst"]},
@@ -78,7 +78,7 @@ class RemoteZarrDataset:
         return self.merged_dataset
 
 
-lcore = RemoteZarrDataset(**all_datasets['LCORE'])
+core = RemoteZarrDataset(**all_datasets['CORE'])
 tutorial_dataset = RemoteZarrDataset(**all_datasets['pi-grid'])
 
 arctic_1km = RemoteZarrDataset(**all_datasets['A01'])
