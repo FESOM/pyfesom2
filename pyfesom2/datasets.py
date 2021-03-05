@@ -34,7 +34,7 @@ frontier_datasets = {
         "Dataset URL": "https://swiftbrowser.dkrz.de/public/dkrz_035d8f6ff058403bb42f8302e6badfbc/pyfesom2/frontier/rossby42_spatial_aceess"}}
 
 all_datasets = {
-    "CORE"  : {
+    "CORE"   : {
         "path_url"   : "https://swift.dkrz.de/v1/dkrz_02942825-0cab-44f3-ad37-80fd5d2e37e3/FESOM2_data/LCORE",
         "Dataset URL": "https://swiftbrowser.dkrz.de/public/dkrz_02942825-0cab-44f3-ad37-80fd5d2e37e3/FESOM2_data/LCORE",
         "var_list"   : ["temp", "salt", "a_ice", "m_ice", "ssh", "sst"]},
@@ -50,10 +50,25 @@ all_datasets = {
 class RemoteZarrDataset:
     """Fetches a remote Zarr dataset.
 
-    Dataset is only loaded on .load() for dataset containg more variables
+    Dataset is only loaded on .load() for dataset contaning more variables
     """
 
-    def __init__(self, path_url, var_list=None, consolidated=True, **kwargs):
+    def __init__(self, path_url: str, var_list: Optional[Sequence] = None, consolidated: bool = True, **kwargs):
+        """Initializes a remote zarr dataset.
+
+        Dataset is loaded only on .load() method.
+        Parameters
+        ----------
+        path_url: str
+            Remote http(s) url for a dataset.
+        var_list: optional, list
+            These variable names are suffixed to path_url for retrieving data variables and each retrieved variable is
+            merged into a Xarray dataset. This is not necessary if there is only one variable in remote dataset.
+        consolidated: bool
+            Read remote dataset as a consolidated Zarr dataset, applicable to datasets stored as consolidated.
+        kwargs: optional
+            These kwargs are added to dataset as attributes.
+        """
         self.path_url = path_url  # can also be local path remove fsspec in that case
         self.var_list = var_list
         self.is_consolidated = consolidated
@@ -62,7 +77,13 @@ class RemoteZarrDataset:
 
     @property
     def merged_dataset(self):
-        import fsspec  # delay import
+        """Merges data variables from remote url
+
+        Returns
+        -------
+            xr.Dataset
+        """
+        import fsspec
         if self._ds is None:
             if self.var_list is not None:
                 urls = [self.path_url + "/" + var for var in self.var_list]
@@ -92,6 +113,31 @@ cmip6_hr = RemoteZarrDataset(**all_datasets['AWI-CM-HR'])
 
 
 def fesom_mesh_to_xr(path: str, alpha: int = 0, beta: int = 0, gamma: int = 0) -> xr.Dataset:
+    """Returns Xarray coordinate dataset from FESOM mesh files.
+
+    Note
+    ----
+    1. The coordinate dataset does not contain cyclic points in its faces.
+    2. pyfesom2.load_mesh used here is eager to read mesh data into memory, hence repeated use
+    of this on large datasets may crash.
+
+    Parameters
+    ----------
+    path: str
+        Local path to directory containing FESOM mesh files.
+
+    alpha: int
+        Mesh rotation alpha.
+    beta: int
+        Mesh rotation beta.
+    gamma: int
+        Mesh rotation gamma.
+
+    Returns
+    -------
+    xr.Dataset
+
+    """
     mesh = load_mesh(path, abg=[alpha, beta, gamma])
     ncyclic_inds = get_no_cyclic(mesh, mesh.elem)
     triangles = mesh.elem[ncyclic_inds]
@@ -115,6 +161,26 @@ def fesom_mesh_to_xr(path: str, alpha: int = 0, beta: int = 0, gamma: int = 0) -
 
 def open_dataset(path_or_pattern: str, mesh_path: str, abg: Sequence = (0, 0, 0),
                  parallel=True, **kwargs) -> xr.Dataset:
+    """Returns a merged Xarray dataset from multi-file FESOM model output.
+
+    Parameters
+    ----------
+    path_or_pattern: str
+        File path referring to a single file or posix style pattern to merge multiple files to single dataset.
+    mesh_path: str
+        File system path to mesh directory.
+    abg: list
+        A list or tuple of length 3. These values represent alpha, beta, gamma of rotated mesh.
+    parallel: bool
+        Read files in parallel, only relevant in case of argument path_or_pattern is a pattern.
+    kwargs: optional
+        These key words are passed to Xarray's open_mfdataset. For instance, this may be used to control chunks:
+        chunks={'time': 1, 'nod2': 100000, .....}.
+
+    Returns
+    -------
+    xr.Dataset
+    """
     combine = kwargs.pop('combine', 'by_coords')
     da = xr.open_mfdataset(path_or_pattern, parallel=parallel, combine=combine, **kwargs)
     mesh = fesom_mesh_to_xr(mesh_path, *abg)
