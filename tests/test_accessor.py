@@ -245,8 +245,6 @@ def test_select_points_advanced(random_nd_dataset, npoints):
     assert not all([dim in sda.dims for dim in ('time', 'nz1')])
 
 
-
-
 def test_selection_of_faces(five_point_dataset):
     from shapely.geometry import box
     from pyfesom2.accessor import select_region
@@ -260,15 +258,28 @@ def test_selection_of_faces(five_point_dataset):
     assert np.all(np.isin([0., 180.], sel_da.lon))
     assert np.all(np.isin([-90., 90., 0.], sel_da.lat))
 
+
 def test_select(random_nd_dataset):
     dataset = random_nd_dataset
     npoints = 20
     lons = np.linspace(-180, 180, npoints)
     lats = np.linspace(-90, 90, npoints)
     # test passing slices of other dims
-    sda = dataset.pyfesom2.select(lon=lons, lat=lats, time=slice('2019-05-01', '2019-12-31'), nz1=slice(0,-1000))
+    sda = dataset.pyfesom2.select(lon=lons, lat=lats, time=slice('2019-05-01', '2019-12-31'), nz1=slice(0, -1000))
     assert "time" in sda.dims
     assert "nz1" in sda.dims
+
+    # check exceptions
+    region = region_tests[0]
+    with pytest.raises(ValueError):
+        sda = dataset.pyfesom2.select(lon=lons, lat=lats, region=region)
+
+    with pytest.raises(NotImplementedError):
+        sda = dataset.pyfesom2.select(lon=lons, lat=lats, method='linear')
+        print(sda)
+
+    with pytest.raises(ValueError):
+        sda = dataset.pyfesom2.select(lon=lons)
 
 # Test methods on accessors
 
@@ -313,7 +324,7 @@ def test_dataarray_accessor_methods(dataset):
         lons = np.linspace(-180, 180, npoints)
         lats = np.linspace(-90, 90, npoints)
 
-        #TODO: do this better, assert the returned objects correspond to that of selection methods
+        # TODO: do this better, assert the returned objects correspond to that of selection methods
         assert getattr(dataset.pyfesom2, data_var).select(
             path=(lons, lats)) is not None, 'select cannot take lon,lat as sequence'
         shapely_path = LineString(np.column_stack([lons, lats]))
@@ -322,4 +333,4 @@ def test_dataarray_accessor_methods(dataset):
         dict_path = {'lon': lons, 'lat': lats}
         assert getattr(dataset.pyfesom2, data_var).select(
             path=dict_path) is not None, 'select cannot take lon,lat as dictionary'
-        assert getattr(dataset.pyfesom2, data_var).select_points(lon=lons,lat=lats) is not None
+        assert getattr(dataset.pyfesom2, data_var).select_points(lon=lons, lat=lats) is not None

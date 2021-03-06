@@ -206,7 +206,8 @@ def select(xrobj: Union[xr.Dataset, xr.DataArray], method='nearest',
             else:
                 raise NotImplementedError("Only method='nearest' is currently supported.")
         else:
-            raise NotImplementedError("Both lat, lon are needed as indexers, else use path or region.")
+            raise ValueError("Both lat, lon are needed as indexers, else use path, region arguments or "
+                                      ".select_points(lon=..., lat=...) method.")
     elif region is not None:
         ret_arr = select_region(xrobj, region)
     elif path is not None:
@@ -254,7 +255,7 @@ class FESOMDataset:
             setattr(self, datavar, FESOMDataArray(xr_obj[datavar], xr_obj))
 
     def select(self, method='nearest', tolerance=None, region=None, path=None, **indexers):
-        sel_obj = select(self._xrobj, method='nearest', tolerance=tolerance, region=region, path=path, **indexers)
+        sel_obj = select(self._xrobj, method=method, tolerance=tolerance, region=region, path=path, **indexers)
         return sel_obj
 
     def select_points(self, lon: Union[float, np.ndarray], lat: Union[float, np.ndarray], method='nearest',
