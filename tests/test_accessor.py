@@ -89,43 +89,6 @@ def five_point_dataset():
 #     yield da
 
 
-# def test_dataarray_accessor(dataset):
-#     vars = list(dataset.data_vars.keys())
-#     # check if data vars exist on accessor
-#     for data_var in vars:
-#          assert hasattr(dataset.pyfesom2, data_var), f"data var {data_var} is anot available from pyfesom2 accessor"
-#     # check if region selection works
-#     # bounding box selection using list
-#     bbox = [0., 60., 60., 90.] # West, South, East, North ( LL -> UR )
-#     box_sel = getattr(dataset.pyfesom2,vars[0]).select(region=bbox)
-#     assert isinstance(box_sel, xr.DataArray), "Region selection using bbox list failed"
-#     # TODO: check if bounds match
-#     # Polygon selection
-#     bbox = box(*bbox)  # make a polygon from box
-#     box_sel = dataset[vars[0]].pyfesom2.select_region(region=bbox)
-#     assert isinstance(box_sel, xr.DataArray), "Region selection using Polygon failed"
-#     # Point selection
-#     point_sel = dataset[vars[0]].pyfesom2.select_point(lon=0, lat=0)
-#     assert isinstance(point_sel, xr.DataArray)
-#
-#     point_sel = dataset[vars[0]].pyfesom2.select_point(lon=0, lat=0, tolerance=10)
-#     assert isinstance(point_sel, xr.DataArray)
-#
-#     with pytest.raises(NotImplementedError):
-#         point_sel = dataset[vars[0]].pyfesom2.select_point(lon=0, lat=0, method=None)
-#
-#     sel_arr = dataset[vars[0]].pyfesom2.sel(lat=0, lon=0)
-#     assert isinstance(sel_arr, xr.DataArray)
-#     assert len(sel_arr.nod2) == 1
-#
-#     sel_arr = dataset[vars[0]].pyfesom2.sel(region=bbox)
-#     assert isinstance(sel_arr, xr.DataArray)
-#
-#     if "time" in dataset.dims:
-#         mintime, maxtime = dataset.time.min(), dataset.time.max()
-#         sel_arr = dataset[vars[0]].pyfesom2.sel(time=mintime, region=bbox)
-
-
 def test_normalize_distances():
     from pyfesom2.accessor import normalize_distance
 
