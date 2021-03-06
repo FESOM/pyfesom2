@@ -59,7 +59,7 @@ def select_bbox(xr_obj: Union[xr.DataArray, xr.Dataset],
     from .ut import cut_region
     faces = getattr(xr_obj, "faces", faces)
     if faces is None:
-        raise ValueError(f"When passing a dataset it needs have faces in coords, or"
+        raise ValueError(f"When passing a dataset it needs have faces in coords, or "
                          f"faces need to be passed explicitly.\n"
                          f"When passing a data array, argument faces can't be None,"
                          f"faces must be indices[nelem,3] that define triangles.")
@@ -91,7 +91,8 @@ def select_region(xr_obj: Union[xr.DataArray, xr.Dataset],
     elif isinstance(region, Polygon):
         region = region
     else:
-        raise NotImplementedError(f'Supplied region data {region} is not yet supported')
+        raise ValueError(f"Supplied region data can be a sequence of (minlon, minlat, maxlon, maxlat) or "
+                                  f"a Shapely's Polygon. This {region} is not supported.")
 
     faces = getattr(xr_obj, "faces", faces)
     if faces is None:
