@@ -164,9 +164,8 @@ def test_select_region(dataset, region):
     sda = select_region(dataset, region)
 
     if len(sda.lon) == 0:
-        with pytest.warns(UserWarning):
-            warnings.warn("Found no points for the region in the domain.", UserWarning)
-        # assert not hasattr(sda, "faces")
+        with pytest.warns(Warning):
+            warnings.warn("Found no points for the region in the domain.", Warning)
     else:
         mp = MultiPoint(np.vstack((sda.lon, sda.lat)).T)
         assert outer_polygon.contains(mp.convex_hull)
