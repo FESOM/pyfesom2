@@ -193,7 +193,7 @@ def select(xrobj: Union[xr.Dataset, xr.DataArray], method='nearest',
 
     if (lat_indexer or lon_indexer) and (region is not None or path is not None):
         # TODO: do this combinations better, doesn't check if path and region are both given
-        raise Exception("Only one option: lat, lon as indexer or path or region is supported")
+        raise ValueError("Only one option: lat, lon as indexer or path or region is supported")
 
     ret_arr = xrobj
 
