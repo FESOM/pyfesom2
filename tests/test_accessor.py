@@ -88,6 +88,7 @@ def five_point_dataset():
 #     da = request.param.load()
 #     yield da
 
+# Test selection utils
 
 def test_normalize_distances():
     from pyfesom2.accessor import normalize_distance
@@ -104,6 +105,7 @@ def test_normalize_distances():
     assert units == 'km'
     assert ~np.any(np.isnan(dist)), 'NaNs in dists should not be possible.'
 
+# Test selection methods
 
 bbox_tests = [
     (-10, 50, 60, 80),  # LL -> UR (minx, miny, maxx, maxy)
@@ -165,7 +167,7 @@ def test_select_region(dataset, region):
 
     if len(sda.lon) == 0:
         with pytest.warns(Warning):
-            warnings.warn("Found no points for the region in the domain.", Warning)
+            warnings.warn("No points in domain are within region, returning original data.", Warning)
     else:
         mp = MultiPoint(np.vstack((sda.lon, sda.lat)).T)
         assert outer_polygon.contains(mp.convex_hull)
@@ -254,8 +256,9 @@ def test_selection_5pt_dataset(five_point_dataset):
     assert np.all(np.isin([0., 180.], sel_da.lon))
     assert np.all(np.isin([-90., 90., 0.], sel_da.lat))
 
+# Test methods on accessors
 
-def test_dataset_accessor(dataset):
+def test_dataset_accessor_attrs(dataset):
     assert hasattr(dataset, "pyfesom2")
 
     dataset_methods = ["select", "select_points"] #, "plot", "triplot"]
@@ -263,7 +266,7 @@ def test_dataset_accessor(dataset):
         assert hasattr(dataset.pyfesom2, method)
 
 
-def test_accessor_on_dataarrays(dataset):
+def test_dataarray_accessor_methods(dataset):
     from shapely.geometry import LineString
     for data_var in dataset.data_vars.keys():
         assert hasattr(dataset.pyfesom2, data_var)

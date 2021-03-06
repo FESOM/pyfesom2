@@ -163,9 +163,6 @@ def select_points(xrobj: Union[xr.Dataset, xr.DataArray],
     if tolerance is None:
         _, ind = tree.query(dst_pts)
     else:
-        # inds = tree.query_ball_point(dst_pts, r=tolerance, n_jobs=-1)[0]
-        # _, ind = tree.query(dst_pts, r=tolerance)
-        # ind = inds[0]
         raise NotImplementedError('tolerance is currently not supported.')
 
     other_dims = {k: xr.DataArray(np.array(v, ndmin=1), dims=selection_dim_name) for k, v in other_dims.items()}
