@@ -244,7 +244,7 @@ def test_select_points_advanced(random_nd_dataset, npoints):
     assert not all([dim in sda.dims for dim in ('time', 'nz1')])
 
 
-def test_selection_5pt_dataset(five_point_dataset):
+def test_selections_on_5pt_dataset(five_point_dataset):
     from shapely.geometry import box
     from pyfesom2.accessor import select_region
     dataset = five_point_dataset
@@ -266,6 +266,9 @@ def test_dataset_accessor_attrs(dataset):
     dataset_methods = ["select", "select_points", "__repr__", "_repr_html_"]  # , "plot", "triplot"]
     for method in dataset_methods:
         assert hasattr(dataset.pyfesom2, method)
+    # check if reprs are same as xarray dataset
+    assert dataset.__repr__() == dataset.pyfesom2.__repr__()
+    assert dataset.pyfesom2._repr_html_() is not None
 
 
 def test_dataarray_accessor_attrs(dataset):
@@ -275,6 +278,10 @@ def test_dataarray_accessor_attrs(dataset):
 
     for method in dataarray_methods:
         assert hasattr(dataset.pyfesom2, method)
+
+    # check if reprs exist
+    assert getattr(dataset.pyfesom2, test_dataarray).__repr__().startswith("Wrapped")
+    assert getattr(dataset.pyfesom2, test_dataarray)._repr_html_() is not None
 
 
 def test_dataarray_accessor_methods(dataset):
@@ -294,6 +301,7 @@ def test_dataarray_accessor_methods(dataset):
         lons = np.linspace(-180, 180, npoints)
         lats = np.linspace(-90, 90, npoints)
 
+        #TODO: do this better, assert the returned objects correspond to that of selection methods
         assert getattr(dataset.pyfesom2, data_var).select(
             path=(lons, lats)) is not None, 'select cannot take lon,lat as sequence'
         shapely_path = LineString(np.column_stack([lons, lats]))
