@@ -1,11 +1,9 @@
-import functools
 import warnings
-from typing import Optional, Sequence, Tuple, Union, MutableMapping
+from typing import Optional, Sequence, Union, MutableMapping
 
 import cartopy.crs as ccrs
 import numpy as np
 import xarray as xr
-from matplotlib.tri import Triangulation
 from shapely.geometry import MultiPolygon, Polygon, LineString
 
 # New Types
@@ -309,16 +307,6 @@ class FESOMDataArray:
                       tree=None, return_distance=True, **other_dims):
         tree = self._context_dataset.pyfesom2._tree
         return select_points(self._xrobj, lon, lat, method=method, tolerance=tolerance, tree=tree, **other_dims)
-
-    def _triangulate(self, data, projection) -> Tuple[ccrs.Projection, Triangulation]:
-        if projection:
-            # transform_points cannot take DataArray unlike Triangulation
-            tr_x, tr_y, _ = projection.transform_points(self._native_projection, data.lon.values, data.lat.values).T
-            tri = Triangulation(tr_x, tr_y, triangles=self._context_dataset.faces)
-        else:  # grid native projection
-            projection = ccrs.PlateCarree()
-            tri = Triangulation(data.lon, data.lat, triangles=self._context_dataset.faces)
-        return projection, tri
 
     def __repr__(self):
         return f"Wrapped {self._xrobj.__repr__()}\n{super().__repr__()}"
