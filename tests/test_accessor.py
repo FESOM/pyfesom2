@@ -105,6 +105,7 @@ def test_normalize_distances():
     assert units == 'km'
     assert ~np.any(np.isnan(dist)), 'NaNs in dists should not be possible.'
 
+
 # Test selection methods
 
 bbox_tests = [
@@ -256,13 +257,23 @@ def test_selection_5pt_dataset(five_point_dataset):
     assert np.all(np.isin([0., 180.], sel_da.lon))
     assert np.all(np.isin([-90., 90., 0.], sel_da.lat))
 
+
 # Test methods on accessors
 
 def test_dataset_accessor_attrs(dataset):
     assert hasattr(dataset, "pyfesom2")
 
-    dataset_methods = ["select", "select_points"] #, "plot", "triplot"]
+    dataset_methods = ["select", "select_points", "__repr__", "_repr_html_"]  # , "plot", "triplot"]
     for method in dataset_methods:
+        assert hasattr(dataset.pyfesom2, method)
+
+
+def test_dataarray_accessor_attrs(dataset):
+    """Test dataarray methods on a data variable"""
+    test_dataarray = list(dataset.data_vars.keys())[0]
+    dataarray_methods = ["select", "select_points", "__repr__", "_repr_html_"]  # , "plot", "triplot"]
+
+    for method in dataarray_methods:
         assert hasattr(dataset.pyfesom2, method)
 
 
