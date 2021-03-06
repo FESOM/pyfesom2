@@ -1,66 +1,8 @@
-"""
-Pyfesom2 Xarray Accessors
-
-This module provides additional functionality to FESOM2 xarray dataset. This additional functionality adds
-selection, plotting, regridding for unstructured FESOM2 grid. These features are implemted using neat xarray accessor
-protocol.
-
-Examples:
-    from pyfesom2 import open_dataset
-    fesom_xr_dataset = open_dataset(data_path, mesh_path, ...)
-    fesom_xr_dataset.pyfesom2.sel(...)
-    fesom_xr_dataset.pyfesom2.plot(...)
-
-Design Considerations:
-Goal is to provide commonly used xarray methods (like sel, plot... ) that are currently un-supported for unstructured
-FESOM model data. We would like to have these methods available on xarray dataset level and dataarray (data variable).
-
-Implementing this would mean that we need to register a "pyfesom2" dataset and a dataarray accessor
-(http://xarray.pydata.org/en/stable/api.html#advanced-api). Accessor on dataset is for convinince to do operations like
-selection all variables and this is also efficient (more on that below), accessor on dataarray is most instutuve and
-most apt for plotting: for example dataset.variable.pyfesom2.plot(..).
-
-Having both dataset and datarray working on same kind of data has issues:
- 1.) It creates a not-so-desirable user interface for certain operations, for instance, to select a region on dataset and
-plot a variable: dataset.pyfesom2.sel(region.).variable.pyfesom2.plot(...).
- 2.) Most user intuitive interface to plotting is via: ...variable.plot(...). For variables on this unstructured grid,
- generating spatial plots would need node connectivity information without which land and oceans cannot be shown
-accurately and this additional information (like faces(3, nelems)) cannot be part of coordinates of dataarray of
-variable. Xarray's dataarray object can only hold  coordinates for dims of variable(while a dataset can hold any arbitary
- coordinate information ). This would user interface to spatial plotting of variable should get mesh information
- externally, either as argument in plot method or path to mesh in dataarray's attribute. That is inefficient among
- other UI issues.
- 3.) Selection on this unstructured grid is implemented using a tree, building a tree can be expensive depending on
- grid size. When using selection on a variable algorithm would build a tree and we would like to utilize that tree in
- selections on other variables in future. And to retain mesh info after a selection (see 2.) we should return a dataset,
- this is in contrast to xarray's default selection on a variable returning a dataarray.
-
-Following implementation takes these and user interface into consideration:
-pyfesom2 is registered as xarray dataset accessor only, access to data variables from this accessor are controlled
-through a wrapping class to data variable (instead of dataarray accessor) that contains context of
-dataset (thereby node info and is able to share selection tree). Logic of wrapping data variable in a class is what
-accessors are behind the scenes in xarrray, except in this case we pass dataset context to the constructor. Need to
- watchout for thread safe parallel modifications to Dataset attribures.
-
-
-example access patterns would be:
-dataset.pyfesom2.sel(...) , dataset.pyfesom2.variable.sel(...)
-dataset.pyfesom2.variable.triplot()
-
-One other way to think for future would be to subclass xarray's Dataset and DataArray against their recommendation
-but might be worth it in this case. It might need painful re-implement/tweak xarray's open_dataset kind of methods.
-Another option could be to have a datastore for fesom data (not well-thought.
-
-TODO:
-      set plot type interactive or not as setting.
-"""
-
 import functools
 import warnings
 from typing import Optional, Sequence, Tuple, Union, MutableMapping
 
 import cartopy.crs as ccrs
-import matplotlib.pyplot as plt
 import numpy as np
 import xarray as xr
 from matplotlib.tri import Triangulation
@@ -304,18 +246,6 @@ def select(xrobj: Union[xr.Dataset, xr.DataArray], method='nearest',
 
 # Accessors
 
-# Accessor Utils
-
-def trimesh_plot(darr, tris, **other_dims):
-    import geoviews as gv
-    tris = np.asarray(tris)
-    data = darr.sel(**other_dims)
-    var_name = data.name
-    var_da = gv.Dataset((darr.lon, darr.lat, data),
-                        kdims=['lon', 'lat'], vdims=[var_name])
-    return gv.TriMesh((tris, var_da))
-
-
 # Dataset accessor
 
 @xr.register_dataset_accessor("pyfesom2")
@@ -336,16 +266,6 @@ class FESOMDataset:
                       tree=None, return_distance=True, **other_dims):
         tree = self._tree
         return select_points(self._xrobj, lon, lat, method=method, tolerance=tolerance, tree=tree, **other_dims)
-
-    def plot(self, *args, **kwargs):
-        return self._xrobj.plot(*args, **kwargs)
-
-    def triplot(self, *args, **kwargs):
-        data = self._xrobj
-        tri = Triangulation(data.lon, data.lat, triangles=data.faces)
-        projection = kwargs.pop('projection', ccrs.PlateCarree())
-        ax = kwargs.pop('ax', plt.axes(projection=projection))
-        return ax.triplot(tri, *args, **kwargs)
 
     def _build_tree(self):
         from cartopy.crs import Geocentric, Geodetic
@@ -393,58 +313,6 @@ class FESOMDataArray:
         tree = self._context_dataset.pyfesom2._tree
         return select_points(self._xrobj, lon, lat, method=method, tolerance=tolerance, tree=tree, **other_dims)
 
-    def tripcolor(self, *args, **kwargs):
-        data = self._xrobj.squeeze()
-        if len(data.dims) > 1 or "nod2" not in data.dims:
-            raise Exception('Not a spatial dataset')
-
-        projection = kwargs.pop('projection', None)
-        projection, tri = self._triangulate(data, projection)
-
-        ax = kwargs.pop('ax', plt.axes(projection=projection))
-
-        minv, maxv = data.min().values, data.max().values
-
-        data = data.fillna(minv - 9999)  # make sure it is out of data bounds
-        colorbar = kwargs.pop('colorbar', True)
-        pl = ax.tripcolor(tri, data, *args, **kwargs)
-
-        if colorbar:
-            plt.colorbar(pl, ax=ax)
-        return pl
-
-    def tricontourf(self, *args, **kwargs):
-        data = self._xrobj.squeeze()
-        if len(data.dims) > 1 or "nod2" not in data.dims:
-            raise Exception('Not a spatial dataset')
-
-        projection = kwargs.pop('projection', None)
-
-        projection, tri = self._triangulate(data, projection)
-
-        ax = kwargs.pop('ax', plt.axes(projection=projection))
-
-        if 'extents' in kwargs:
-            ax.set_extent(kwargs.pop('extents'), crs=ccrs.PlateCarree())
-
-        if 'extents' in kwargs:
-            ax.set_extent(kwargs.pop('extents'), crs=ccrs.PlateCarree())
-            ax.set_global()
-
-        minv, maxv = data.min().values, data.max().values
-
-        # pl=ax.tricontourf(tri, data, levels=np.linspace(minv, maxv,100))
-        data = data.fillna(minv - 9999)  # make sure missing vals are out of data bounds
-
-        levels = kwargs.pop('levels', np.linspace(minv, maxv, 100))
-        colorbar = kwargs.pop('colorbar', True)
-
-        pl = ax.tricontourf(tri, data, *args, levels=levels, **kwargs)
-
-        if colorbar:
-            plt.colorbar(pl, ax=ax)
-        return pl
-
     def _triangulate(self, data, projection) -> Tuple[ccrs.Projection, Triangulation]:
         if projection:
             # transform_points cannot take DataArray unlike Triangulation
@@ -454,137 +322,6 @@ class FESOMDataArray:
             projection = ccrs.PlateCarree()
             tri = Triangulation(data.lon, data.lat, triangles=self._context_dataset.faces)
         return projection, tri
-
-    def tricontour(self, *args, **kwargs):
-        data = self._xrobj.squeeze()
-        if len(data.dims) > 1 or "nod2" not in data.dims:
-            raise Exception('Not a spatial dataset')
-
-        projection = kwargs.pop('projection', None)
-        projection, tri = self._triangulate(data, projection)
-
-        ax = kwargs.pop('ax', plt.axes(projection=projection))
-
-        if 'extents' in kwargs:
-            ax.set_extent(kwargs.pop('extents'), crs=ccrs.PlateCarree())
-
-        minv, maxv = data.min().values, data.max().values
-
-        # pl=ax.tricontourf(tri, data, levels=np.linspace(minv, maxv,100))
-        data = data.fillna(minv - 9999)  # make sure it is out of data bounds
-        levels = kwargs.pop('levels', np.linspace(minv, maxv, 100))
-        colorbar = kwargs.pop('colorbar', True)
-        pl = ax.tricontour(tri, data, *args, levels=levels, *args, **kwargs)
-
-        if colorbar:
-            plt.colorbar(pl, ax=ax)
-        return pl
-
-    def triplot(self, *args, **kwargs):
-        data = self._xrobj
-
-        projection = kwargs.pop('projection', None)
-        projection, tri = self._triangulate(data, projection)
-
-        ax = kwargs.pop('ax', plt.axes(projection=projection))
-
-        if 'extents' in kwargs:
-            ax.set_extent(kwargs.pop('extents'), crs=ccrs.PlateCarree())
-
-        return ax.triplot(tri, *args, **kwargs)
-
-    def trimesh(self, levels=None, cmap='RdBu', colorbar=True, height=350, width=600,
-                colorbar_position="bottom", projection=None, coastline=True, tools=['hover'], **hv_kwopts):
-        try:
-            import geoviews as gv
-            import holoviews as hv
-            from holoviews.operation.datashader import rasterize
-            hv.extension('bokeh')
-        except ImportError as ex:
-            raise ImportError('Using trimesh needs geoviews[holoviews, bokeh] and datashader') from ex
-
-        trimesh_fn = functools.partial(trimesh_plot, darr=self._xrobj, tris=self._context_dataset.faces)
-        var_name = self._xrobj.name
-        hvd = hv.Dataset(self._xrobj.drop_vars(['lon', 'lat']))
-        non_plot_dims = {dim: self._xrobj[dim].values for dim in self._xrobj.dims if dim != 'nod2'}
-        dmap = hv.DynamicMap(trimesh_fn,
-                             kdims=list(non_plot_dims.keys())).redim.values(**non_plot_dims)
-        if 'nz1' in non_plot_dims.keys():
-            dmap = dmap.redim.default(nz1=self._xrobj.nz1.values[0])
-            dmap = dmap.redim.unit(nz1='m')
-            dmap = dmap.redim.label(nz1='level')
-
-        plot_opts = {**hv_kwopts}
-        if projection:
-            plot_opts.update({'projection': projection})
-        else:
-            plot_opts.update({'projection': ccrs.PlateCarree()})
-        if levels:
-            if isinstance(levels, int):
-                plot_opts.update({'color_levels': levels})
-            elif isinstance(levels, Sequence):
-                if len(levels) > 2:
-                    plot_opts.update({'color_levels': len(levels)})
-                    dmap = dmap.redim.range(var_name=(min(levels), max(levels)))
-                elif len(levels) == 2:
-                    dmap = dmap.redim.range(var_name=levels)
-            else:
-                raise Exception('Invalid levels, should be a tuple with limits or a sequence of values')
-        else:
-            dmap = dmap.opts(framewise=True)
-
-        plot = rasterize(dmap).opts(width=width,
-                                    height=height,
-                                    cmap=cmap, colorbar=colorbar, tools=tools, **plot_opts)
-        if coastline:
-            return plot * gv.feature.coastline
-        return plot
-
-    def plot_transect(self, lon, lat, plot_type='auto', **indexers_plot_kwargs):
-        """
-        default plot_type
-        """
-        default_plot_types = ('line', 'contourf')  # 1d and 2d defaults
-        extra_dims = [k for k in indexers_plot_kwargs.keys() if
-                      k in self._xrobj.coords]  # coords is used instead of dims because xarray will raise error
-        # in selection if user passes a invalid dim otherwise we would have to.
-
-        extra_indexers = {dim: indexers_plot_kwargs.pop(dim) for dim in extra_dims}
-        tree = self._context_dataset.pyfesom2._tree
-        lon, lat = np.asarray(lon), np.asarray(lat)
-        sel = select_points(self._xrobj, lon=lon, lat=lat, tree=tree, **extra_indexers)
-        sel = sel.squeeze() # squeeze out dims with len 1
-        dim_len = len(sel.dims)  # determines plot type, 1d or 2d
-
-        # make time as default bottom x-axis if present (else formatting gets hard)
-        xax_dims = ('time', 'distance') if 'time' in extra_dims else ('distance', None)
-
-        if 'time' in extra_dims:
-            sel['nod2'] = sel.time
-        else:
-            sel['nod2'] = sel.distance
-
-        sel = sel.transpose(..., 'nod2')  # push points to last for making it default xaxis for plots
-
-        # use xarray plotting as it formats datetime axis with ease and adds sensible default to plot.
-        if dim_len == 1:
-            plot_type = default_plot_types[0] if plot_type == 'auto' else plot_type
-            plot_fn = getattr(sel.plot, plot_type)
-            plot = plot_fn(**indexers_plot_kwargs)[0]
-        elif dim_len == 2:
-            plot_type = default_plot_types[1] if plot_type == 'auto' else plot_type
-            plot_fn = getattr(sel.plot, plot_type)
-            plot = plot_fn(**indexers_plot_kwargs)
-        else:
-            raise Exception(f'A 2-d plot can have 1-2 dimensions, variable {sel.name} has dimensions: {sel.dims}.')
-
-        ax = plot.ax if hasattr(plot, 'ax') else plot.axes  # akward some plots have it as ax, some as axes
-
-        if xax_dims[1]:  # then it must be distance according to above.
-            ax2 = ax.twiny()
-            ax2.set_xlim(sel.distance.min(), sel.distance.max())
-            ax2.set_xlabel(f'distance [{sel.distance.units}]')
-        return plot
 
     def __repr__(self):
         return f"Wrapped {self._xrobj.__repr__()}\n{super().__repr__()}"
