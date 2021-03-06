@@ -17,10 +17,9 @@ dependencies:
   - ipython
   - pytest
   - cmocean
-  - xarray
-  - dask
-  - fsspec
   - zarr
-  - aiohttp
+  - fsspec
   - requests
-
+  - aiohttp 
+  - dask
+  - xarray
