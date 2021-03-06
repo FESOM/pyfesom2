@@ -159,6 +159,7 @@ def test_select_region(dataset, region):
     import warnings
     from shapely.geometry import MultiPoint
     from pyfesom2.accessor import select_region
+    import xarray as xr
     #     # convex hull of returned dataset
     if isinstance(region, Sequence):
         outer_polygon = box(*region)
@@ -173,6 +174,18 @@ def test_select_region(dataset, region):
     else:
         mp = MultiPoint(np.vstack((sda.lon, sda.lat)).T)
         assert outer_polygon.contains(mp.convex_hull)
+
+    # check passing dataarray
+    test_data_var_name = list(dataset.data_vars.keys())[0]
+    test_data_array = dataset[test_data_var_name]
+    with pytest.raises(ValueError):
+        # region selection is not done when faces are not present
+        # dataarrays cannot contain faces so ValueError
+        sda = select_region(test_data_array, region)
+
+    sda = select_region(test_data_array, region, faces=dataset.faces)
+    # returned region selection on data array is a dataset
+    assert isinstance(sda, xr.Dataset)
 
 
 @pytest.mark.parametrize("npoints", [10])
@@ -276,10 +289,16 @@ def test_select(random_nd_dataset):
 
     with pytest.raises(NotImplementedError):
         sda = dataset.pyfesom2.select(lon=lons, lat=lats, method='linear')
-        print(sda)
 
     with pytest.raises(ValueError):
         sda = dataset.pyfesom2.select(lon=lons)
+
+    # path cannot have more then 2 tuples
+    with pytest.raises(ValueError):
+        sda = dataset.pyfesom2.select(path=(lons, lats, dataset.nz1.values))
+    with pytest.raises(ValueError):
+        sda = dataset.pyfesom2.select(path=lons)
+
 
 # Test methods on accessors
 
@@ -305,6 +324,23 @@ def test_dataarray_accessor_attrs(dataset):
     # check if reprs exist
     assert getattr(dataset.pyfesom2, test_dataarray).__repr__().startswith("Wrapped")
     assert getattr(dataset.pyfesom2, test_dataarray)._repr_html_() is not None
+
+
+def test_dataset_accessor_methods(random_nd_dataset):
+    import xarray as xr
+    dataset = random_nd_dataset
+    region = region_tests[0]
+    sda = dataset.pyfesom2.select(region=region)
+    assert isinstance(sda, xr.Dataset)
+    # test accessor to select points
+    npoints = 10
+    lons = np.linspace(-180, 180, npoints)
+    lats = np.linspace(-90, 90, npoints)
+    sda = dataset.pyfesom2.select(lon=lons, lat=lats)
+    assert isinstance(sda, xr.Dataset)
+
+    sda = dataset.pyfesom2.select_points(lon=lons, lat=lats)
+    assert isinstance(sda, xr.Dataset)
 
 
 def test_dataarray_accessor_methods(dataset):
