@@ -20,14 +20,13 @@ def distance_along_trajectory(lons, lats):
     from cartopy.geodesic import Geodesic
     geod = Geodesic()
     lons, lats = np.array(lons, ndmin=1, copy=False), np.array(lats, ndmin=1, copy=False)
-    
-    if np.ndim(lons)>2:
-        raise NotImplementedError('More then 2 dims in lons are currenty not supported')
 
+    if np.ndim(lons) > 2:
+        raise NotImplementedError('More then 2 dims in lons are currenty not supported')
 
     dists = np.zeros(lons.shape)
 
-    if np.ndim(lons) == 1: 
+    if np.ndim(lons) == 1:
         points = np.c_[lons, lats]
         temp_dist = geod.inverse(points[0:-1], points[1:])[:, 0]
         dists[1:] = np.cumsum(temp_dist)
@@ -35,7 +34,7 @@ def distance_along_trajectory(lons, lats):
         for i, (_lons, _lats) in enumerate(zip(lons, lats)):
             points = np.c_[_lons, _lats]
             temp_dist = geod.inverse(points[0:-1], points[1:])[:, 0]
-            dists[i,1:] = np.cumsum(temp_dist)
+            dists[i, 1:] = np.cumsum(temp_dist)
 
     return dists
 
@@ -105,7 +104,7 @@ def select_region(xr_obj: Union[xr.DataArray, xr.Dataset],
         region = region
     else:
         raise ValueError(f"Supplied region data can be a sequence of (minlon, minlat, maxlon, maxlat) or "
-                                  f"a Shapely's Polygon. This {region} is not supported.")
+                         f"a Shapely's Polygon. This {region} is not supported.")
 
     faces = getattr(xr_obj, "faces", faces)
     if faces is None:
@@ -171,7 +170,7 @@ def select_points(xrobj: Union[xr.Dataset, xr.DataArray],
     if tree is None:
         src_pts = geocentric_crs.transform_points(geodetic_crs, np.asarray(xrobj.lon), np.asarray(xrobj.lat))
         tree = cKDTree(src_pts, leafsize=32, compact_nodes=False, balanced_tree=False)
-    
+
     if isinstance(lon, xr.DataArray) and isinstance(lat, xr.DataArray):
         sel_dim = tuple(lon.dims)
     else:
@@ -227,7 +226,7 @@ def select(xrobj: Union[xr.Dataset, xr.DataArray], method='nearest',
                 raise NotImplementedError("Only method='nearest' is currently supported.")
         else:
             raise ValueError("Both lat, lon are needed as indexers, else use path, region arguments or "
-                                      ".select_points(lon=..., lat=...) method.")
+                             ".select_points(lon=..., lat=...) method.")
     elif region is not None:
         ret_arr = select_region(xrobj, region)
     elif path is not None:
