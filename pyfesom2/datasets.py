@@ -37,7 +37,7 @@ all_datasets = {
     "CORE"   : {
         "path_url"   : "https://swift.dkrz.de/v1/dkrz_02942825-0cab-44f3-ad37-80fd5d2e37e3/FESOM2_data/LCORE",
         "Dataset URL": "https://swiftbrowser.dkrz.de/public/dkrz_02942825-0cab-44f3-ad37-80fd5d2e37e3/FESOM2_data/LCORE",
-        "var_list"   : ["temp", "salt", "a_ice", "m_ice", "ssh", "sst"]},
+        "var_list"   : ["temp", "salt", "a_ice", "m_ice", "ssh", "sst", "mesh"]},
     "pi-grid": {
         'path_url'   : "https://swift.dkrz.de/v1/dkrz_035d8f6ff058403bb42f8302e6badfbc/pyfesom2/tutorial/pi-grid",
         "var_list"   : ['a_ice', 'm_ice', 'temp', 'u', 'v', 'w', 'mesh'],
