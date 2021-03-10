@@ -20,10 +20,23 @@ def distance_along_trajectory(lons, lats):
     from cartopy.geodesic import Geodesic
     geod = Geodesic()
     lons, lats = np.array(lons, ndmin=1, copy=False), np.array(lats, ndmin=1, copy=False)
-    points = np.c_[lons, lats]
-    dists = np.zeros(lons.shape[0])
-    temp_dist = geod.inverse(points[0:-1], points[1:])[:, 0]
-    dists[1:] = np.cumsum(temp_dist)
+    
+    if np.ndim(lons)>2:
+        raise NotImplementedError('More then 2 dims in lons are currenty not supported')
+
+
+    dists = np.zeros(lons.shape)
+
+    if np.ndim(lons) == 1: 
+        points = np.c_[lons, lats]
+        temp_dist = geod.inverse(points[0:-1], points[1:])[:, 0]
+        dists[1:] = np.cumsum(temp_dist)
+    else:
+        for i, (_lons, _lats) in enumerate(zip(lons, lats)):
+            points = np.c_[_lons, _lats]
+            temp_dist = geod.inverse(points[0:-1], points[1:])[:, 0]
+            dists[i,1:] = np.cumsum(temp_dist)
+
     return dists
 
 
@@ -158,15 +171,21 @@ def select_points(xrobj: Union[xr.Dataset, xr.DataArray],
     if tree is None:
         src_pts = geocentric_crs.transform_points(geodetic_crs, np.asarray(xrobj.lon), np.asarray(xrobj.lat))
         tree = cKDTree(src_pts, leafsize=32, compact_nodes=False, balanced_tree=False)
+    
+    if isinstance(lon, xr.DataArray) and isinstance(lat, xr.DataArray):
+        sel_dim = tuple(lon.dims)
+    else:
+        sel_dim = selection_dim_name
 
     dst_pts = geocentric_crs.transform_points(geodetic_crs, np.asarray(lon), np.asarray(lat))
+
     if tolerance is None:
         _, ind = tree.query(dst_pts)
     else:
         raise NotImplementedError('tolerance is currently not supported.')
 
-    other_dims = {k: xr.DataArray(np.array(v, ndmin=1), dims=selection_dim_name) for k, v in other_dims.items()}
-    ret_obj = xrobj.isel(nod2=xr.DataArray(ind, dims=selection_dim_name)).sel(**other_dims, method=method)
+    other_dims = {k: xr.DataArray(np.array(v, ndmin=1), dims=sel_dim) for k, v in other_dims.items()}
+    ret_obj = xrobj.isel(nod2=xr.DataArray(ind, dims=sel_dim)).sel(**other_dims, method=method)
 
     # from faces, which will not be useful in returned dataset
     # unless we reindex them, but is there a use case for that?
@@ -175,7 +194,7 @@ def select_points(xrobj: Union[xr.Dataset, xr.DataArray],
     if return_distance:
         dist = distance_along_trajectory(lon, lat)
         dist_units, dist = normalize_distance(dist)
-        ret_obj = ret_obj.assign_coords({'distance': (selection_dim_name, dist)})
+        ret_obj = ret_obj.assign_coords({'distance': (sel_dim, dist)})
         ret_obj.distance.attrs['units'] = dist_units
         ret_obj.distance.attrs['long_name'] = f"distance along trajectory"
     return ret_obj
