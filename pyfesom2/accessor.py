@@ -16,7 +16,7 @@ Path = Union[LineString, Tuple[ArrayLike, ArrayLike]]
 
 # Selection
 
-## Utilities for selection
+# ---Utilities for selection
 
 def distance_along_trajectory(lons: ArrayLike, lats: ArrayLike) -> ArrayLike:
     """Returns geodesic distance along a trajectory of lons and lons.
@@ -87,7 +87,7 @@ class SimpleMesh:
         self.elem = faces
 
 
-## Selection functions
+# ---Selection functions
 
 def select_bbox(xr_obj: Union[xr.DataArray, xr.Dataset],
                 bbox: BoundingBox,
@@ -214,7 +214,7 @@ def select_points(xrobj: Union[xr.Dataset, xr.DataArray],
         raise NotImplementedError("Spatial selection currently supports only nearest neighbor lookup")
     geocentric_crs, geodetic_crs = Geocentric(), Geodetic()
     if tree is None:
-        src_pts = geocentric_crs.transform_points(geodetic_crs, np.asarray(xrobj.lon), np.asarray(xrobj.lat))
+        src_pts = geocentric_crs.transform_points(geodetic_crs, src_lons, src_lats)
         tree = cKDTree(src_pts, leafsize=32, compact_nodes=False, balanced_tree=False)
 
     if isinstance(lon, xr.DataArray) and isinstance(lat, xr.DataArray):
@@ -357,8 +357,8 @@ class FESOMDataArray:
     """ A wrapper around Dataarray, that passes dataset context around"""
 
     def __init__(self, xr_dataarray: xr.DataArray, context_dataset: Optional[xr.Dataset] = None):
-        self._xrobj = xrobj = xr_dataarray
-        self._context_dataset = context = context_dataset
+        self._xrobj = xr_dataarray
+        self._context_dataset = context_dataset
         self._native_projection = ccrs.PlateCarree()
 
     def select(self, method: str = 'nearest', tolerance: float = None, region: Optional[Region] = None,
@@ -367,7 +367,7 @@ class FESOMDataArray:
         sel_obj = sel_obj.assign_coords({'faces': (self._context_dataset.faces.dims,
                                                    self._context_dataset.faces.values)})
         tree = self._context_dataset.pyfesom2._tree
-        sel_obj = select(sel_obj, method='nearest', tolerance=tolerance, region=region, path=path, tree=tree,
+        sel_obj = select(sel_obj, method=method, tolerance=tolerance, region=region, path=path, tree=tree,
                          **indexers)
         return sel_obj
 
