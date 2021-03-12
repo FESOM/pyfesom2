@@ -19,6 +19,22 @@ Path = Union[LineString, Tuple[ArrayLike, ArrayLike]]
 ## Utilities for selection
 
 def distance_along_trajectory(lons: ArrayLike, lats: ArrayLike) -> ArrayLike:
+    """Returns geodesic distance along a trajectory of lons and lons.
+
+    Computes cumulative distance from starting lon, lat till end of array.
+
+    Parameters
+    ----------
+    lons
+        Array-like longitude values.
+    lats
+        Array-like latitude values.
+
+    Returns
+    -------
+    ArrayLike
+        Returns array containing distances in meters
+    """
     from cartopy.geodesic import Geodesic
     geod = Geodesic()
     lons, lats = np.array(lons, ndmin=1, copy=False), np.array(lats, ndmin=1, copy=False)
@@ -42,7 +58,16 @@ def distance_along_trajectory(lons: ArrayLike, lats: ArrayLike) -> ArrayLike:
 
 
 def normalize_distance(distance_array_in_m: ArrayLike) -> Tuple[str, ArrayLike]:
-    """Returns best representation for distances in m or km.
+    """Returns best representation for distances in m or km and values.
+
+    Parameters
+    ----------
+    distance_array_in_m
+
+    Returns
+    -------
+    tuple
+        Returns tuple containing best units in m or km and transformed values.
     """
     distance_array_in_km = distance_array_in_m / 1000.0
     len_array = distance_array_in_m.shape[0]
@@ -67,8 +92,30 @@ class SimpleMesh:
 def select_bbox(xr_obj: Union[xr.DataArray, xr.Dataset],
                 bbox: BoundingBox,
                 faces: Optional[ArrayLike] = None) -> xr.Dataset:
-    """bbox as xmin, ymin, xmax, ymax
-    doesn't tke shapely as input"""
+    """Returns subset Dataset or DataArray for bounding box.
+
+    This method uses triangulation indices in faces (as argument or as coordinate in a dataset) to select nodes
+    belonging to faces in bounding box. Hence, nodes that belong to faces entirely contained in bounding box are
+    returned. A Xarray dataset is returned regardless of input type to retain face coordinate information in the subset.
+    Returned values of faces in returned subset correspond to triangulation using new indices of nodes.
+    As this method uses triangulation information, it is somewhat true to underlying grid unlike other methods which
+    start with node information.
+
+    Parameters
+    ----------
+    xr_obj
+        Xarray's Dataset or DaraArray, for DataArrays faces argument is necessary.
+    bbox
+        Bounding box can be specified as as sequence of size 4 (lists or tuple or array) containing bounds
+        from lower-left to upper-right of longitudes and latitudes. For instance: (xmin, ymin, xmax, ymax).
+    faces
+        For Datasets containing faces as coordinate information the argument is not necessary.
+        For DataArrays faces argument, defining indices of faces defining triangles, is necessary.
+
+    Returns
+    -------
+
+    """
     from .ut import cut_region
     faces = getattr(xr_obj, "faces", faces)
     if faces is None:
@@ -91,10 +138,8 @@ def select_bbox(xr_obj: Union[xr.DataArray, xr.Dataset],
     return ret
 
 
-def select_region(xr_obj: Union[xr.DataArray, xr.Dataset],
-                  region: Region,
-                  faces: Optional[ArrayLike] = None
-                  ) -> xr.Dataset:
+def select_region(xr_obj: Union[xr.DataArray, xr.Dataset], region: Region,
+                  faces: Optional[ArrayLike] = None) -> xr.Dataset:
     from shapely.geometry import box, Polygon
     from shapely.prepared import prep
     from shapely.vectorized import contains as vectorized_contains
@@ -272,7 +317,7 @@ class FESOMDataset:
         # TODO: check valid fesom data? otherwise accessor is available on all xarray datasets
         self._tree_obj = None
         for datavar in xr_obj.data_vars.keys():
-            setattr(self, datavar, FESOMDataArray(xr_obj[datavar], xr_obj))
+            setattr(self, str(datavar), FESOMDataArray(xr_obj[datavar], xr_obj))
 
     def select(self, method: str = 'nearest', tolerance: Optional[float] = None, region: Optional[Region] = None,
                path: Optional[Path] = None, **indexers):
