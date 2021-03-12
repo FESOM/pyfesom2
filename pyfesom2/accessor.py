@@ -1,5 +1,5 @@
 import warnings
-from typing import Optional, Sequence, Union, MutableMapping
+from typing import Optional, Sequence, Union, MutableMapping, Tuple
 
 import cartopy.crs as ccrs
 import numpy as np
@@ -10,13 +10,15 @@ from shapely.geometry import MultiPolygon, Polygon, LineString
 BoundingBox = Sequence[float]
 Region = Union[BoundingBox, Polygon]
 MultiRegion = Union[Sequence[Polygon], MultiPolygon]
+ArrayLike = Union[Sequence[float], np.ndarray, xr.DataArray]
+Path = Union[LineString, Tuple[ArrayLike, ArrayLike]]
 
 
 # Selection
 
 ## Utilities for selection
 
-def distance_along_trajectory(lons, lats):
+def distance_along_trajectory(lons: ArrayLike, lats: ArrayLike) -> ArrayLike:
     from cartopy.geodesic import Geodesic
     geod = Geodesic()
     lons, lats = np.array(lons, ndmin=1, copy=False), np.array(lats, ndmin=1, copy=False)
@@ -39,9 +41,8 @@ def distance_along_trajectory(lons, lats):
     return dists
 
 
-def normalize_distance(distance_array_in_m):
-    """Returns best representation for
-    distances in m or km.
+def normalize_distance(distance_array_in_m: ArrayLike) -> Tuple[str, ArrayLike]:
+    """Returns best representation for distances in m or km.
     """
     distance_array_in_km = distance_array_in_m / 1000.0
     len_array = distance_array_in_m.shape[0]
@@ -55,7 +56,7 @@ def normalize_distance(distance_array_in_m):
 class SimpleMesh:
     """Wrapper that fakes pyfesom's mesh object for purposes of this module"""
 
-    def __init__(self, lon, lat, faces):
+    def __init__(self, lon: ArrayLike, lat: ArrayLike, faces: ArrayLike):
         self.x2 = lon
         self.y2 = lat
         self.elem = faces
@@ -65,7 +66,7 @@ class SimpleMesh:
 
 def select_bbox(xr_obj: Union[xr.DataArray, xr.Dataset],
                 bbox: BoundingBox,
-                faces: Optional[Union[np.ndarray, xr.DataArray]] = None) -> xr.Dataset:
+                faces: Optional[ArrayLike] = None) -> xr.Dataset:
     """bbox as xmin, ymin, xmax, ymax
     doesn't tke shapely as input"""
     from .ut import cut_region
@@ -92,7 +93,7 @@ def select_bbox(xr_obj: Union[xr.DataArray, xr.Dataset],
 
 def select_region(xr_obj: Union[xr.DataArray, xr.Dataset],
                   region: Region,
-                  faces: Optional[Union[np.ndarray, xr.DataArray]] = None
+                  faces: Optional[ArrayLike] = None
                   ) -> xr.Dataset:
     from shapely.geometry import box, Polygon
     from shapely.prepared import prep
@@ -148,9 +149,9 @@ def select_region(xr_obj: Union[xr.DataArray, xr.Dataset],
 
 
 def select_points(xrobj: Union[xr.Dataset, xr.DataArray],
-                  lon: Union[float, np.ndarray], lat: Union[float, np.ndarray], method='nearest', tolerance=None,
-                  tree=None, return_distance=True, selection_dim_name="nod2", **other_dims) -> Union[
-    xr.Dataset, xr.DataArray]:
+                  lon: ArrayLike, lat: ArrayLike, method: str = 'nearest', tolerance: Optional[float] = None,
+                  tree: Optional[object] = None, return_distance: Optional[bool] = True,
+                  selection_dim_name: Optional[str] = "nod2", **other_dims) -> Union[xr.Dataset, xr.DataArray]:
     """
 
     TODO: check id all dims are of same length.
@@ -199,9 +200,9 @@ def select_points(xrobj: Union[xr.Dataset, xr.DataArray],
     return ret_obj
 
 
-def select(xrobj: Union[xr.Dataset, xr.DataArray], method='nearest',
-           tolerance=None, region: Optional[Region] = None,
-           path=Optional[Union[LineString, Sequence[float], MutableMapping]], tree=None,
+def select(xr_obj: Union[xr.Dataset, xr.DataArray], method: str = 'nearest',
+           tolerance: float = None, region: Optional[Region] = None,
+           path: Optional[Union[Path, MutableMapping]] = None, tree: Optional[object] = None,
            **indexers) -> Union[xr.Dataset, xr.DataArray]:
     """
     Higher level interface that does different kinds of selection emulates xarray's sel method.
@@ -215,12 +216,12 @@ def select(xrobj: Union[xr.Dataset, xr.DataArray], method='nearest',
         # TODO: do this combinations better, doesn't check if path and region are both given
         raise ValueError("Only one option: lat, lon as indexer or path or region is supported")
 
-    ret_arr = xrobj
+    ret_arr = xr_obj
 
     if lat_indexer or lon_indexer:
         if lat_indexer and lon_indexer:
             if method == 'nearest':
-                ret_arr = select_points(xrobj, lon, lat, method=method, tolerance=tolerance, tree=tree,
+                ret_arr = select_points(xr_obj, lon, lat, method=method, tolerance=tolerance, tree=tree,
                                         return_distance=False)
             else:
                 raise NotImplementedError("Only method='nearest' is currently supported.")
@@ -228,7 +229,7 @@ def select(xrobj: Union[xr.Dataset, xr.DataArray], method='nearest',
             raise ValueError("Both lat, lon are needed as indexers, else use path, region arguments or "
                              ".select_points(lon=..., lat=...) method.")
     elif region is not None:
-        ret_arr = select_region(xrobj, region)
+        ret_arr = select_region(xr_obj, region)
     elif path is not None:
         if isinstance(path, Sequence) or isinstance(path, LineString):
             if isinstance(path, LineString):
@@ -240,9 +241,9 @@ def select(xrobj: Union[xr.Dataset, xr.DataArray], method='nearest',
                 raise ValueError('Path of more then 2 columns (lons, lats) is ambiguous, use dictionary instead')
             else:
                 lon, lat = path
-                ret_arr = select_points(xrobj, lon, lat, method=method, tolerance=tolerance, tree=tree)
+                ret_arr = select_points(xr_obj, lon, lat, method=method, tolerance=tolerance, tree=tree)
         elif isinstance(path, dict):
-            ret_arr = select_points(xrobj, method=method, tolerance=tolerance, tree=tree, **path)
+            ret_arr = select_points(xr_obj, method=method, tolerance=tolerance, tree=tree, **path)
         else:
             raise ValueError('Invalid path argument it can only be sequence of (lons, lats), shapely 2D LineString or'
                              'dictionary containing coords.')
@@ -273,15 +274,16 @@ class FESOMDataset:
         for datavar in xr_obj.data_vars.keys():
             setattr(self, datavar, FESOMDataArray(xr_obj[datavar], xr_obj))
 
-    def select(self, method='nearest', tolerance=None, region=None, path=None, **indexers):
+    def select(self, method: str = 'nearest', tolerance: Optional[float] = None, region: Optional[Region] = None,
+               path: Optional[Path] = None, **indexers):
         sel_obj = select(self._xrobj, method=method, tolerance=tolerance, region=region, path=path, **indexers)
         return sel_obj
 
-    def select_points(self, lon: Union[float, np.ndarray], lat: Union[float, np.ndarray], method='nearest',
-                      tolerance=None,
-                      tree=None, return_distance=True, **other_dims):
+    def select_points(self, lon: ArrayLike, lat: ArrayLike, method: str = 'nearest',
+                      tolerance: Optional[float] = None, **other_dims):
         tree = self._tree
-        return select_points(self._xrobj, lon, lat, method=method, tolerance=tolerance, tree=tree, **other_dims)
+        return select_points(self._xrobj, lon, lat, method=method, tolerance=tolerance, tree=tree, return_distance=True,
+                             **other_dims)
 
     def _build_tree(self):
         from cartopy.crs import Geocentric, Geodetic
@@ -309,12 +311,13 @@ class FESOMDataset:
 class FESOMDataArray:
     """ A wrapper around Dataarray, that passes dataset context around"""
 
-    def __init__(self, xr_dataarray: xr.DataArray, context_dataset=None):
+    def __init__(self, xr_dataarray: xr.DataArray, context_dataset: Optional[xr.Dataset] = None):
         self._xrobj = xrobj = xr_dataarray
         self._context_dataset = context = context_dataset
         self._native_projection = ccrs.PlateCarree()
 
-    def select(self, method='nearest', tolerance=None, region=None, path=None, **indexers):
+    def select(self, method: str = 'nearest', tolerance: float = None, region: Optional[Region] = None,
+               path: Optional[Path] = None, **indexers):
         sel_obj = self._xrobj.to_dataset()
         sel_obj = sel_obj.assign_coords({'faces': (self._context_dataset.faces.dims,
                                                    self._context_dataset.faces.values)})
@@ -323,11 +326,11 @@ class FESOMDataArray:
                          **indexers)
         return sel_obj
 
-    def select_points(self, lon: Union[float, np.ndarray], lat: Union[float, np.ndarray], method='nearest',
-                      tolerance=None,
-                      tree=None, return_distance=True, **other_dims):
+    def select_points(self, lon: Union[float, np.ndarray], lat: Union[float, np.ndarray], method: str = 'nearest',
+                      tolerance: Optional[float] = None, **other_dims):
         tree = self._context_dataset.pyfesom2._tree
-        return select_points(self._xrobj, lon, lat, method=method, tolerance=tolerance, tree=tree, **other_dims)
+        return select_points(self._xrobj, lon, lat, method=method, tolerance=tolerance, tree=tree, return_distance=True,
+                             **other_dims)
 
     def __repr__(self):
         return f"Wrapped {self._xrobj.__repr__()}\n{super().__repr__()}"
