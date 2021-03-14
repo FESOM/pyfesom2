@@ -97,9 +97,8 @@ def select_bbox(xr_obj: Union[xr.DataArray, xr.Dataset],
     This method uses triangulation indices in faces (as argument or as coordinate in a dataset) to select nodes
     belonging to faces in bounding box. Hence, nodes that belong to faces entirely contained in bounding box are
     returned. A Xarray dataset is returned regardless of input type to retain face coordinate information in the subset.
-    Returned values of faces in returned subset correspond to triangulation using new indices of nodes.
-    As this method uses triangulation information, it is somewhat true to underlying grid unlike other methods which
-    start with node information.
+    Returned values of faces in returned subset correspond to triangulation using new indices of nodes. This method
+    uses basic numpy's capabilities and does not depend on Shapely like other selection methods.
 
     Parameters
     ----------
@@ -140,6 +139,26 @@ def select_bbox(xr_obj: Union[xr.DataArray, xr.Dataset],
 
 def select_region(xr_obj: Union[xr.DataArray, xr.Dataset], region: Region,
                   faces: Optional[ArrayLike] = None) -> xr.Dataset:
+    """Returns a FESOM data subset for specified arbitrary region.
+
+    This method uses vectorized Shapely's vectorized routines to find nodes contained by specified polygon. Faces
+    (or triangles) have all the selected nodes are re-indexed to indices of selected nodes. To retain this triangulation
+    information a Dataset is returned.
+
+    Parameters
+    ----------
+    xr_obj
+        Xarray's Dataset or DataArray. In case of DataArray, faces argument is required.
+    region
+        As as length 4 sequence or Shapely's polygon geometries like Polygon or box.
+    faces
+        Array-like with 2 dims with last dimension of size 3 containing triangulation (indices).
+        This is required for DataArrays, Datasets are probed for coordinate variable named faces.
+
+    Returns
+    -------
+    xr.DataSet
+    """
     from shapely.geometry import box, Polygon
     from shapely.prepared import prep
     from shapely.vectorized import contains as vectorized_contains
@@ -193,17 +212,55 @@ def select_region(xr_obj: Union[xr.DataArray, xr.Dataset], region: Region,
     return ret
 
 
-def select_points(xrobj: Union[xr.Dataset, xr.DataArray],
+def select_points(xr_obj: Union[xr.Dataset, xr.DataArray],
                   lon: ArrayLike, lat: ArrayLike, method: str = 'nearest', tolerance: Optional[float] = None,
                   tree: Optional[object] = None, return_distance: Optional[bool] = True,
                   selection_dim_name: Optional[str] = "nod2", **other_dims) -> Union[xr.Dataset, xr.DataArray]:
-    """
+    """Returns a FESOM point dataset for specified longitudes and latitudes and other dimension representing
+     a trajectory.
 
-    TODO: check id all dims are of same length.
+    This method selects points geodesic-ally closest (default) specified to lon, lat and optionally to specified
+    other dimensions as arguments. All arguments have to be of same shape and size. To select points geodesic-ally
+    closest to input FESOM grid, both longitudes and latitudes of FESOM grid and and desired destination-transect points
+    (arguments lon, lat) are projected onto geocentric coordinates.  A KDtree is used to efficiently select multiple
+    points. For other orthogonal dimensions label based indexing of Xarray's sel method is used.
+
+    Note
+    ----
+    This is unlike default Xarray's selection for rectilinear grids on longitudes, latitudes where geodesic distances
+    are not used.
+
+    Parameters
+    ----------
+    xr_obj
+        xr.Dataset or DataArray.
+    lon
+        Array-like longitudes.
+    lat
+        Array-like latitudes.
+    method
+        "nearest" (or geodesic-ally closest)  is currently supported.
+    tolerance
+        A tolerance radius to select non missing values, currently not supported.
+    tree
+        A Scipy cKDtree object, this speeds up repeated queries on input data.
+    return_distance
+        If True returns distance along selection lon, lat in metric units as a coordinate of returned dataset.
+    selection_dim_name
+        When points are defined on more then lon and lat, this argument defines the name of stacked dimension. By
+        default data is stacked on dimension nod2.
+    other_dims
+        Additional arguments that define multi-dimensional transects. For example: time=..., nz1=... These arguments
+        have to be dimensions of dataarray or dataset.
+
+    Returns
+    -------
+    xr.Dataset or xr.DataArray
+        Returns data type similar to input data.
     """
     from cartopy.crs import Geocentric, Geodetic
     from scipy.spatial import cKDTree
-    src_lons, src_lats = np.asarray(xrobj.lon), np.asarray(xrobj.lat)
+    src_lons, src_lats = np.asarray(xr_obj.lon), np.asarray(xr_obj.lat)
 
     set_len_dims = {np.size(lon), np.size(lat), *[np.size(val) for val in other_dims.values()]}
 
@@ -230,7 +287,7 @@ def select_points(xrobj: Union[xr.Dataset, xr.DataArray],
         raise NotImplementedError('tolerance is currently not supported.')
 
     other_dims = {k: xr.DataArray(np.array(v, ndmin=1), dims=sel_dim) for k, v in other_dims.items()}
-    ret_obj = xrobj.isel(nod2=xr.DataArray(ind, dims=sel_dim)).sel(**other_dims, method=method)
+    ret_obj = xr_obj.isel(nod2=xr.DataArray(ind, dims=sel_dim)).sel(**other_dims, method=method)
 
     # from faces, which will not be useful in returned dataset
     # unless we reindex them, but is there a use case for that?
@@ -245,12 +302,38 @@ def select_points(xrobj: Union[xr.Dataset, xr.DataArray],
     return ret_obj
 
 
-def select(xr_obj: Union[xr.Dataset, xr.DataArray], method: str = 'nearest',
+def select(xr_obj: xr.Dataset, method: str = 'nearest',
            tolerance: float = None, region: Optional[Region] = None,
            path: Optional[Union[Path, MutableMapping]] = None, tree: Optional[object] = None,
            **indexers) -> Union[xr.Dataset, xr.DataArray]:
-    """
-    Higher level interface that does different kinds of selection emulates xarray's sel method.
+    """A generalized interface to select data from unstructured FESOM dataset.
+
+    This method provides interface to similar to sel method of Xarray for an unstructured FESOM data. In addition there
+    are additional arguments to select polygons and paths specified as Shapely's geometries. This method wraps
+    select_region and select_points methods of this pyfesom2.accessor module.
+
+
+    Parameters
+    ----------
+    xr_obj
+        xr.Dataset. Dataset must contain faces as coordinate variable for region based selection.
+    method
+        "nearest" (or geodesic-ally closest)  is currently supported.
+    tolerance
+        A tolerance radius to select non missing values, currently not supported.
+    region
+        As as length 4 sequence or Shapely's polygon geometries like Polygon or box.
+    path
+        A tuple of same-sized longitudes, latitudes or Shapely's LineString or a dictionary with keys as dimensions.
+    tree
+        A Scipy cKDtree object, this speeds up repeated queries on input data.
+    indexers
+        Additional arguments that define multi-dimensional transects. For example: time=..., nz1=... These arguments
+        have to be dimensions of the dataset. These indexers are passed to xarray's sel method as-is.
+
+    Returns
+    -------
+    xr.Dataset
     """
     lat = indexers.pop('lat', None)
     lon = indexers.pop('lon', None)
@@ -312,6 +395,9 @@ def select(xr_obj: Union[xr.Dataset, xr.DataArray], method: str = 'nearest',
 
 @xr.register_dataset_accessor("pyfesom2")
 class FESOMDataset:
+    """ A pyfesom2 Xarray accessor for FESOM datasets.
+    """
+
     def __init__(self, xr_dataset: xr.Dataset):
         self._xrobj = xr_obj = xr_dataset
         # TODO: check valid fesom data? otherwise accessor is available on all xarray datasets
@@ -321,11 +407,70 @@ class FESOMDataset:
 
     def select(self, method: str = 'nearest', tolerance: Optional[float] = None, region: Optional[Region] = None,
                path: Optional[Path] = None, **indexers):
+        """A generalized interface to select data from an unstructured FESOM dataset.
+
+        This method provides interface to similar to sel method of Xarray for an unstructured FESOM data. In addition
+        there are additional arguments to select polygons and paths specified as Shapely's geometries. This method wraps
+        select_region and select_points methods of this pyfesom2.accessor module.
+
+
+        Parameters
+        ----------
+        method
+            "nearest" (or geodesic-ally closest)  is currently supported.
+        tolerance
+            A tolerance radius to select non missing values, currently not supported.
+        region
+            As as length 4 sequence or Shapely's polygon geometries like Polygon or box.
+        path
+            A tuple of same-sized longitudes, latitudes or Shapely's LineString or a dictionary with keys as dimensions.
+        indexers
+            Additional arguments that define multi-dimensional transects. For example: time=..., nz1=... These arguments
+            have to be dimensions of the dataset. These indexers are passed to xarray's sel method as-is.
+
+        Returns
+        -------
+        xr.Dataset
+        """
+
         sel_obj = select(self._xrobj, method=method, tolerance=tolerance, region=region, path=path, **indexers)
         return sel_obj
 
     def select_points(self, lon: ArrayLike, lat: ArrayLike, method: str = 'nearest',
                       tolerance: Optional[float] = None, **other_dims):
+        """Returns a FESOM point dataset for specified longitudes and latitudes and other dimension representing
+         a trajectory.
+
+        This method selects points geodesic-ally closest (default) specified to lon, lat and optionally to specified
+        other dimensions as arguments. All arguments have to be of same shape and size. To select points geodesic-ally
+        closest to input FESOM grid, both longitudes and latitudes of FESOM grid and and desired destination-transect
+        points (arguments lon, lat) are projected onto geocentric coordinates.  A KDtree is used to efficiently select
+        multiple points. For other orthogonal dimensions label based indexing of Xarray's sel method is used.
+
+        Note
+        ----
+        This is unlike default Xarray's selection for rectilinear grids on longitudes, latitudes where geodesic
+        distances are not used.
+
+        Parameters
+        ----------
+        lon
+            Array-like longitudes.
+        lat
+            Array-like latitudes.
+        method
+            "nearest" (or geodesic-ally closest)  is currently supported.
+        tolerance
+            A tolerance radius to select non missing values, currently not supported.
+        other_dims
+            Additional arguments that define multi-dimensional transects. For example: time=..., nz1=... These arguments
+            have to be dimensions of dataarray or dataset.
+
+        Returns
+        -------
+        xr.Dataset
+            Returned dataset contains distance along trajectory in metric units (m or km) as a coordinate.
+        """
         tree = self._tree
         return select_points(self._xrobj, lon, lat, method=method, tolerance=tolerance, tree=tree, return_distance=True,
                              **other_dims)
@@ -363,6 +508,32 @@ class FESOMDataArray:
 
     def select(self, method: str = 'nearest', tolerance: float = None, region: Optional[Region] = None,
                path: Optional[Path] = None, **indexers):
+        """A generalized interface to select data from an unstructured FESOM dataset.
+
+        This method provides interface to similar to sel method of Xarray for an unstructured FESOM data. In addition
+        there are additional arguments to select polygons and paths specified as Shapely's geometries. This method wraps
+        select_region and select_points methods of this pyfesom2.accessor module.
+
+
+        Parameters
+        ----------
+        method
+            "nearest" (or geodesic-ally closest)  is currently supported.
+        tolerance
+            A tolerance radius to select non missing values, currently not supported.
+        region
+            As as length 4 sequence or Shapely's polygon geometries like Polygon or box.
+        path
+            A tuple of same-sized longitudes, latitudes or Shapely's LineString or a dictionary with keys as dimensions.
+        indexers
+            Additional arguments that define multi-dimensional transects. For example: time=..., nz1=... These arguments
+            have to be dimensions of the dataset. These indexers are passed to xarray's sel method as-is.
+
+        Returns
+        -------
+        xr.Dataset
+        """
+
         sel_obj = self._xrobj.to_dataset()
         sel_obj = sel_obj.assign_coords({'faces': (self._context_dataset.faces.dims,
                                                    self._context_dataset.faces.values)})
@@ -373,6 +544,41 @@ class FESOMDataArray:
 
     def select_points(self, lon: Union[float, np.ndarray], lat: Union[float, np.ndarray], method: str = 'nearest',
                       tolerance: Optional[float] = None, **other_dims):
+        """Returns a FESOM point dataarray for specified longitudes and latitudes and other dimension representing
+         a trajectory.
+
+        This method selects points geodesic-ally closest (default) specified to lon, lat and optionally to specified
+        other dimensions as arguments. All arguments have to be of same shape and size. To select points geodesic-ally
+        closest to input FESOM grid, both longitudes and latitudes of FESOM grid and and desired destination-transect
+        points (arguments lon, lat) are projected onto geocentric coordinates.  A KDtree is used to efficiently select
+        multiple points. Tree information is computed once and stored on context dataset of a variable.
+        For other orthogonal dimensions label based indexing of Xarray's sel method is used.
+
+        Note
+        ----
+        This is unlike default Xarray's selection for rectilinear grids on longitudes, latitudes where geodesic
+        distances are not used.
+
+        Parameters
+        ----------
+        lon
+            Array-like longitudes.
+        lat
+            Array-like latitudes.
+        method
+            "nearest" (or geodesic-ally closest)  is currently supported.
+        tolerance
+            A tolerance radius to select non missing values, currently not supported.
+        other_dims
+            Additional arguments that define multi-dimensional transects. For example: time=..., nz1=... These arguments
+            have to be dimensions of dataarray or dataset.
+
+        Returns
+        -------
+        xr.DataArray
+
+            Returned dataarray contains distance along trajectory in metric units (m or km) as a coordinate.
+        """
         tree = self._context_dataset.pyfesom2._tree
         return select_points(self._xrobj, lon, lat, method=method, tolerance=tolerance, tree=tree, return_distance=True,
                              **other_dims)
