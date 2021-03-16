@@ -5,7 +5,7 @@ have functionality to select and plot unstructured-FESOM data with same ease as 
 provided through `pyfesom2` accessor (available on importing pyfesom2) and through helper functions that may
 be used independently of the accessor. Because the intended use of accessor is on a well defined data structure of
 FESOM2 data -- unlike Xarray which intends to support a generic dataset --, it provides an opportunity for additional
-features and conveniences like: selecting polygons, interactive plots, that are not part of default Xarray,
+features and conveniences like: selecting using polygons, interactive plots, that are not part of default Xarray,
  for benefit of pyfesom2's users.
 
 The methods implemented here differ with default Xarray's methods mostly from how longitudes and latitudes are
@@ -38,17 +38,17 @@ Euclidean distance metric in this frame of reference is equivalent to a geodesic
 can be more more memory intensive was found to be computationally acceptable even for large FESOM grids. Moreover,
 selections on rectilinear grids can be done independently on each dimension using their (often sorted) 1 dimensional
 values to find indices using standard and efficient algorithms. This is not possible in an unstructured grid as lon,lat
-are not orthogonal and any selection in that space has to use both values at once. To address this, a KDtree (from
-Scipy) is used on above described projected lon,lat. This implementation was found to be reasonably efficient and
+are not orthogonal and any selection in that space has to use both values at once. To address this, a KD-tree (from
+Scipy) is used on, above described, projected lon and lat. This implementation was found to be reasonably efficient and
 stable (also dependency wise) implementation for selecting multiple points for most FESOM grids.
 
 A peculiarity of unstructured grid selection, specifically region selection, is necessity to retain face information
-that contains triangulation information for underlying grid without which data subsets have limited utilitu, especiallu
-for spatial plotting. The faces coordinate variable contains indices of nodes that define grid faces (triangulation) and
-as these values are dimensioned (nelem, three) independently to a dataset's dimensions, theu are not automatically
-selected by lon, lat or nod2 indexers. Reruening a valid face (triangulation) information on region selection would mean
-re-evaluating the values in faces variable based on indices of lon and lat (hence nod2). Such a requirement to
-additionally return re-indexed faces is unlike selection in rectilinear grids.
+(containing triangulation information) for underlying grid without which data subsets have limited utility, especially
+for spatial plotting. The `faces` coordinate variable contains indices of nodes that define grid faces (triangulation)
+and these values are dimensioned (nelem, three) independently to a dataset's dimensions, they are hence not
+automatically selected by lon, lat or nod2 indexers. Returning a valid face information on region selection would mean
+re-evaluating the index values in faces variable based on new indices of nod2 that represent selected lon and lat.
+Such a requirement to additionally return re-indexed faces is unlike regular selection in rectilinear grids.
 
 Selections in pyfesom2 accessor mainly concerns lat-lon, other indexers such as time are passed to Xarray sel method.
 
@@ -59,10 +59,10 @@ such as plotting are most intuitive on data-arrays of data variable while select
 data-arrays. For spatial plotting on an unstructured triangular grids it is necessary to have face information
 (triangulation) and data arrays cannot hold such information as they do not share dimensions with data array. To
 facilitate spatial plotting methods on data-arrays it is hence necessary to provide over-lying dataset context that
-contains such face information. This issue is alse present for regional selections on data-arrays where faces from
+contains such face information. This issue is also present for regional selections on data-arrays where faces from
 context dataset are necessary. To facilitate sharing such dataset context, the accessor is implemented on a dataset
 and data-array is wrapped in a Python class object. This has additional (opinionated) advantage of simplifying accessor
-usage pattern to `dataset.pyfesom2.method()` for methods appplicable to to entire dataset and
+usage pattern to `dataset.pyfesom2.method()` for methods applicable to to entire dataset and
 `dataset.pyfesom2.variable.method()` for methods on data-arrays.
 
 """
