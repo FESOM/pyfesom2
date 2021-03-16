@@ -1,3 +1,71 @@
+"""A Xarray accessor for unstructured-FESOM datasets.
+
+The module aims to provide, currently unsupported, Xarray methods for unstructured-FESOM data. Current priority is to
+have functionality to select and plot unstructured-FESOM data with same ease as Xarray's methods.This functionality is
+provided through `pyfesom2` accessor (available on importing pyfesom2) and through helper functions that may
+be used independently of the accessor. Because the intended use of accessor is on a well defined data structure of
+FESOM2 data -- unlike Xarray which intends to support a generic dataset --, it provides an opportunity for additional
+features and conveniences like: selecting polygons, interactive plots, that are not part of default Xarray,
+ for benefit of pyfesom2's users.
+
+The methods implemented here differ with default Xarray's methods mostly from how longitudes and latitudes are
+represented in an unstructured grid. Following sections briefly describe these differences  and design considerations
+for pyfesom2 accessor.
+
+Selections
+----------
+Xarray's sel method provides label based selection  on data object's dimensions using their values. For rectilinear
+grids, the variables, longitude and latitude that define the grid would be in the dimensions (say lon, lat). This
+provides a convenient way to select data in lon-lat space by using them as arguments in sel method, either as sequence
+of  values (e.g, array)  for point selection or slices for rectangular region selection. In case of unstructured-FESOM
+data, lat and lon are not dimensions of data as they are not orthogonal to each other and hence cannot be used as
+indexers directly in `sel` method. They are instead  provided as additional coordinates (in parlance of Xarray and
+NetCDF) on a common dimension `nod2` of the dataset.
+
+Although lon and lat are not in data dimensions, the selections methods of this module allow using them as indexers
+(or arguments) to selection methods to retain the convenience of Xarray's sel method, with a inherent data structure
+limitation that they have to be of same size. To support more complex selections and to facilitate interaction with
+interactive plots additional arguments like region, path  are introduced that take Shapely's geometries.
+
+To mark these differences in method arguments clearly with respect to Xarray's sel method, the accessor's
+selection methods ar named differently  with prefix `select`. The aspects of data selection that concern other
+orthogonal dimensions (like time, level) rely on Xarray's sel method.
+
+The sel method of Xarray uses cartesian distances (indirectly) on values of dimensions to select data. While this metric
+in lon, lat  is representative of  a geodesic distance in a rectilinear grid, this cannot be assumed for unstructured
+grids, as lon, lat are not orthogonal. To overcome this we project lon, lat onto a geo-centric frame of reference. The
+Euclidean distance metric in this frame of reference is equivalent to a geodesic tunnel distance. This projection, while
+can be more more memory intensive was found to be computationally acceptable even for large FESOM grids. Moreover,
+selections on rectilinear grids can be done independently on each dimension using their (often sorted) 1 dimensional
+values to find indices using standard and efficient algorithms. This is not possible in an unstructured grid as lon,lat
+are not orthogonal and any selection in that space has to use both values at once. To address this, a KDtree (from
+Scipy) is used on above described projected lon,lat. This implementation was found to be reasonably efficient and
+stable (also dependency wise) implementation for selecting multiple points for most FESOM grids.
+
+A peculiarity of unstructured grid selection, specifically region selection, is necessity to retain face information
+that contains triangulation information for underlying grid without which data subsets have limited utilitu, especiallu
+for spatial plotting. The faces coordinate variable contains indices of nodes that define grid faces (triangulation) and
+as these values are dimensioned (nelem, three) independently to a dataset's dimensions, theu are not automatically
+selected by lon, lat or nod2 indexers. Reruening a valid face (triangulation) information on region selection would mean
+re-evaluating the values in faces variable based on indices of lon and lat (hence nod2). Such a requirement to
+additionally return re-indexed faces is unlike selection in rectilinear grids.
+
+Selections in pyfesom2 accessor mainly concerns lat-lon, other indexers such as time are passed to Xarray sel method.
+
+Accessor
+--------
+Xarray provides mechanisms to extend functionality for datasets and data-arrays representing variables. Functionality
+such as plotting are most intuitive on data-arrays of data variable while selections are intuitive on both datasets and
+data-arrays. For spatial plotting on an unstructured triangular grids it is necessary to have face information
+(triangulation) and data arrays cannot hold such information as they do not share dimensions with data array. To
+facilitate spatial plotting methods on data-arrays it is hence necessary to provide over-lying dataset context that
+contains such face information. This issue is alse present for regional selections on data-arrays where faces from
+context dataset are necessary. To facilitate sharing such dataset context, the accessor is implemented on a dataset
+and data-array is wrapped in a Python class object. This has additional (opinionated) advantage of simplifying accessor
+usage pattern to `dataset.pyfesom2.method()` for methods appplicable to to entire dataset and
+`dataset.pyfesom2.variable.method()` for methods on data-arrays.
+
+"""
 import warnings
 from typing import Optional, Sequence, Union, MutableMapping, Tuple
 
@@ -219,15 +287,16 @@ def select_points(xr_obj: Union[xr.Dataset, xr.DataArray],
     """Returns a FESOM point dataset for specified longitudes and latitudes and other dimension representing
      a trajectory.
 
-    This method selects points geodesic-ally closest (default) specified to lon, lat and optionally to specified
-    other dimensions as arguments. All arguments have to be of same shape and size. To select points geodesic-ally
+    This method selects points based on geodesic distance  to specified  lon, lat (and optionally to specified
+    other dimensions). All arguments have to be of same shape and size. To select points geodesic-ally
     closest to input FESOM grid, both longitudes and latitudes of FESOM grid and and desired destination-transect points
-    (arguments lon, lat) are projected onto geocentric coordinates.  A KDtree is used to efficiently select multiple
-    points. For other orthogonal dimensions label based indexing of Xarray's sel method is used.
+    (arguments lon, lat) are projected onto geocentric coordinates.  This means tunnel distance as geedesic metric.
+    A KDtree is used to efficiently select multiple points. For other orthogonal dimensions, default label based
+    indexing of Xarray's sel method is used.
 
     Note
     ----
-    This is unlike default Xarray's selection for rectilinear grids on longitudes, latitudes where geodesic distances
+    This is unlike default Xarray's selection for rectilinear grids on longitudes, latitudes where cartesian distances
     are not used.
 
     Parameters
@@ -441,17 +510,17 @@ class FESOMDataset:
         """Returns a FESOM point dataset for specified longitudes and latitudes and other dimension representing
          a trajectory.
 
-        This method selects points geodesic-ally closest (default) specified to lon, lat and optionally to specified
-        other dimensions as arguments. All arguments have to be of same shape and size. To select points geodesic-ally
-        closest to input FESOM grid, both longitudes and latitudes of FESOM grid and and desired destination-transect
-        points (arguments lon, lat) are projected onto geocentric coordinates.  A KDtree is used to efficiently select
-        multiple points. For other orthogonal dimensions label based indexing of Xarray's sel method is used.
+        This method selects points based on geodesic distance  to specified  lon, lat (and optionally to specified
+        other dimensions). All arguments have to be of same shape and size. To select points geodesic-ally
+        closest to input FESOM grid, both longitudes and latitudes of FESOM grid and and desired destination-transect points
+        (arguments lon, lat) are projected onto geocentric coordinates.  This means tunnel distance as geedesic metric.
+        A KDtree is used to efficiently select multiple points. For other orthogonal dimensions, default label based
+        indexing of Xarray's sel method is used.
 
         Note
         ----
-        This is unlike default Xarray's selection for rectilinear grids on longitudes, latitudes where geodesic
-        distances are not used.
-
+        This is unlike default Xarray's selection for rectilinear grids on longitudes, latitudes where cartesian distances
+        are not used.
         Parameters
         ----------
         lon
