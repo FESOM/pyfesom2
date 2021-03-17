@@ -580,8 +580,7 @@ class FESOMDataset:
         tri = Triangulation(data.lon, data.lat, triangles=data.faces)
         projection = kwargs.pop('projection', ccrs.PlateCarree())
         ax = kwargs.pop('ax', plt.axes(projection=projection))
-        plot = ax.triplot(tri, *args, **kwargs)
-        return plot
+        return ax.triplot(tri, *args, **kwargs)
 
     def __repr__(self):
         return self._xrobj.__repr__()
