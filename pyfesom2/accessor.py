@@ -70,8 +70,10 @@ import warnings
 from typing import Optional, Sequence, Union, MutableMapping, Tuple
 
 import cartopy.crs as ccrs
+import matplotlib.pyplot as plt
 import numpy as np
 import xarray as xr
+from matplotlib.tri import Triangulation
 from shapely.geometry import MultiPolygon, Polygon, LineString
 
 # New Types
@@ -560,6 +562,27 @@ class FESOMDataset:
             return self._tree_obj
         return self._build_tree()
 
+    def plot_mesh(self, *args, **kwargs):
+        """Plots a dataset's underlying triangular grid using Matplotlib's triplot.
+
+        Parameters
+        ----------
+        args
+            Arguments passed to Matplotlib's triplot.
+        kwargs
+            Key word arguments passed to Matplotlib's triplot.
+        Returns
+        -------
+        list
+            list contains 2 matplotlib.lines.Line2D objects.
+        """
+        data = self._xrobj
+        tri = Triangulation(data.lon, data.lat, triangles=data.faces)
+        projection = kwargs.pop('projection', ccrs.PlateCarree())
+        ax = kwargs.pop('ax', plt.axes(projection=projection))
+        plot = ax.triplot(tri, *args, **kwargs)
+        return plot
+
     def __repr__(self):
         return self._xrobj.__repr__()
 
@@ -652,8 +675,27 @@ class FESOMDataArray:
         return select_points(self._xrobj, lon, lat, method=method, tolerance=tolerance, tree=tree, return_distance=True,
                              **other_dims)
 
-    def __repr__(self):
-        return f"Wrapped {self._xrobj.__repr__()}\n{super().__repr__()}"
+    def plot_mesh(self, *args, **kwargs):
+        """Plots a dataset's underlying triangular grid using Matplotlib's triplot.
 
-    def _repr_html_(self):
-        return self._xrobj._repr_html_()
+            Parameters
+            ----------
+            args
+                Arguments passed to Matplotlib's triplot.
+            kwargs
+                Key word arguments passed to Matplotlib's triplot.
+            Returns
+            -------
+            list
+                list contains 2 matplotlib.lines.Line2D objects.
+            """
+
+        return self._context_dataset.pyfesom2.plot_mesh(*args, **kwargs)
+
+
+def __repr__(self):
+    return f"Wrapped {self._xrobj.__repr__()}\n{super().__repr__()}"
+
+
+def _repr_html_(self):
+    return self._xrobj._repr_html_()
