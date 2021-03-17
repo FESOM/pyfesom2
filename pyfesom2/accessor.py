@@ -733,10 +733,38 @@ class FESOMDataArray:
         minv, maxv = data.min().values, data.max().values
         data = data.fillna(minv - 9999)  # make sure missing values are out of data bounds
 
-        levels = kwargs.pop('levels', np.linspace(minv, maxv, 100))
+        levels = kwargs.pop('levels', np.unique(np.round(np.linspace(minv, maxv, 20), 1)))
         kwargs.update({'levels': levels})
 
         pl = ax.tricontour(tri, data, *args, **kwargs)
+
+        colorbar = kwargs.pop('colorbar', True)
+        if colorbar:
+            plt.colorbar(pl, ax=ax)
+        return
+
+    def contourf(self, *args, **kwargs):
+        data = self._xrobj.squeeze()
+
+        if len(data.dims) > 1 or "nod2" not in data.dims:
+            raise Exception('Not a spatial dataset')
+
+        projection = kwargs.pop('projection', self._native_projection)
+        tri = self._triangulation_on_projection(data, projection)
+
+        ax = kwargs.pop('ax', plt.axes(projection=projection))
+
+        if 'extents' in kwargs:
+            ax.set_extent(kwargs.pop('extents'), crs=self._native_projection)
+
+        minv, maxv = data.min().values, data.max().values
+
+        data = data.fillna(minv - 9999)  # make sure missing values are out of data bounds
+
+        levels = kwargs.pop('levels', np.unique(np.round(np.linspace(minv, maxv, 20), 1)))
+        kwargs.update({'levels': levels})
+
+        pl = ax.tricontourf(tri, data, *args, **kwargs)
 
         colorbar = kwargs.pop('colorbar', True)
         if colorbar:
