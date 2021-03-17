@@ -716,9 +716,37 @@ class FESOMDataArray:
             tri = Triangulation(data.lon, data.lat, triangles=self._context_dataset.faces)
         return tri
 
+    def contour(self, *args, **kwargs):
+        data = self._xrobj.squeeze()
+
+        if len(data.dims) > 1 or "nod2" not in data.dims:
+            raise Exception('Not a spatial dataset')
+
+        projection = kwargs.pop('projection', self._native_projection)
+        tri = self._triangulation_on_projection(data, projection)
+
+        ax = kwargs.pop('ax', plt.axes(projection=projection))
+
+        if 'extents' in kwargs:
+            ax.set_extent(kwargs.pop('extents'), crs=self._native_projection)
+
+        minv, maxv = data.min().values, data.max().values
+        data = data.fillna(minv - 9999)  # make sure missing values are out of data bounds
+
+        levels = kwargs.pop('levels', np.linspace(minv, maxv, 100))
+        kwargs.update({'levels': levels})
+
+        pl = ax.tricontour(tri, data, *args, **kwargs)
+
+        colorbar = kwargs.pop('colorbar', True)
+        if colorbar:
+            plt.colorbar(pl, ax=ax)
+        return pl
+
     def plot_transect(self, lon, lat, plot_type='auto', **indexers_plot_kwargs):
         """
         default plot_type
+        matplotlib.contour.QuadContourSet
         """
         default_plot_types = ('line', 'contourf')  # 1d and 2d defaults
         extra_dims = [k for k in indexers_plot_kwargs.keys() if
