@@ -475,6 +475,7 @@ class FESOMDataset:
         self._tree_obj = None
         for datavar in xr_obj.data_vars.keys():
             setattr(self, str(datavar), FESOMDataArray(xr_obj[datavar], xr_obj))
+        self._native_projection = ccrs.PlateCarree()
 
     def select(self, method: str = 'nearest', tolerance: Optional[float] = None, region: Optional[Region] = None,
                path: Optional[Path] = None, **indexers):
@@ -562,6 +563,16 @@ class FESOMDataset:
             return self._tree_obj
         return self._build_tree()
 
+    def _triangulation_on_projection(self, data, projection) -> Tuple[ccrs.Projection, Triangulation]:
+        if projection:
+            # transform_points (note transform_points cannot directly take DataArrays unlike Triangulation)
+            tr_x, tr_y, _ = projection.transform_points(self._native_projection, data.lon.values, data.lat.values).T
+            tri = Triangulation(tr_x, tr_y, triangles=data.faces)
+        else:  # grid native projection
+            projection = ccrs.PlateCarree()
+            tri = Triangulation(data.lon, data.lat, triangles=data.faces)
+        return tri
+
     def plot_mesh(self, *args, **kwargs):
         """Plots a dataset's underlying triangular grid using Matplotlib's triplot.
 
@@ -574,12 +585,16 @@ class FESOMDataset:
         Returns
         -------
         list
-            list contains 2 matplotlib.lines.Line2D objects.
+            The list contains 2 matplotlib.lines.Line2D objects.
         """
         data = self._xrobj
-        tri = Triangulation(data.lon, data.lat, triangles=data.faces)
-        projection = kwargs.pop('projection', ccrs.PlateCarree())
+        projection = kwargs.pop('projection', self._native_projection)
         ax = kwargs.pop('ax', plt.axes(projection=projection))
+
+        if 'extents' in kwargs:
+            ax.set_extent(kwargs.pop('extents'), crs=ccrs.PlateCarree())
+
+        tri = self._triangulation_on_projection(data, projection)
         return ax.triplot(tri, *args, **kwargs)
 
     def __repr__(self):
@@ -686,10 +701,66 @@ class FESOMDataArray:
             Returns
             -------
             list
-                list contains 2 matplotlib.lines.Line2D objects.
+                The list contains 2 matplotlib.lines.Line2D objects.
             """
 
         return self._context_dataset.pyfesom2.plot_mesh(*args, **kwargs)
+
+    def _triangulation_on_projection(self, data, projection) -> Tuple[ccrs.Projection, Triangulation]:
+        if projection:
+            # transform_points (note transform_points cannot directly take DataArrays unlike Triangulation)
+            tr_x, tr_y, _ = projection.transform_points(self._native_projection, data.lon.values, data.lat.values).T
+            tri = Triangulation(tr_x, tr_y, triangles=self._context_dataset.faces)
+        else:  # grid native projection
+            projection = ccrs.PlateCarree()
+            tri = Triangulation(data.lon, data.lat, triangles=self._context_dataset.faces)
+        return tri
+
+    def plot_transect(self, lon, lat, plot_type='auto', **indexers_plot_kwargs):
+        """
+        default plot_type
+        """
+        default_plot_types = ('line', 'contourf')  # 1d and 2d defaults
+        extra_dims = [k for k in indexers_plot_kwargs.keys() if
+                      k in self._xrobj.coords]  # coords is used instead of dims because xarray will raise error
+        # in selection if user passes a invalid dim otherwise we would have to.
+
+        extra_indexers = {dim: indexers_plot_kwargs.pop(dim) for dim in extra_dims}
+        tree = self._context_dataset.pyfesom2._tree
+        lon, lat = np.asarray(lon), np.asarray(lat)
+        sel = select_points(self._xrobj, lon=lon, lat=lat, tree=tree, **extra_indexers)
+        sel = sel.squeeze()  # squeeze out dims with len 1
+        dim_len = len(sel.dims)  # determines plot type, 1d or 2d
+
+        # make time as default bottom x-axis if present (else formatting gets hard)
+        xax_dims = ('time', 'distance') if 'time' in extra_dims else ('distance', None)
+
+        if 'time' in extra_dims:
+            sel['nod2'] = sel.time
+        else:
+            sel['nod2'] = sel.distance
+
+        sel = sel.transpose(..., 'nod2')  # push points to last for making it default xaxis for plots
+
+        # use xarray plotting as it formats datetime axis with ease and adds sensible default to plot.
+        if dim_len == 1:
+            plot_type = default_plot_types[0] if plot_type == 'auto' else plot_type
+            plot_fn = getattr(sel.plot, plot_type)
+            plot = plot_fn(**indexers_plot_kwargs)[0]
+        elif dim_len == 2:
+            plot_type = default_plot_types[1] if plot_type == 'auto' else plot_type
+            plot_fn = getattr(sel.plot, plot_type)
+            plot = plot_fn(**indexers_plot_kwargs)
+        else:
+            raise Exception(f'A 2-d plot can have 1-2 dimensions, variable {sel.name} has dimensions: {sel.dims}.')
+
+        ax = plot.ax if hasattr(plot, 'ax') else plot.axes  # akward some plots have it as ax, some as axes
+
+        if xax_dims[1]:  # then it must be distance according to above.
+            ax2 = ax.twiny()
+            ax2.set_xlim(sel.distance.min(), sel.distance.max())
+            ax2.set_xlabel(f'distance [{sel.distance.units}]')
+        return plot
 
 
 def __repr__(self):
