@@ -801,6 +801,49 @@ class FESOMDataArray:
             plt.colorbar(pl, ax=ax)
         return pl
 
+    def pcolor(self, *args, shading='flat', **kwargs):
+        """Raster plot on FESOM2's unstructured data variable.
+
+        This accessor method wraps matplotlib's tripcolor.
+
+        Parameters
+        ----------
+        args
+            args to matplotlib's tripcolor.
+        shading
+            shading styles: auto, flat, gourand, nearest.
+        kwargs
+            kwargs to matplotlib's tripcolor.
+
+        Returns
+        -------
+        matplotlib.collections.PolyCollection
+        """
+        data = self._xrobj.squeeze()
+
+        if len(data.dims) > 1 or "nod2" not in data.dims:
+            raise Exception('Not a spatial dataset')
+
+        projection = kwargs.pop('projection', self._native_projection)
+        tri = self._triangulation_on_projection(data, projection)
+
+        ax = kwargs.pop('ax', plt.axes(projection=projection))
+
+        if 'extents' in kwargs:
+            ax.set_extent(kwargs.pop('extents'), crs=self._native_projection)
+
+        minv, maxv = data.min().values, data.max().values
+
+        data = data.fillna(minv - 9999)  # make sure missing values are out of data bounds
+        kwargs.update({'vmin': minv, 'vmax': maxv})
+
+        pl = ax.tripcolor(tri, data, *args, shading=shading, **kwargs)
+
+        colorbar = kwargs.pop('colorbar', True)
+        if colorbar:
+            plt.colorbar(pl, ax=ax)
+        return pl
+
     def plot_transect(self, lon: ArrayLike, lat: ArrayLike, plot_type: str = 'auto', **indexers_plot_kwargs):
         """Opinionated plotting of a transect or trajectory.
 
