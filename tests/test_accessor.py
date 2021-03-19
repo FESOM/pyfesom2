@@ -391,6 +391,9 @@ def test_accessor_mesh_plotting(dataset):
 def test_accessor_contour_plotting(dataset):
     """Basic tests to check if contour plotting methods exist on accessor and return right type."""
     from matplotlib.tri.tricontour import TriContourSet
+    from matplotlib.contour import QuadContourSet
+    from matplotlib.collections import PolyCollection
+
     # reduce all other dims then nod2 to simplify plotting
     sel_da = dataset.isel(**{dim: 1 for dim in list(dataset.dims) if not dim in ['nod2', 'elem', 'nelem', 'three']})
 
@@ -401,3 +404,6 @@ def test_accessor_contour_plotting(dataset):
         # filled contours
         contour_plot = getattr(sel_da.pyfesom2, data_var).contourf()
         assert isinstance(contour_plot, TriContourSet)
+        # raster plot
+        raster_plot = getattr(sel_da.pyfesom2, data_var).pcolor()
+        assert isinstance(raster_plot, PolyCollection)
