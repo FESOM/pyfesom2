@@ -717,6 +717,21 @@ class FESOMDataArray:
         return tri
 
     def contour(self, *args, **kwargs):
+        """Contour plot on FESOM2's unstructured data variable.
+
+        This accessor method wraps matplotlib's tricontour.
+
+        Parameters
+        ----------
+        args
+            args to matplotlib's tricontour.
+        kwargs
+            kwargs to matplotlib's tricontour.
+
+        Returns
+        -------
+         matplotlib.tri.tricontour.TriContourSet
+        """
         data = self._xrobj.squeeze()
 
         if len(data.dims) > 1 or "nod2" not in data.dims:
@@ -744,12 +759,16 @@ class FESOMDataArray:
         return pl
 
     def contourf(self, *args, **kwargs):
-        """
+        """Filled contour plot on FESOM2's unstructured data variable.
+
+        This accessor method wraps matplotlib's tricontourf.
 
         Parameters
         ----------
         args
+            args to matplotlib's tricontourf.
         kwargs
+            kwargs to matplotlib's tricontourf.
 
         Returns
         -------
@@ -782,9 +801,25 @@ class FESOMDataArray:
             plt.colorbar(pl, ax=ax)
         return pl
 
-    def plot_transect(self, lon, lat, plot_type='auto', **indexers_plot_kwargs):
-        """
-        default plot_type
+    def plot_transect(self, lon: ArrayLike, lat: ArrayLike, plot_type: str = 'auto', **indexers_plot_kwargs):
+        """Opinionated plotting of a transect or trajectory.
+
+        This method does point selection using `select_points` and plots in a single step for
+        convenience.
+
+        Parameters
+        ----------
+        lon
+            An array of longitudes.
+        lat
+            An array of latitudes.
+        plot_type
+            Determines default plot type based on number of dimensions, e.g., line plot vs contour plot.
+        indexers_plot_kwargs
+            Other indexers that can be used for trajectory selection like time=..., nz1=...
+
+        Returns
+        -------
         matplotlib.contour.QuadContourSet
         """
         default_plot_types = ('line', 'contourf')  # 1d and 2d defaults
