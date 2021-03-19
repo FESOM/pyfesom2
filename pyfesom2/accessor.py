@@ -604,6 +604,16 @@ class FESOMDataset:
         return self._xrobj._repr_html_()
 
 
+def _trimesh_plotfn(darr, tris, **other_dims):
+    import geoviews as gv
+    tris = np.asarray(tris)
+    data = darr.sel(**other_dims)
+    var_name = data.name
+    var_da = gv.Dataset((darr.lon, darr.lat, data),
+                        kdims=['lon', 'lat'], vdims=[var_name])
+    return gv.TriMesh((tris, var_da))
+
+
 class FESOMDataArray:
     """ A wrapper around Dataarray, that passes dataset context around"""
 
@@ -863,7 +873,8 @@ class FESOMDataArray:
 
         Returns
         -------
-        matplotlib.contour.QuadContourSet
+        matplotlib.collections.PolyCollection
+
         """
         default_plot_types = ('line', 'contourf')  # 1d and 2d defaults
         extra_dims = [k for k in indexers_plot_kwargs.keys() if
@@ -905,6 +916,62 @@ class FESOMDataArray:
             ax2 = ax.twiny()
             ax2.set_xlim(sel.distance.min(), sel.distance.max())
             ax2.set_xlabel(f'distance [{sel.distance.units}]')
+        return plot
+
+    def trimesh(self, levels=None, cmap='RdBu', colorbar=True, height=350, width=600,
+                colorbar_position="bottom", projection=None, coastline=False, tools=None, interpolation=None,
+                aggregator='mean', **hv_kwopts):
+        import functools
+        try:
+            import geoviews as gv
+            import holoviews as hv
+            from holoviews.operation.datashader import rasterize
+
+        except ImportError as ex:
+            raise ImportError('Using trimesh needs geoviews[holoviews, bokeh] and datashader') from ex
+
+        data_arr = self._xrobj
+        tris = self._context_dataset.faces
+
+        tools = tools if tools is not None else []
+
+        trimesh_fn = functools.partial(_trimesh_plotfn, darr=data_arr, tris=tris)
+        var_name = data_arr.name
+        hvd = hv.Dataset(data_arr.drop_vars(['lon', 'lat']))
+        non_plot_dims = {dim: data_arr[dim].values for dim in data_arr.dims if dim != 'nod2'}
+        dmap = hv.DynamicMap(trimesh_fn,
+                             kdims=list(non_plot_dims.keys())).redim.values(**non_plot_dims)
+        if 'nz1' in non_plot_dims.keys():
+            dmap = dmap.redim.default(nz1=data_arr.nz1.values[0])
+            dmap = dmap.redim.unit(nz1='m')
+            dmap = dmap.redim.label(nz1='level')
+
+        plot_opts = {**hv_kwopts}
+
+        projection = projection if projection is not None else self._native_projection
+        plot_opts.update({'projection': projection})
+
+        if levels is not None:
+            if isinstance(levels, int):
+                plot_opts.update({'color_levels': levels})
+            elif isinstance(levels, (Sequence, np.ndarray)):
+                if len(levels) > 2:
+                    plot_opts.update({'color_levels': len(levels)})
+                    dmap = dmap.redim.range(**{var_name: (min(levels), max(levels))})
+                elif len(levels) == 2:
+                    dmap = dmap.redim.range(**{var_name: levels})
+            else:
+                raise Exception('Invalid levels, should be a tuple with limits or a sequence of values')
+        else:
+            dmap = dmap.opts(framewise=True)
+
+        plot = rasterize(dmap, interpolation=interpolation, aggregator=aggregator).opts(width=width,
+                                                                                        height=height,
+                                                                                        cmap=cmap, colorbar=colorbar,
+                                                                                        tools=tools, **plot_opts)
+
+        if coastline:
+            plot = plot * gv.feature.coastline
         return plot
 
     def __repr__(self):
