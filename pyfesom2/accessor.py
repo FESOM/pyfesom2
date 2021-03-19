@@ -741,9 +741,20 @@ class FESOMDataArray:
         colorbar = kwargs.pop('colorbar', True)
         if colorbar:
             plt.colorbar(pl, ax=ax)
-        return
+        return pl
 
     def contourf(self, *args, **kwargs):
+        """
+
+        Parameters
+        ----------
+        args
+        kwargs
+
+        Returns
+        -------
+        matplotlib.tri.tricontour.TriContourSet
+        """
         data = self._xrobj.squeeze()
 
         if len(data.dims) > 1 or "nod2" not in data.dims:
@@ -818,10 +829,8 @@ class FESOMDataArray:
             ax2.set_xlabel(f'distance [{sel.distance.units}]')
         return plot
 
+    def __repr__(self):
+        return f"Wrapped {self._xrobj.__repr__()}\n{super().__repr__()}"
 
-def __repr__(self):
-    return f"Wrapped {self._xrobj.__repr__()}\n{super().__repr__()}"
-
-
-def _repr_html_(self):
-    return self._xrobj._repr_html_()
+    def _repr_html_(self):
+        return self._xrobj._repr_html_()
