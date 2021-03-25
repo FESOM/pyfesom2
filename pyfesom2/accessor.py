@@ -716,7 +716,7 @@ class FESOMDataArray:
 
         return self._context_dataset.pyfesom2.plot_mesh(*args, **kwargs)
 
-    def _triangulation_on_projection(self, data, projection) -> Tuple[ccrs.Projection, Triangulation]:
+    def _triangulation_on_projection(self, data, projection) -> Triangulation:
         if projection:
             # transform_points (note transform_points cannot directly take DataArrays unlike Triangulation)
             tr_x, tr_y, _ = projection.transform_points(self._native_projection, data.lon.values, data.lat.values).T
@@ -761,9 +761,10 @@ class FESOMDataArray:
         levels = kwargs.pop('levels', np.unique(np.round(np.linspace(minv, maxv, 20), 1)))
         kwargs.update({'levels': levels})
 
+        colorbar = kwargs.pop('colorbar', True)
+
         pl = ax.tricontour(tri, data, *args, **kwargs)
 
-        colorbar = kwargs.pop('colorbar', True)
         if colorbar:
             plt.colorbar(pl, ax=ax)
         return pl
@@ -793,6 +794,7 @@ class FESOMDataArray:
         tri = self._triangulation_on_projection(data, projection)
 
         ax = kwargs.pop('ax', plt.axes(projection=projection))
+        print(ax)
 
         if 'extents' in kwargs:
             ax.set_extent(kwargs.pop('extents'), crs=self._native_projection)
@@ -804,9 +806,10 @@ class FESOMDataArray:
         levels = kwargs.pop('levels', np.unique(np.round(np.linspace(minv, maxv, 20), 1)))
         kwargs.update({'levels': levels})
 
+        colorbar = kwargs.pop('colorbar', True)
+
         pl = ax.tricontourf(tri, data, *args, **kwargs)
 
-        colorbar = kwargs.pop('colorbar', True)
         if colorbar:
             plt.colorbar(pl, ax=ax)
         return pl
@@ -847,9 +850,10 @@ class FESOMDataArray:
         data = data.fillna(minv - 9999)  # make sure missing values are out of data bounds
         kwargs.update({'vmin': minv, 'vmax': maxv})
 
+        colorbar = kwargs.pop('colorbar', True)
+
         pl = ax.tripcolor(tri, data, *args, shading=shading, **kwargs)
 
-        colorbar = kwargs.pop('colorbar', True)
         if colorbar:
             plt.colorbar(pl, ax=ax)
         return pl
