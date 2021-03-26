@@ -563,8 +563,8 @@ class FESOMDataset:
             return self._tree_obj
         return self._build_tree()
 
-    def _triangulation_on_projection(self, data, projection) -> Tuple[ccrs.Projection, Triangulation]:
-        if projection:
+    def _triangulation_on_projection(self, data, projection=None) -> Triangulation:
+        if projection is not None:
             # transform_points (note transform_points cannot directly take DataArrays unlike Triangulation)
             tr_x, tr_y, _ = projection.transform_points(self._native_projection, data.lon.values, data.lat.values).T
             tri = Triangulation(tr_x, tr_y, triangles=data.faces)
@@ -716,13 +716,12 @@ class FESOMDataArray:
 
         return self._context_dataset.pyfesom2.plot_mesh(*args, **kwargs)
 
-    def _triangulation_on_projection(self, data, projection) -> Triangulation:
-        if projection:
+    def _triangulation_on_projection(self, data, projection=None) -> Triangulation:
+        if projection is not None:
             # transform_points (note transform_points cannot directly take DataArrays unlike Triangulation)
             tr_x, tr_y, _ = projection.transform_points(self._native_projection, data.lon.values, data.lat.values).T
             tri = Triangulation(tr_x, tr_y, triangles=self._context_dataset.faces)
         else:  # grid native projection
-            projection = ccrs.PlateCarree()
             tri = Triangulation(data.lon, data.lat, triangles=self._context_dataset.faces)
         return tri
 
@@ -747,10 +746,23 @@ class FESOMDataArray:
         if len(data.dims) > 1 or "nod2" not in data.dims:
             raise Exception('Not a spatial dataset')
 
-        projection = kwargs.pop('projection', self._native_projection)
-        tri = self._triangulation_on_projection(data, projection)
+        if "projection" in kwargs and "ax" in kwargs:
+            raise ValueError(
+                'Using both ax and projection arguments is ambiguous. Only one argument at a time is currently supported.')
 
-        ax = kwargs.pop('ax', plt.axes(projection=projection))
+        projection = kwargs.pop('projection', None)
+        ax = kwargs.pop('ax', None)
+
+        if ax is not None:
+            projection = ax.projection
+            tri = self._triangulation_on_projection(data, projection)
+        else:
+            if projection is None:
+                projection = self._native_projection
+                tri = self._triangulation_on_projection(data)
+            else:
+                tri = self._triangulation_on_projection(data, projection)
+            ax = plt.axes(projection=projection)
 
         if 'extents' in kwargs:
             ax.set_extent(kwargs.pop('extents'), crs=self._native_projection)
@@ -761,12 +773,19 @@ class FESOMDataArray:
         levels = kwargs.pop('levels', np.unique(np.round(np.linspace(minv, maxv, 20), 1)))
         kwargs.update({'levels': levels})
 
-        colorbar = kwargs.pop('colorbar', True)
+        colorbar = kwargs.pop('colorbar', False)
+        cbar_kwargs = kwargs.pop('cbar_kwargs', {'inline': True})
+
+        coastlines = kwargs.pop('coastlines', True)
 
         pl = ax.tricontour(tri, data, *args, **kwargs)
 
         if colorbar:
-            plt.colorbar(pl, ax=ax)
+            ax.clabel(pl, **cbar_kwargs)
+
+        if coastlines:
+            ax.coastlines()
+
         return pl
 
     def contourf(self, *args, **kwargs):
@@ -790,28 +809,45 @@ class FESOMDataArray:
         if len(data.dims) > 1 or "nod2" not in data.dims:
             raise Exception('Not a spatial dataset')
 
-        projection = kwargs.pop('projection', self._native_projection)
-        tri = self._triangulation_on_projection(data, projection)
+        if "projection" in kwargs and "ax" in kwargs:
+            raise ValueError(
+                'Using both ax and projection arguments is ambiguous. Only one argument at a time is currently supported.')
 
-        ax = kwargs.pop('ax', plt.axes(projection=projection))
-        print(ax)
+        projection = kwargs.pop('projection', None)
+        ax = kwargs.pop('ax', None)
+
+        if ax is not None:
+            projection = ax.projection
+            tri = self._triangulation_on_projection(data, projection)
+        else:
+            if projection is None:
+                projection = self._native_projection
+                tri = self._triangulation_on_projection(data)
+            else:
+                tri = self._triangulation_on_projection(data, projection)
+            ax = plt.axes(projection=projection)
 
         if 'extents' in kwargs:
             ax.set_extent(kwargs.pop('extents'), crs=self._native_projection)
 
         minv, maxv = data.min().values, data.max().values
-
         data = data.fillna(minv - 9999)  # make sure missing values are out of data bounds
 
         levels = kwargs.pop('levels', np.unique(np.round(np.linspace(minv, maxv, 20), 1)))
         kwargs.update({'levels': levels})
 
         colorbar = kwargs.pop('colorbar', True)
+        cbar_kwargs = kwargs.pop('cbar_kwargs', {'orientation': 'horizontal'})
+
+        coastlines = kwargs.pop('coastlines', True)
 
         pl = ax.tricontourf(tri, data, *args, **kwargs)
 
         if colorbar:
-            plt.colorbar(pl, ax=ax)
+            plt.colorbar(pl, ax=ax, **cbar_kwargs)
+
+        if coastlines:
+            ax.coastlines()
         return pl
 
     def pcolor(self, *args, shading='flat', **kwargs):
@@ -837,10 +873,23 @@ class FESOMDataArray:
         if len(data.dims) > 1 or "nod2" not in data.dims:
             raise Exception('Not a spatial dataset')
 
-        projection = kwargs.pop('projection', self._native_projection)
-        tri = self._triangulation_on_projection(data, projection)
+        if "projection" in kwargs and "ax" in kwargs:
+            raise ValueError(
+                'Using both ax and projection arguments is ambiguous. Only one argument at a time is currently supported.')
 
-        ax = kwargs.pop('ax', plt.axes(projection=projection))
+        projection = kwargs.pop('projection', None)
+        ax = kwargs.pop('ax', None)
+
+        if ax is not None:
+            projection = ax.projection
+            tri = self._triangulation_on_projection(data, projection)
+        else:
+            if projection is None:
+                projection = self._native_projection
+                tri = self._triangulation_on_projection(data)
+            else:
+                tri = self._triangulation_on_projection(data, projection)
+            ax = plt.axes(projection=projection)
 
         if 'extents' in kwargs:
             ax.set_extent(kwargs.pop('extents'), crs=self._native_projection)
@@ -851,13 +900,19 @@ class FESOMDataArray:
         kwargs.update({'vmin': minv, 'vmax': maxv})
 
         colorbar = kwargs.pop('colorbar', True)
+        cbar_kwargs = kwargs.pop('cbar_kwargs', {'orientation': 'horizontal'})
+
+        coastlines = kwargs.pop('coastlines', True)
 
         pl = ax.tripcolor(tri, data, *args, shading=shading, **kwargs)
 
         if colorbar:
-            plt.colorbar(pl, ax=ax)
-        return pl
+            plt.colorbar(pl, ax=ax, **cbar_kwargs)
 
+        if coastlines:
+            ax.coastlines()
+        return pl
+    
     def plot_transect(self, lon: ArrayLike, lat: ArrayLike, plot_type: str = 'auto', **indexers_plot_kwargs):
         """Opinionated plotting of a transect or trajectory.
 
