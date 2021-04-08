@@ -747,8 +747,8 @@ class FESOMDataArray:
             raise Exception('Not a spatial dataset')
 
         if "projection" in kwargs and "ax" in kwargs:
-            raise ValueError(
-                'Using both ax and projection arguments is ambiguous. Only one argument at a time is currently supported.')
+            raise ValueError('Using both ax and projection arguments is ambiguous.'
+                             ' Only one argument at a time is currently supported.')
 
         projection = kwargs.pop('projection', None)
         ax = kwargs.pop('ax', None)
@@ -777,6 +777,9 @@ class FESOMDataArray:
         cbar_kwargs = kwargs.pop('cbar_kwargs', {'inline': True})
 
         coastlines = kwargs.pop('coastlines', True)
+
+        title = kwargs.pop('title', data.name)
+        ax.set_title(title)
 
         pl = ax.tricontour(tri, data, *args, **kwargs)
 
@@ -810,8 +813,8 @@ class FESOMDataArray:
             raise Exception('Not a spatial dataset')
 
         if "projection" in kwargs and "ax" in kwargs:
-            raise ValueError(
-                'Using both ax and projection arguments is ambiguous. Only one argument at a time is currently supported.')
+            raise ValueError('Using both ax and projection arguments is ambiguous.'
+                             ' Only one argument at a time is currently supported.')
 
         projection = kwargs.pop('projection', None)
         ax = kwargs.pop('ax', None)
@@ -840,6 +843,9 @@ class FESOMDataArray:
         cbar_kwargs = kwargs.pop('cbar_kwargs', {'orientation': 'horizontal'})
 
         coastlines = kwargs.pop('coastlines', True)
+
+        title = kwargs.pop('title', data.name)
+        ax.set_title(title)
 
         pl = ax.tricontourf(tri, data, *args, **kwargs)
 
@@ -904,6 +910,9 @@ class FESOMDataArray:
 
         coastlines = kwargs.pop('coastlines', True)
 
+        title = kwargs.pop('title', data.name)
+        ax.set_title(title)
+
         pl = ax.tripcolor(tri, data, *args, shading=shading, **kwargs)
 
         if colorbar:
@@ -912,12 +921,13 @@ class FESOMDataArray:
         if coastlines:
             ax.coastlines()
         return pl
-    
+
     def plot_transect(self, lon: ArrayLike, lat: ArrayLike, plot_type: str = 'auto', **indexers_plot_kwargs):
         """Opinionated plotting of a transect or trajectory.
 
         This method does point selection using `select_points` and plots in a single step for
-        convenience.
+        convenience. For other plotting preferences usual Xarray plotting on dataset returned
+        from `select_points` can be used.
 
         Parameters
         ----------
