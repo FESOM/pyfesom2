@@ -1019,6 +1019,7 @@ class FESOMDataArray:
 
         projection = projection if projection is not None else self._native_projection
         plot_opts.update({'projection': projection})
+        plot_opts.update({'colorbar_position': colorbar_position})
 
         if levels is not None:
             if isinstance(levels, int):
