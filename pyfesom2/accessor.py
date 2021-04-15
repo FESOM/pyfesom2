@@ -988,7 +988,7 @@ class FESOMDataArray:
         return plot
 
     def trimesh(self, levels=None, cmap='RdBu', colorbar=True, height=350, width=600,
-                colorbar_position="bottom", projection=None, coastline=False, tools=None, interpolation=None,
+                colorbar_position="right", projection=None, coastline=False, tools=None, interpolation=None,
                 aggregator='mean', **hv_kwopts):
         import functools
         try:
