@@ -621,6 +621,7 @@ class FESOMDataArray:
         self._xrobj = xr_dataarray
         self._context_dataset = context_dataset
         self._native_projection = ccrs.PlateCarree()
+        self._is_geoviews_loaded = False
 
     def select(self, method: str = 'nearest', tolerance: float = None, region: Optional[Region] = None,
                path: Optional[Path] = None, **indexers):
@@ -987,6 +988,11 @@ class FESOMDataArray:
             ax2.set_xlabel(f'distance [{sel.distance.units}]')
         return plot
 
+    def _load_geoviews_extension(self):
+        import geoviews
+        geoviews.extension('bokeh')
+        self._is_geoviews_loaded = True
+
     def trimesh(self, levels=None, cmap='RdBu', colorbar=True, height=350, width=600,
                 colorbar_position="right", projection=None, coastline=False, tools=None, interpolation=None,
                 aggregator='mean', **hv_kwopts):
@@ -995,7 +1001,8 @@ class FESOMDataArray:
             import geoviews as gv
             import holoviews as hv
             from holoviews.operation.datashader import rasterize
-
+            if not self._is_geoviews_loaded:
+                self._load_geoviews_extension()
         except ImportError as ex:
             raise ImportError('Using trimesh needs geoviews[holoviews, bokeh] and datashader') from ex
 
