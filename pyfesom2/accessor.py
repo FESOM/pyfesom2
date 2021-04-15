@@ -980,7 +980,8 @@ class FESOMDataArray:
         else:
             raise Exception(f'A 2-d plot can have 1-2 dimensions, variable {sel.name} has dimensions: {sel.dims}.')
 
-        ax = plot.ax if hasattr(plot, 'ax') else plot.axes  # akward some plots have it as ax, some as axes
+        ax = plot.ax if hasattr(plot, 'ax') else plot.axes  # akward some plots have it as ax, some as axes depending on
+        # the version of matplotlib
 
         if xax_dims[1]:  # then it must be distance according to above.
             ax2 = ax.twiny()
@@ -989,6 +990,7 @@ class FESOMDataArray:
         return plot
 
     def _load_geoviews_extension(self):
+        """Load geoviews extension in notebook context just once"""
         import geoviews
         geoviews.extension('bokeh')
         self._is_geoviews_loaded = True
