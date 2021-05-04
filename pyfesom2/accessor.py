@@ -473,6 +473,7 @@ class FESOMDataset:
         self._xrobj = xr_obj = xr_dataset
         # TODO: check valid fesom data? otherwise accessor is available on all xarray datasets
         self._tree_obj = None
+        self._ncyclic_faces = None
         for datavar in xr_obj.data_vars.keys():
             setattr(self, str(datavar), FESOMDataArray(xr_obj[datavar], xr_obj))
         self._native_projection = ccrs.PlateCarree()
@@ -563,14 +564,23 @@ class FESOMDataset:
             return self._tree_obj
         return self._build_tree()
 
+    @property
+    def _noncyclic_faces(self):
+        """Property to regulate and optimize access to non cyclic faces array."""
+        if self._ncyclic_faces is None:
+            from .ut import get_no_cyclic
+            mesh = SimpleMesh(lon=self._xrobj.lon.values,lat=self._xrobj.lat.values, faces=self._xrobj.faces.values)
+            noncyclic_inds = get_no_cyclic(mesh, mesh.elem)
+            self._ncyclic_faces = mesh.elem[noncyclic_inds]
+        return self._ncyclic_faces
+
     def _triangulation_on_projection(self, data, projection=None) -> Triangulation:
         if projection is not None:
             # transform_points (note transform_points cannot directly take DataArrays unlike Triangulation)
             tr_x, tr_y, _ = projection.transform_points(self._native_projection, data.lon.values, data.lat.values).T
-            tri = Triangulation(tr_x, tr_y, triangles=data.faces)
-        else:  # grid native projection
-            projection = ccrs.PlateCarree()
-            tri = Triangulation(data.lon, data.lat, triangles=data.faces)
+            tri = Triangulation(tr_x, tr_y, triangles=self._noncyclic_faces)
+        else:  # grid native projection, no transformation needed
+            tri = Triangulation(data.lon, data.lat, triangles=self._noncyclic_faces)
         return tri
 
     def plot_mesh(self, *args, **kwargs):
@@ -721,9 +731,9 @@ class FESOMDataArray:
         if projection is not None:
             # transform_points (note transform_points cannot directly take DataArrays unlike Triangulation)
             tr_x, tr_y, _ = projection.transform_points(self._native_projection, data.lon.values, data.lat.values).T
-            tri = Triangulation(tr_x, tr_y, triangles=self._context_dataset.faces)
+            tri = Triangulation(tr_x, tr_y, triangles=self._context_dataset.pyfesom2._noncyclic_faces)
         else:  # grid native projection
-            tri = Triangulation(data.lon, data.lat, triangles=self._context_dataset.faces)
+            tri = Triangulation(data.lon, data.lat, triangles=self._context_dataset.pyfesom2._noncyclic_faces)
         return tri
 
     def contour(self, *args, **kwargs):

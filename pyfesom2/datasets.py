@@ -144,8 +144,9 @@ def fesom_mesh_to_xr(path: str, alpha: int = 0, beta: int = 0, gamma: int = 0) -
 
     """
     mesh = load_mesh(path, abg=[alpha, beta, gamma])
-    ncyclic_inds = get_no_cyclic(mesh, mesh.elem)
-    triangles = mesh.elem[ncyclic_inds]
+    #ncyclic_inds = get_no_cyclic(mesh, mesh.elem)
+    #triangles = mesh.elem[ncyclic_inds]
+    triangles = mesh.elem
     if any(mesh.zlev < 0.):
         nz_values = mesh.zlev * -1.0
     else:
