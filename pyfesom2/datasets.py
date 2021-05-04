@@ -2,6 +2,7 @@ import warnings
 from typing import Sequence
 from typing import Tuple, Optional
 
+import numpy as np
 import xarray as xr
 
 from . import load_mesh
@@ -141,10 +142,7 @@ def fesom_mesh_to_xr(path: str, alpha: int = 0, beta: int = 0, gamma: int = 0) -
     mesh = load_mesh(path, abg=[alpha, beta, gamma])
     ncyclic_inds = get_no_cyclic(mesh, mesh.elem)
     triangles = mesh.elem[ncyclic_inds]
-    if any(mesh.zlev < 0.):
-        nz_values = mesh.zlev * -1.0
-    else:
-        nz_values = mesh.zlev
+    nz_values = np.absolute(mesh.zlev)
     coords_dataset = xr.Dataset(coords={'lon'  : ('nod2', mesh.x2),
                                         'lat'  : ('nod2', mesh.y2),
                                         'faces': (('nelem', 'three'), triangles.astype('uint32')),
