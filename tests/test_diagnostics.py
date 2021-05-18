@@ -251,3 +251,10 @@ def test_xmoc_data():
     assert moc.mean() == pytest.approx(2.471874164570943)
     assert moc.max() == pytest.approx(25.358106934063304)
     assert moc.min() == pytest.approx(-35.02300625098337)
+
+    # with xarray output
+    data = get_data(data_path, "w", [1948], mesh, how="mean", compute=True)
+    moc_da = xmoc_data(mesh, data, nlats=30, returnXArray=True)
+    assert moc_da.mean() == pytest.approx(2.471874164570943)
+    assert moc_da.max() == pytest.approx(25.358106934063304)
+    assert moc_da.min() == pytest.approx(-35.02300625098337)

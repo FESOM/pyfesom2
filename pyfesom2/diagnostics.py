@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 #
 # This file is part of pyfesom2
-# Original code by Dmitry Sidorenko, Nikolay Koldunov, 
+# Original code by Dmitry Sidorenko, Nikolay Koldunov,
 # Qiang Wang, Sergey Danilov and Patrick Scholz
 #
 
@@ -361,6 +361,7 @@ def xmoc_data(
     nlevels=None,
     face_x=None,
     face_y=None,
+    returnXArray=False,
 ):
     """ Compute moc for selected region.
 
@@ -387,13 +388,18 @@ def xmoc_data(
         x coordinates of centers of elements, size elem2d. If None, will be computed.
     face_y: numpy array
         y coordinates of centers of elements, size elem2d. If None, will be computed.
+    returnXArray : bool
+        Whether or not to return an XArray
 
     Returns:
     --------
-    lats: numpy array
-        latitude bins
-    moc_masked: numpy array
-       masked array with moc values.
+    tuple or xarray.DataArray
+
+    As tuple:
+        lats: numpy array
+            latitude bins
+        moc_masked: numpy array
+           masked array with moc values.
 
     """
 
@@ -449,5 +455,6 @@ def xmoc_data(
         moc_final = moc_masked
     else:
         moc_final = moc_proper_order
-
+    if returnXArray:
+        return xr.DataArray(data=moc_final, coords=[("latitude", lats), ("depth", mesh.zlev),])
     return lats, moc_final
