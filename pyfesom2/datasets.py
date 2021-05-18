@@ -2,6 +2,7 @@ import warnings
 from typing import Sequence
 from typing import Tuple, Optional
 
+import numpy as np
 import xarray as xr
 
 from . import load_mesh
@@ -141,20 +142,28 @@ def fesom_mesh_to_xr(path: str, alpha: int = 0, beta: int = 0, gamma: int = 0) -
     mesh = load_mesh(path, abg=[alpha, beta, gamma])
     ncyclic_inds = get_no_cyclic(mesh, mesh.elem)
     triangles = mesh.elem[ncyclic_inds]
+    nz_values = np.absolute(mesh.zlev)
     coords_dataset = xr.Dataset(coords={'lon'  : ('nod2', mesh.x2),
                                         'lat'  : ('nod2', mesh.y2),
                                         'faces': (('nelem', 'three'), triangles.astype('uint32')),
-                                        'nz'   : mesh.zlev,
-                                        'nz1'  : (mesh.zlev[:-1] + mesh.zlev[1:]) / 2.0})
+                                        'nz'   : nz_values,
+                                        'nz1'  : (nz_values[:-1] + nz_values[1:]) / 2.0})
+
     coords_dataset.coords['lon'].attrs['long_name'] = 'longitude'
     coords_dataset.coords['lon'].attrs['units'] = 'degrees_east'
     coords_dataset.coords['lat'].attrs['long_name'] = 'latitude'
     coords_dataset.coords['lat'].attrs['units'] = 'degrees_north'
     coords_dataset.coords['faces']['long_name'] = 'Triangulation Faces containing indices'
+
     coords_dataset.coords['nz1'].attrs['long_name'] = 'depth at half level'
     coords_dataset.coords['nz1'].attrs['units'] = 'm'
+    coords_dataset.coords['nz1'].attrs['positive'] = 'down'
+    coords_dataset.coords['nz1'].attrs['axis'] = 'Z'
+
     coords_dataset.coords['nz'].attrs['long_name'] = 'depth'
     coords_dataset.coords['nz'].attrs['units'] = 'm'
+    coords_dataset.coords['nz1'].attrs['positive'] = 'down'
+    coords_dataset.coords['nz1'].attrs['axis'] = 'Z'
     coords_dataset.attrs['Conventions'] = 'CF-1.7'
     return coords_dataset
 
