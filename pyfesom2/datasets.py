@@ -1,11 +1,15 @@
+import os
 import warnings
 from typing import Sequence
 from typing import Tuple, Optional
 
+import fsspec
 import numpy as np
 import xarray as xr
+import zarr
 
-from . import load_mesh
+from .config import USER_CACHE_DIR
+from .load_mesh_data import load_mesh
 from .ut import get_no_cyclic
 
 cmip6_grids = {
@@ -78,32 +82,63 @@ class RemoteZarrDataset:
         self.is_consolidated = consolidated
         self.dset_attrs = kwargs
         self._ds = None
+        self._fs = None
+        self.cache_path = os.path.join(USER_CACHE_DIR, self.path_url.split("/")[-1])
 
-    @property
-    def merged_dataset(self):
+    def _merged_dataset(self):
         """Merges data variables from remote url
 
         Returns
         -------
             xr.Dataset
         """
-        import fsspec
         if self._ds is None:
             if self.var_list is not None:
                 urls = [self.path_url + "/" + var for var in self.var_list]
                 dataset_list = [
-                    xr.open_zarr(fsspec.get_mapper(url), group=self.group, consolidated=self.is_consolidated) for url in
+                    xr.open_zarr(zarr.LRUStoreCache(self._fs.get_mapper(self.path_url), max_size=None),
+                                 group=self.group, consolidated=self.is_consolidated) for url in
                     urls]
                 self._ds = xr.merge(dataset_list)
             else:
-                self._ds = xr.open_zarr(self.path_url, group=self.group, consolidated=self.is_consolidated)
+                store = zarr.LRUStoreCache(self._fs.get_mapper(self.path_url), max_size=None)  # unlimited size
+                self._ds = xr.open_zarr(store, group=self.group, consolidated=self.is_consolidated)
 
             self._ds.attrs.update(self.dset_attrs)
         return self._ds
 
-    def load(self):
-        return self.merged_dataset
+    def load(self, cached=False):
+        if not cached:
+            self._fs = fsspec.filesystem("http")
+        else:
+            self._fs = fsspec.filesystem("filecache", target_protocol='http',
+                                         cache_storage=self.cache_path, expiry_time=False, check_files=False)
+        return self._merged_dataset()
 
+    def download_dataset(self, root_path=".", **zarr_copy_kwargs):
+        import os.path
+        import zarr
+        mapper = fsspec.get_mapper(self.path_url)
+        output_path = root_path if not root_path.endswith(".") else os.path.join(root_path,
+                                                                                 self.path_url.split("/")[-1])
+        zarr.copy_all(zarr.open_consolidated(mapper), zarr.open_group(output_path), **zarr_copy_kwargs)
+        if self.is_consolidated:
+            import requests
+            metadata = requests.get(self.path_url + "/.zmetadata")
+            with open(output_path + "/.zmetadata", 'wt') as f:
+                f.write(metadata.text)
+        return f"Dataset downloaded at: {output_path}"
+
+    def clear_cache(self):
+        import shutil
+        try:
+            shutil.rmtree(self.cache_path)
+        except OSError:
+            warnings.warn(f'No cache dir {self.cache_path} found, skipping deletion.')
+
+
+# TODO; generate the datasets automatically from dictionary keys
+# one option is to use user friendly keys in datasets and serattr on sys.modules[__name__] using a function
 
 core = RemoteZarrDataset(**all_datasets['CORE'])
 tutorial_dataset = RemoteZarrDataset(**all_datasets['pi-grid'])
