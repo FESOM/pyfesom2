@@ -353,7 +353,7 @@ def select_points(xr_obj: Union[xr.Dataset, xr.DataArray],
     dst_pts = geocentric_crs.transform_points(geodetic_crs, np.asarray(lon), np.asarray(lat))
 
     if tolerance is None:
-        _, ind = tree.query(dst_pts)
+        _, ind = tree.query(dst_pts, workers=-1)
     else:
         raise NotImplementedError('tolerance is currently not supported.')
 
@@ -477,6 +477,11 @@ class FESOMDataset:
         for datavar in xr_obj.data_vars.keys():
             setattr(self, str(datavar), FESOMDataArray(xr_obj[datavar], xr_obj))
         self._native_projection = ccrs.PlateCarree()
+        # bad hack best to fix it in the dataset
+        if 'faces' in self._xrobj.variables:
+            min_faces = self._xrobj.faces.min()
+            if min_faces != 0:
+                self._xrobj['faces'] = self._xrobj['faces'] - 1
 
     def select(self, method: str = 'nearest', tolerance: Optional[float] = None, region: Optional[Region] = None,
                path: Optional[Path] = None, **indexers):
@@ -569,7 +574,7 @@ class FESOMDataset:
         """Property to regulate and optimize access to non cyclic faces array."""
         if self._ncyclic_faces is None:
             from .ut import get_no_cyclic
-            mesh = SimpleMesh(lon=self._xrobj.lon.values,lat=self._xrobj.lat.values, faces=self._xrobj.faces.values)
+            mesh = SimpleMesh(lon=self._xrobj.lon.values, lat=self._xrobj.lat.values, faces=self._xrobj.faces.values)
             noncyclic_inds = get_no_cyclic(mesh, mesh.elem)
             self._ncyclic_faces = mesh.elem[noncyclic_inds]
         return self._ncyclic_faces
