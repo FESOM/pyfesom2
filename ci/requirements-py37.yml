@@ -18,8 +18,8 @@ dependencies:
   - ipython
   - pytest
   - cmocean
-  - zarr
-  - fsspec
+  - zarr>=2.8.3
+  - fsspec>=2021.06.1
   - requests
   - aiohttp
   - dask
