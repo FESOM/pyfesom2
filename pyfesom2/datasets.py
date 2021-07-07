@@ -6,7 +6,6 @@ from typing import Tuple, Optional
 import fsspec
 import numpy as np
 import xarray as xr
-import zarr
 
 from .config import USER_CACHE_DIR
 from .load_mesh_data import load_mesh
@@ -84,6 +83,7 @@ class RemoteZarrDataset:
         self._ds = None
         self._fs = None
         self.cache_path = os.path.join(USER_CACHE_DIR, self.path_url.split("/")[-1])
+        self._is_zarr_cache = False
 
     def _merged_dataset(self):
         """Merges data variables from remote url
@@ -96,38 +96,51 @@ class RemoteZarrDataset:
             if self.var_list is not None:
                 urls = [self.path_url + "/" + var for var in self.var_list]
                 dataset_list = [
-                    xr.open_zarr(zarr.LRUStoreCache(self._fs.get_mapper(self.path_url), max_size=None),
+                    # xr.open_zarr(zarr.LRUStoreCache(self._fs.get_mapper(self.path_url), max_size=None),
+                    #             group=self.group, consolidated=self.is_consolidated) for url in
+                    # urls]
+                    xr.open_zarr(self._fs.get_mapper(self.path_url),
                                  group=self.group, consolidated=self.is_consolidated) for url in
                     urls]
                 self._ds = xr.merge(dataset_list)
             else:
-                store = zarr.LRUStoreCache(self._fs.get_mapper(self.path_url), max_size=None)  # unlimited size
+                # store = zarr.LRUStoreCache(self._fs.get_mapper(self.path_url), max_size=None)  # unlimited size
+                data_url = self.cache_path if self._is_zarr_cache else self.path_url
+                store = self._fs.get_mapper(data_url)
                 self._ds = xr.open_zarr(store, group=self.group, consolidated=self.is_consolidated)
 
             self._ds.attrs.update(self.dset_attrs)
         return self._ds
 
-    def load(self, cached=False):
+    def load(self, cached=True):
         if not cached:
             self._fs = fsspec.filesystem("http")
         else:
-            self._fs = fsspec.filesystem("filecache", target_protocol='http',
-                                         cache_storage=self.cache_path, expiry_time=False, check_files=False)
+            if ".zattrs" in fsspec.get_mapper(self.cache_path):
+                self._is_zarr_cache = True
+                self._fs = fsspec.get_filesystem_class('file')()
+            else:
+                self._fs = fsspec.filesystem("filecache", target_protocol='http',
+                                             cache_storage=self.cache_path, expiry_time=False, check_files=False)
         return self._merged_dataset()
 
-    def download_dataset(self, root_path=".", **zarr_copy_kwargs):
-        import os.path
+    def download(self, root_path=None, **zarr_copy_kwargs):
         import zarr
+        if not os.path.exists(os.path.join(self.cache_path, ".zattrs")):
+            self.clear_cache()  # if we download entire dataset we dont need other caches
         mapper = fsspec.get_mapper(self.path_url)
-        output_path = root_path if not root_path.endswith(".") else os.path.join(root_path,
-                                                                                 self.path_url.split("/")[-1])
-        zarr.copy_all(zarr.open_consolidated(mapper), zarr.open_group(output_path), **zarr_copy_kwargs)
-        if self.is_consolidated:
-            import requests
-            metadata = requests.get(self.path_url + "/.zmetadata")
-            with open(output_path + "/.zmetadata", 'wt') as f:
-                f.write(metadata.text)
-        return f"Dataset downloaded at: {output_path}"
+        output_path = root_path if root_path is not None else self.cache_path
+        try:
+            zarr.copy_all(zarr.open_consolidated(mapper), zarr.open_group(output_path), **zarr_copy_kwargs)
+            if self.is_consolidated:
+                import requests
+                metadata = requests.get(self.path_url + "/.zmetadata")
+                with open(output_path + "/.zmetadata", 'wt') as f:
+                    f.write(metadata.text)
+        #return f"Dataset downloaded at: {output_path}"
+        except zarr.CopyError:
+            warnings.warn(f'Cache directory {self.cache_path} for this dataset already contains entire data, if any errors persist use .clear_cache() method to clear the cache and re-download using .download() method.')
+        return self.load()
 
     def clear_cache(self):
         import shutil
