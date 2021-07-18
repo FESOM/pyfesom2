@@ -9,7 +9,6 @@ import xarray as xr
 
 from .config import USER_CACHE_DIR
 from .load_mesh_data import load_mesh
-from .ut import get_no_cyclic
 
 cmip6_grids = {
     'AWI-CM-LR': {
@@ -193,8 +192,7 @@ def fesom_mesh_to_xr(path: str, alpha: int = 0, beta: int = 0, gamma: int = 0) -
 
     """
     mesh = load_mesh(path, abg=[alpha, beta, gamma])
-    ncyclic_inds = get_no_cyclic(mesh, mesh.elem)
-    triangles = mesh.elem[ncyclic_inds]
+    triangles = mesh.elem
     nz_values = np.absolute(mesh.zlev)
     coords_dataset = xr.Dataset(coords={'lon'  : ('nod2', mesh.x2),
                                         'lat'  : ('nod2', mesh.y2),
