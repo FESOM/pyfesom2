@@ -247,8 +247,8 @@ def select_region(xr_obj: Union[xr.DataArray, xr.Dataset], region: Region,
 
     if isinstance(xr_obj, xr.Dataset):
         lats, lons = xr_obj.lat, xr_obj.lon
-        faces = xr_obj.faces
-        nelem = xr_obj.nelem
+        faces = np.asarray(xr_obj.faces)
+        nelem = np.asarray(xr_obj.nelem)
         ret = xr_obj
     elif isinstance(xr_obj, xr.DataArray):
         if coords_dataset is None:
@@ -256,8 +256,8 @@ def select_region(xr_obj: Union[xr.DataArray, xr.Dataset], region: Region,
                              f" coordinates.")
         coords_dataset = coords_dataset[['lon', 'lat', 'faces']] # in case it is not just get needed coords and dims
         lats, lons = coords_dataset.lat, coords_dataset.lon
-        faces = coords_dataset.faces
-        nelem = coords_dataset.nelem
+        faces = np.asarray(coords_dataset.faces)
+        nelem = np.asarray(coords_dataset.nelem)
         ret = xr.merge([xr_obj, coords_dataset])
 
     # buffer is necessry to facilitte floating point comparisions
@@ -270,10 +270,10 @@ def select_region(xr_obj: Union[xr.DataArray, xr.Dataset], region: Region,
         warnings.warn('No points in domain are within region, returning original data.')
         return xr_obj
 
-    selection = selection[faces]
+    selection = selection[faces] #, ndmin=1)]
     face_mask = np.all(selection, axis=1)
     cut_faces = faces[face_mask]
-    cut_faces = np.array(cut_faces, ndmin=1)
+    cut_faces = np.asarray(cut_faces) #, ndmin=1)
     cut_indices = nelem[face_mask]
     uniq, inv_index = np.unique(cut_faces.ravel(), return_inverse=True)
     new_faces = inv_index.reshape(cut_faces.shape)
@@ -365,7 +365,7 @@ def select_points(xr_obj: Union[xr.Dataset, xr.DataArray],
     else:
         raise NotImplementedError('tolerance is currently not supported.')
 
-    other_dims = {k: xr.DataArray(np.array(v, ndmin=1), dims=sel_dim) for k, v in other_dims.items()}
+    other_dims = {k: xr.DataArray(np.asarray(v), dims=sel_dim) for k, v in other_dims.items()}
     ret_obj = xr_obj.isel(nod2=xr.DataArray(ind, dims=sel_dim)).sel(**other_dims, method=method)
 
     # from faces, which will not be useful in returned dataset
