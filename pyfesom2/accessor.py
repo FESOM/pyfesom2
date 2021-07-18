@@ -189,11 +189,12 @@ def select_bbox(xr_obj: Union[xr.DataArray, xr.Dataset],
     if isinstance(xr_obj, xr.Dataset):
         lats, lons = xr_obj.lat, xr_obj.lon
         faces = xr_obj.faces
+        ret = xr_obj
     elif isinstance(xr_obj, xr.DataArray):
         if coords_dataset is None:
             raise ValueError(f"Selection on a dataarray needs coords_dataset argument containing lon,lat, faces as"
                              f" coordinates.")
-        coords_dataset = coords_dataset[('lon', 'lat', 'faces')] # in case it is not just get needed coords and dims
+        coords_dataset = coords_dataset[['lon', 'lat', 'faces']] # in case it is not just get needed coords and dims
         lats, lons = coords_dataset.lat, coords_dataset.lon
         faces = coords_dataset.faces
         ret = xr.merge([xr_obj, coords_dataset])
@@ -253,10 +254,10 @@ def select_region(xr_obj: Union[xr.DataArray, xr.Dataset], region: Region,
         if coords_dataset is None:
             raise ValueError(f"Selection on a dataarray needs coords_dataset argument containing lon,lat, faces as"
                              f" coordinates.")
-        coords_dataset = coords_dataset[('lon', 'lat', 'faces')] # in case it is not just get needed coords and dims
+        coords_dataset = coords_dataset[['lon', 'lat', 'faces']] # in case it is not just get needed coords and dims
         lats, lons = coords_dataset.lat, coords_dataset.lon
         faces = coords_dataset.faces
-        nelem = xr_obj.nelem
+        nelem = coords_dataset.nelem
         ret = xr.merge([xr_obj, coords_dataset])
 
     # buffer is necessry to facilitte floating point comparisions
