@@ -270,10 +270,10 @@ def select_region(xr_obj: Union[xr.DataArray, xr.Dataset], region: Region,
         warnings.warn('No points in domain are within region, returning original data.')
         return xr_obj
 
-    selection = selection[faces] #, ndmin=1)]
+    selection = selection[faces]
     face_mask = np.all(selection, axis=1)
     cut_faces = faces[face_mask]
-    cut_faces = np.asarray(cut_faces) #, ndmin=1)
+    cut_faces = np.asarray(cut_faces)
     cut_indices = nelem[face_mask]
     uniq, inv_index = np.unique(cut_faces.ravel(), return_inverse=True)
     new_faces = inv_index.reshape(cut_faces.shape)
