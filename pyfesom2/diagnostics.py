@@ -236,7 +236,14 @@ def hovm_data(data, mesh, meshdiag=None, runid="fesom", mask=None):
         data = add_timedim(data)
 
     diag = get_meshdiag(mesh, meshdiag, runid)
-    nod_area = diag.rename_dims({"nl": "nz1", "nod_n": "nod2"}).nod_area
+    if 'nod_n' in diag.dims:
+        nod_area = diag.rename_dims({"nl": "nz1", "nod_n": "nod2"}).nod_area[:-1,:]
+    else:
+        nod_area = diag.nod_area[:-1,:]
+        nod_area = nod_area.rename({"nz": "nz1"})
+        nod_area = nod_area.assign_coords({'nz1':data.nz1.values})
+        
+    print(nod_area)
     nod_area.load()
     if mask is not None:
         nod_area = nod_area[:, mask]
@@ -244,12 +251,12 @@ def hovm_data(data, mesh, meshdiag=None, runid="fesom", mask=None):
 
     if isinstance(data, xr.DataArray):
         nod_area = nod_area.where(nod_area != 0)
-        hdg_total = (data * nod_area[:-1, :].T).sum(dim="nod2")
-        hdg_variable = hdg_total / (nod_area[:-1, :].T).sum(axis=0)
+        hdg_total = (data * nod_area.T).sum(dim="nod2")
+        hdg_variable = hdg_total / (nod_area.T).sum(axis=0)
         hdg_variable = hdg_variable.compute()
     else:
-        hdg_total = (data * nod_area[:-1, :].T.data).sum(axis=1)
-        hdg_variable = hdg_total / (nod_area[:-1, :].T).sum(axis=0).data
+        hdg_total = (data * nod_area.T.data).sum(axis=1)
+        hdg_variable = hdg_total / (nod_area.T).sum(axis=0).data
 
     return hdg_variable
 
