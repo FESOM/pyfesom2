@@ -8,42 +8,49 @@ import xarray as xr
 from . import load_mesh
 from .ut import get_no_cyclic
 
+# TODO: in future seperate below dataset specification values to seperate text file retrieved as package resources/data.
+
+base_datasets = {
+    "core"            : {
+        "path_url"   : "https://swift.dkrz.de/v1/dkrz_035d8f6ff058403bb42f8302e6badfbc/pyfesom2/tutorial/core2",
+        "Dataset URL": "https://swiftbrowser.dkrz.de/public/dkrz_035d8f6ff058403bb42f8302e6badfbc/pyfesom2/tutorial/core2",
+        "group"      : "variables"},
+    # pi grid
+    "tutorial_dataset": {
+        'path_url'   : "https://swift.dkrz.de/v1/dkrz_035d8f6ff058403bb42f8302e6badfbc/pyfesom2/tutorial/pi-grid",
+        "Dataset URL": "https://swiftbrowser.dkrz.de/public/dkrz_035d8f6ff058403bb42f8302e6badfbc/pyfesom2/tutorial/pi-grid",
+        "group"      : "variables"}
+}
+
 cmip6_grids = {
-    'AWI-CM-LR': {
+    'cmip6_lr': {
         "path_url"   : "https://swift.dkrz.de/v1/dkrz_035d8f6ff058403bb42f8302e6badfbc/pyfesom2/cmip6-grids/zarr/awicm-lr",
         "Dataset URL": "https://swiftbrowser.dkrz.de/public/dkrz_035d8f6ff058403bb42f8302e6badfbc/pyfesom2/cmip6-grids/zarr/awicm-lr"},
-    'AWI-CM-MR': {
+    'cmip6_mr': {
         "path_url"   : "https://swift.dkrz.de/v1/dkrz_035d8f6ff058403bb42f8302e6badfbc/pyfesom2/cmip6-grids/zarr/awicm-mr",
         "Dataset URL": "https://swiftbrowser.dkrz.de/public/dkrz_035d8f6ff058403bb42f8302e6badfbc/pyfesom2/cmip6-grids/zarr/awicm-mr"},
-    'AWI-CM-HR': {
+    'cmip6_hr': {
         "path_url"   : "https://swift.dkrz.de/v1/dkrz_035d8f6ff058403bb42f8302e6badfbc/pyfesom2/cmip6-grids/zarr/awicm-hr",
         "Dataset URL": "https://swiftbrowser.dkrz.de/public/dkrz_035d8f6ff058403bb42f8302e6badfbc/pyfesom2/cmip6-grids/zarr/awicm-hr"},
 }
 
 frontier_datasets = {
-    "ROSSBY4.2"        : {
+    "rossby42"        : {
         "path_url"   : "https://swift.dkrz.de/v1/dkrz_035d8f6ff058403bb42f8302e6badfbc/pyfesom2/frontier/rossby42",
         "Dataset URL": "https://swiftbrowser.dkrz.de/public/dkrz_035d8f6ff058403bb42f8302e6badfbc/pyfesom2/frontier/rossby42"},
-    "ROSSBY4.2_level"  : {
+    "rossby42_level"  : {
         "path_url"   : "https://swift.dkrz.de/v1/dkrz_035d8f6ff058403bb42f8302e6badfbc/pyfesom2/frontier/rossby42_level_aceess",
         "Dataset URL": "https://swiftbrowser.dkrz.de/public/dkrz_035d8f6ff058403bb42f8302e6badfbc/pyfesom2/frontier/rossby42_level_aceess"},
-    "ROSSBY4.2_spatial": {
+    "rossby42_spatial": {
         "path_url"   : "https://swift.dkrz.de/v1/dkrz_035d8f6ff058403bb42f8302e6badfbc/pyfesom2/frontier/rossby42_spatial_aceess",
         "Dataset URL": "https://swiftbrowser.dkrz.de/public/dkrz_035d8f6ff058403bb42f8302e6badfbc/pyfesom2/frontier/rossby42_spatial_aceess"},
-    "A01"              : {
+    "arctic_1km"      : {
         "path_url"   : "https://swift.dkrz.de/v1/dkrz_02942825-0cab-44f3-ad37-80fd5d2e37e3/FESOM2_data/A01",
         "Dataset URL": "https://swiftbrowser.dkrz.de/public/dkrz_02942825-0cab-44f3-ad37-80fd5d2e37e3/FESOM2_data/A01"}
 }
 
 all_datasets = {
-    "CORE"   : {
-        "path_url"   : "https://swift.dkrz.de/v1/dkrz_035d8f6ff058403bb42f8302e6badfbc/pyfesom2/tutorial/core2",
-        "Dataset URL": "https://swiftbrowser.dkrz.de/public/dkrz_035d8f6ff058403bb42f8302e6badfbc/pyfesom2/tutorial/core2",
-        "group"      : "variables"},
-    "pi-grid": {
-        'path_url'   : "https://swift.dkrz.de/v1/dkrz_035d8f6ff058403bb42f8302e6badfbc/pyfesom2/tutorial/pi-grid",
-        "Dataset URL": "https://swiftbrowser.dkrz.de/public/dkrz_035d8f6ff058403bb42f8302e6badfbc/pyfesom2/tutorial/pi-grid",
-        "group"      : "variables"},
+    **base_datasets,
     **cmip6_grids,
     **frontier_datasets
 }
@@ -99,17 +106,14 @@ class RemoteZarrDataset:
         return self._merged_dataset()
 
 
-core = RemoteZarrDataset(**all_datasets['CORE'])
-tutorial_dataset = RemoteZarrDataset(**all_datasets['pi-grid'])
+def _add_remote_datasets_to_module(dataset_spec_dict):
+    import sys
+    current_module = sys.modules[__name__]
+    for dname, dspec_values in dataset_spec_dict.items():
+        setattr(current_module, dname, RemoteZarrDataset(**dspec_values))
 
-arctic_1km = RemoteZarrDataset(**all_datasets['A01'])
-rossby42 = RemoteZarrDataset(**all_datasets['ROSSBY4.2'])
-rossby42_spatial = RemoteZarrDataset(**all_datasets['ROSSBY4.2_spatial'])
-rossby42_level = RemoteZarrDataset(**all_datasets['ROSSBY4.2_level'])
 
-cmip6_lr = RemoteZarrDataset(**all_datasets['AWI-CM-LR'])
-cmip6_mr = RemoteZarrDataset(**all_datasets['AWI-CM-MR'])
-cmip6_hr = RemoteZarrDataset(**all_datasets['AWI-CM-HR'])
+_add_remote_datasets_to_module(all_datasets)
 
 
 def fesom_mesh_to_xr(path: str, alpha: int = 0, beta: int = 0, gamma: int = 0) -> xr.Dataset:
