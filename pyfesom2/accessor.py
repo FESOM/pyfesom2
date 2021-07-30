@@ -159,7 +159,7 @@ class SimpleMesh:
 
 def select_bbox(xr_obj: Union[xr.DataArray, xr.Dataset],
                 bbox: BoundingBox,
-                faces: Optional[ArrayLike] = None) -> xr.Dataset:
+                coords_dataset: Optional[xr.Dataset] = None) -> xr.Dataset:
     """Returns subset Dataset or DataArray for bounding box.
 
     This method uses triangulation indices in faces (as argument or as coordinate in a dataset) to select nodes
@@ -175,38 +175,44 @@ def select_bbox(xr_obj: Union[xr.DataArray, xr.Dataset],
     bbox
         Bounding box can be specified as as sequence of size 4 (lists or tuple or array) containing bounds
         from lower-left to upper-right of longitudes and latitudes. For instance: (xmin, ymin, xmax, ymax).
-    faces
-        For Datasets containing faces as coordinate information the argument is not necessary.
-        For DataArrays faces argument, defining indices of faces defining triangles, is necessary.
-
+    coords_dataset
+        if xr_obj is a fesom2 Dataset, this argument is not necessary.
+        if xr_obj is a xr.DataArray: all metadata needed for selection cannot be often contained in a dataarray,
+        this can be provided as a (coordinate) dataset containing necessary additional coordinate information
+        using this argument.
     Returns
     -------
 
     """
     from .ut import cut_region
-    faces = getattr(xr_obj, "faces", faces)
-    if faces is None:
-        raise ValueError(f"When passing a dataset it needs have faces in coords, or "
-                         f"faces need to be passed explicitly.\n"
-                         f"When passing a data array, argument faces can't be None,"
-                         f"faces must be indices[nelem,3] that define triangles.")
 
-    mesh = SimpleMesh(xr_obj.lon, xr_obj.lat, faces)
+    if isinstance(xr_obj, xr.Dataset):
+        lats, lons = xr_obj.lat, xr_obj.lon
+        faces = xr_obj.faces
+        ret = xr_obj
+    elif isinstance(xr_obj, xr.DataArray):
+        if coords_dataset is None:
+            raise ValueError(f"Selection on a dataarray needs coords_dataset argument containing lon,lat, faces as"
+                             f" coordinates.")
+        coords_dataset = coords_dataset[['lon', 'lat', 'faces']] # in case it is not just get needed coords and dims
+        lats, lons = coords_dataset.lat, coords_dataset.lon
+        faces = coords_dataset.faces
+        ret = xr.merge([xr_obj, coords_dataset])
+
+    mesh = SimpleMesh(lons, lats, faces)
     bbox = np.asarray(bbox)
     # cut region takes xmin, xmax, ymin, ymax
-    cut_faces, _ = cut_region(mesh, [bbox[0], bbox[2], bbox[1], bbox[3]])
+    cut_faces, cut_indices = cut_region(mesh, [bbox[0], bbox[2], bbox[1], bbox[3]])
     cut_faces = np.asarray(cut_faces)
     uniq, inv_index = np.unique(cut_faces.ravel(), return_inverse=True)
     new_faces = inv_index.reshape(cut_faces.shape)
-    ret = xr_obj.isel(nod2=uniq)
-    if isinstance(xr_obj, xr.DataArray):
-        ret = ret.to_dataset()
-    ret = ret.assign_coords({'faces': (('nelem', 'three'), new_faces)})
+    ret = ret.isel(nod2=uniq, nelem=cut_indices)
+    ret['faces'] = (('nelem', 'three'), new_faces)
     return ret
 
 
 def select_region(xr_obj: Union[xr.DataArray, xr.Dataset], region: Region,
-                  faces: Optional[ArrayLike] = None) -> xr.Dataset:
+                  coords_dataset: Optional[xr.DataArray] = None) -> xr.Dataset:
     """Returns a FESOM data subset for specified arbitrary region.
 
     This method uses vectorized Shapely's vectorized routines to find nodes contained by specified polygon. Faces
@@ -239,20 +245,27 @@ def select_region(xr_obj: Union[xr.DataArray, xr.Dataset], region: Region,
         raise ValueError(f"Supplied region data can be a sequence of (minlon, minlat, maxlon, maxlat) or "
                          f"a Shapely's Polygon. This {region} is not supported.")
 
-    faces = getattr(xr_obj, "faces", faces)
-    if faces is None:
-        raise ValueError(f"When passing a dataset it needs have faces in coords, or"
-                         f"faces need to be passed explicitly.\n"
-                         f"When passing a data array, argument faces can't be None,"
-                         f"faces must be indices[nelem,3] that define triangles.")
-    faces = np.asarray(faces)
+    if isinstance(xr_obj, xr.Dataset):
+        lats, lons = xr_obj.lat, xr_obj.lon
+        faces = np.asarray(xr_obj.faces)
+        nelem = np.asarray(xr_obj.nelem)
+        ret = xr_obj
+    elif isinstance(xr_obj, xr.DataArray):
+        if coords_dataset is None:
+            raise ValueError(f"Selection on a dataarray needs coords_dataset argument containing lon,lat, faces as"
+                             f" coordinates.")
+        coords_dataset = coords_dataset[['lon', 'lat', 'faces']] # in case it is not just get needed coords and dims
+        lats, lons = coords_dataset.lat, coords_dataset.lon
+        faces = np.asarray(coords_dataset.faces)
+        nelem = np.asarray(coords_dataset.nelem)
+        ret = xr.merge([xr_obj, coords_dataset])
 
     # buffer is necessry to facilitte floating point comparisions
     # buffer can be thought as tolerance around region in degrees
     # its value should be at least precision of data type of lats, lons (np.finfo)
     region = region.buffer(1e-6)
     prep_region = prep(region)
-    selection = vectorized_contains(prep_region, np.asarray(xr_obj.lon), np.asarray(xr_obj.lat))
+    selection = vectorized_contains(prep_region, np.asarray(lons), np.asarray(lats))
     if np.count_nonzero(selection) == 0:
         warnings.warn('No points in domain are within region, returning original data.')
         return xr_obj
@@ -260,10 +273,11 @@ def select_region(xr_obj: Union[xr.DataArray, xr.Dataset], region: Region,
     selection = selection[faces]
     face_mask = np.all(selection, axis=1)
     cut_faces = faces[face_mask]
-    cut_faces = np.array(cut_faces, ndmin=1)
+    cut_faces = np.asarray(cut_faces)
+    cut_indices = nelem[face_mask]
     uniq, inv_index = np.unique(cut_faces.ravel(), return_inverse=True)
     new_faces = inv_index.reshape(cut_faces.shape)
-    ret = xr_obj.isel(nod2=uniq)
+    ret = ret.isel(nod2=uniq, nelem=cut_indices)
 
     if 'faces' in ret.coords:
         ret = ret.drop_vars('faces')
@@ -272,11 +286,7 @@ def select_region(xr_obj: Union[xr.DataArray, xr.Dataset], region: Region,
         warnings.warn("No found points for the region are contained in dataset's triangulation (faces), "
                       "returning object without faces.")
         return ret  # no faces in coords
-
-    if isinstance(xr_obj, xr.DataArray):
-        ret = ret.to_dataset()
-
-    ret = ret.assign_coords({'faces': (('nelem', 'three'), new_faces)})
+    ret['faces'] = (('nelem', 'three'), new_faces)
     return ret
 
 
@@ -355,7 +365,7 @@ def select_points(xr_obj: Union[xr.Dataset, xr.DataArray],
     else:
         raise NotImplementedError('tolerance is currently not supported.')
 
-    other_dims = {k: xr.DataArray(np.array(v, ndmin=1), dims=sel_dim) for k, v in other_dims.items()}
+    other_dims = {k: xr.DataArray(np.asarray(v), dims=sel_dim) for k, v in other_dims.items()}
     ret_obj = xr_obj.isel(nod2=xr.DataArray(ind, dims=sel_dim)).sel(**other_dims, method=method)
 
     # from faces, which will not be useful in returned dataset
@@ -603,10 +613,12 @@ class FESOMDataArray:
         xr.Dataset
         """
 
-        sel_obj = self._xrobj.to_dataset()
-        sel_obj = sel_obj.assign_coords({'faces': (self._context_dataset.faces.dims,
-                                                   self._context_dataset.faces.values)})
-        tree = self._context_dataset.pyfesom2._tree
+        coords_dataset = self._context_dataset[['lon', 'lat', 'faces']]
+        sel_obj = xr.merge([self._xrobj, coords_dataset])
+        if "lat" in indexers or "lon" in indexers:
+            tree = self._context_dataset.pyfesom2._tree
+        else:
+            tree = None
         sel_obj = select(sel_obj, method=method, tolerance=tolerance, region=region, path=path, tree=tree,
                          **indexers)
         return sel_obj
