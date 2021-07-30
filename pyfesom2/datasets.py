@@ -1,12 +1,14 @@
+import os
 import warnings
 from typing import Sequence
 from typing import Tuple, Optional
 
+import fsspec
 import numpy as np
 import xarray as xr
 
-from . import load_mesh
-from .ut import get_no_cyclic
+from .config import USER_CACHE_DIR
+from .load_mesh_data import load_mesh
 
 cmip6_grids = {
     'AWI-CM-LR': {
@@ -18,9 +20,6 @@ cmip6_grids = {
     'AWI-CM-HR': {
         "path_url"   : "https://swift.dkrz.de/v1/dkrz_035d8f6ff058403bb42f8302e6badfbc/pyfesom2/cmip6-grids/zarr/awicm-hr",
         "Dataset URL": "https://swiftbrowser.dkrz.de/public/dkrz_035d8f6ff058403bb42f8302e6badfbc/pyfesom2/cmip6-grids/zarr/awicm-hr"},
-    "A01"      : {
-        "path_url"   : "https://swift.dkrz.de/v1/dkrz_02942825-0cab-44f3-ad37-80fd5d2e37e3/FESOM2_data/A01",
-        "Dataset URL": "https://swiftbrowser.dkrz.de/public/dkrz_02942825-0cab-44f3-ad37-80fd5d2e37e3/FESOM2_data/A01"}
 }
 
 frontier_datasets = {
@@ -32,17 +31,21 @@ frontier_datasets = {
         "Dataset URL": "https://swiftbrowser.dkrz.de/public/dkrz_035d8f6ff058403bb42f8302e6badfbc/pyfesom2/frontier/rossby42_level_aceess"},
     "ROSSBY4.2_spatial": {
         "path_url"   : "https://swift.dkrz.de/v1/dkrz_035d8f6ff058403bb42f8302e6badfbc/pyfesom2/frontier/rossby42_spatial_aceess",
-        "Dataset URL": "https://swiftbrowser.dkrz.de/public/dkrz_035d8f6ff058403bb42f8302e6badfbc/pyfesom2/frontier/rossby42_spatial_aceess"}}
+        "Dataset URL": "https://swiftbrowser.dkrz.de/public/dkrz_035d8f6ff058403bb42f8302e6badfbc/pyfesom2/frontier/rossby42_spatial_aceess"},
+    "A01"              : {
+        "path_url"   : "https://swift.dkrz.de/v1/dkrz_02942825-0cab-44f3-ad37-80fd5d2e37e3/FESOM2_data/A01",
+        "Dataset URL": "https://swiftbrowser.dkrz.de/public/dkrz_02942825-0cab-44f3-ad37-80fd5d2e37e3/FESOM2_data/A01"}
+}
 
 all_datasets = {
     "CORE"   : {
-        "path_url"   : "https://swift.dkrz.de/v1/dkrz_02942825-0cab-44f3-ad37-80fd5d2e37e3/FESOM2_data/LCORE",
-        "Dataset URL": "https://swiftbrowser.dkrz.de/public/dkrz_02942825-0cab-44f3-ad37-80fd5d2e37e3/FESOM2_data/LCORE",
-        "var_list"   : ["temp", "salt", "a_ice", "m_ice", "ssh", "sst", "mesh"]},
+        "path_url"   : "https://swift.dkrz.de/v1/dkrz_035d8f6ff058403bb42f8302e6badfbc/pyfesom2/tutorial/core2",
+        "Dataset URL": "https://swiftbrowser.dkrz.de/public/dkrz_035d8f6ff058403bb42f8302e6badfbc/pyfesom2/tutorial/core2",
+        "group"      : "variables"},
     "pi-grid": {
         'path_url'   : "https://swift.dkrz.de/v1/dkrz_035d8f6ff058403bb42f8302e6badfbc/pyfesom2/tutorial/pi-grid",
-        "var_list"   : ['a_ice', 'm_ice', 'temp', 'u', 'v', 'w', 'mesh'],
-        "Dataset URL": "https://swiftbrowser.dkrz.de/public/dkrz_035d8f6ff058403bb42f8302e6badfbc/pyfesom2/tutorial/pi-grid"},
+        "Dataset URL": "https://swiftbrowser.dkrz.de/public/dkrz_035d8f6ff058403bb42f8302e6badfbc/pyfesom2/tutorial/pi-grid",
+        "group"      : "variables"},
     **cmip6_grids,
     **frontier_datasets
 }
@@ -54,7 +57,8 @@ class RemoteZarrDataset:
     Dataset is only loaded on .load() for dataset contaning more variables
     """
 
-    def __init__(self, path_url: str, var_list: Optional[Sequence] = None, consolidated: bool = True, **kwargs):
+    def __init__(self, path_url: str, var_list: Optional[Sequence] = None, group: Optional[str] = None,
+                 consolidated: bool = True, **kwargs):
         """Initializes a remote zarr dataset.
 
         Dataset is loaded only on .load() method.
@@ -72,33 +76,81 @@ class RemoteZarrDataset:
         """
         self.path_url = path_url  # can also be local path remove fsspec in that case
         self.var_list = var_list
+        self.group = group
         self.is_consolidated = consolidated
         self.dset_attrs = kwargs
         self._ds = None
+        self._fs = None
+        self.cache_path = os.path.join(USER_CACHE_DIR, self.path_url.split("/")[-1])
+        self._is_zarr_cache = False
 
-    @property
-    def merged_dataset(self):
+    def _merged_dataset(self):
         """Merges data variables from remote url
 
         Returns
         -------
             xr.Dataset
         """
-        import fsspec
         if self._ds is None:
             if self.var_list is not None:
                 urls = [self.path_url + "/" + var for var in self.var_list]
-                dataset_list = [xr.open_zarr(fsspec.get_mapper(url), consolidated=self.is_consolidated) for url in urls]
+                dataset_list = [
+                    # xr.open_zarr(zarr.LRUStoreCache(self._fs.get_mapper(self.path_url), max_size=None),
+                    #             group=self.group, consolidated=self.is_consolidated) for url in
+                    # urls]
+                    xr.open_zarr(self._fs.get_mapper(self.path_url),
+                                 group=self.group, consolidated=self.is_consolidated) for url in
+                    urls]
                 self._ds = xr.merge(dataset_list)
             else:
-                self._ds = xr.open_zarr(self.path_url, consolidated=True)
+                # store = zarr.LRUStoreCache(self._fs.get_mapper(self.path_url), max_size=None)  # unlimited size
+                data_url = self.cache_path if self._is_zarr_cache else self.path_url
+                store = self._fs.get_mapper(data_url)
+                self._ds = xr.open_zarr(store, group=self.group, consolidated=self.is_consolidated)
 
             self._ds.attrs.update(self.dset_attrs)
         return self._ds
 
-    def load(self):
-        return self.merged_dataset
+    def load(self, cached=True):
+        if not cached:
+            self._fs = fsspec.filesystem("http")
+        else:
+            if ".zattrs" in fsspec.get_mapper(self.cache_path):
+                self._is_zarr_cache = True
+                self._fs = fsspec.get_filesystem_class('file')()
+            else:
+                self._fs = fsspec.filesystem("filecache", target_protocol='http',
+                                             cache_storage=self.cache_path, expiry_time=False, check_files=False)
+        return self._merged_dataset()
 
+    def download(self, root_path=None, **zarr_copy_kwargs):
+        import zarr
+        if not os.path.exists(os.path.join(self.cache_path, ".zattrs")):
+            self.clear_cache()  # if we download entire dataset we dont need other caches
+        mapper = fsspec.get_mapper(self.path_url)
+        output_path = root_path if root_path is not None else self.cache_path
+        try:
+            zarr.copy_all(zarr.open_consolidated(mapper), zarr.open_group(output_path), **zarr_copy_kwargs)
+            if self.is_consolidated:
+                import requests
+                metadata = requests.get(self.path_url + "/.zmetadata")
+                with open(output_path + "/.zmetadata", 'wt') as f:
+                    f.write(metadata.text)
+        #return f"Dataset downloaded at: {output_path}"
+        except zarr.CopyError:
+            warnings.warn(f'Cache directory {self.cache_path} for this dataset already contains entire data, if any errors persist use .clear_cache() method to clear the cache and re-download using .download() method.')
+        return self.load()
+
+    def clear_cache(self):
+        import shutil
+        try:
+            shutil.rmtree(self.cache_path)
+        except OSError:
+            warnings.warn(f'No cache dir {self.cache_path} found, skipping deletion.')
+
+
+# TODO; generate the datasets automatically from dictionary keys
+# one option is to use user friendly keys in datasets and serattr on sys.modules[__name__] using a function
 
 core = RemoteZarrDataset(**all_datasets['CORE'])
 tutorial_dataset = RemoteZarrDataset(**all_datasets['pi-grid'])
@@ -140,8 +192,7 @@ def fesom_mesh_to_xr(path: str, alpha: int = 0, beta: int = 0, gamma: int = 0) -
 
     """
     mesh = load_mesh(path, abg=[alpha, beta, gamma])
-    ncyclic_inds = get_no_cyclic(mesh, mesh.elem)
-    triangles = mesh.elem[ncyclic_inds]
+    triangles = mesh.elem
     nz_values = np.absolute(mesh.zlev)
     coords_dataset = xr.Dataset(coords={'lon'  : ('nod2', mesh.x2),
                                         'lat'  : ('nod2', mesh.y2),
