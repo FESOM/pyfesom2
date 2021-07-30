@@ -37,13 +37,13 @@ frontier_datasets = {
 
 all_datasets = {
     "CORE"   : {
-        "path_url"   : "https://swift.dkrz.de/v1/dkrz_02942825-0cab-44f3-ad37-80fd5d2e37e3/FESOM2_data/LCORE",
-        "Dataset URL": "https://swiftbrowser.dkrz.de/public/dkrz_02942825-0cab-44f3-ad37-80fd5d2e37e3/FESOM2_data/LCORE",
-        "var_list"   : ["temp", "salt", "a_ice", "m_ice", "ssh", "sst", "mesh"]},
+        "path_url"   : "https://swift.dkrz.de/v1/dkrz_035d8f6ff058403bb42f8302e6badfbc/pyfesom2/tutorial/core2",
+        "Dataset URL": "https://swiftbrowser.dkrz.de/public/dkrz_035d8f6ff058403bb42f8302e6badfbc/pyfesom2/tutorial/core2",
+        "group"      : "variables"},
     "pi-grid": {
         'path_url'   : "https://swift.dkrz.de/v1/dkrz_035d8f6ff058403bb42f8302e6badfbc/pyfesom2/tutorial/pi-grid",
-        "var_list"   : ['a_ice', 'm_ice', 'temp', 'u', 'v', 'w', 'mesh'],
-        "Dataset URL": "https://swiftbrowser.dkrz.de/public/dkrz_035d8f6ff058403bb42f8302e6badfbc/pyfesom2/tutorial/pi-grid"},
+        "Dataset URL": "https://swiftbrowser.dkrz.de/public/dkrz_035d8f6ff058403bb42f8302e6badfbc/pyfesom2/tutorial/pi-grid",
+        "group"      : "variables"},
     **cmip6_grids,
     **frontier_datasets
 }
@@ -55,7 +55,8 @@ class RemoteZarrDataset:
     Dataset is only loaded on .load() for dataset contaning more variables
     """
 
-    def __init__(self, path_url: str, var_list: Optional[Sequence] = None, consolidated: bool = True, **kwargs):
+    def __init__(self, path_url: str, group: Optional[str] = None,
+                 consolidated: bool = True, **kwargs):
         """Initializes a remote zarr dataset.
 
         Dataset is loaded only on .load() method.
@@ -63,22 +64,24 @@ class RemoteZarrDataset:
         ----------
         path_url: str
             Remote http(s) url for a dataset.
-        var_list: optional, list
-            These variable names are suffixed to path_url for retrieving data variables and each retrieved variable is
-            merged into a Xarray dataset. This is not necessary if there is only one variable in remote dataset.
+        group: optional, None
+            If the remote dataset contains only one data variable group need not be specified. While there are other
+            strategies to store and fetch molti-data-variable remote zarr datasets, the  supported approach (for
+            efficiency and to favor simplicity in specifying datasets) is to group multiple data variables under a
+            single Zarr group. Name of that group can be specified here.
         consolidated: bool
-            Read remote dataset as a consolidated Zarr dataset, applicable to datasets stored as consolidated.
+            Read remote dataset as a consolidated Zarr dataset. For remote datasets it is recommended to store
+            them as consolidated for any meaningful use.
         kwargs: optional
             These kwargs are added to dataset as attributes.
         """
         self.path_url = path_url  # can also be local path remove fsspec in that case
-        self.var_list = var_list
+        self.group = group
         self.is_consolidated = consolidated
         self.dset_attrs = kwargs
         self._ds = None
 
-    @property
-    def merged_dataset(self):
+    def _merged_dataset(self):
         """Merges data variables from remote url
 
         Returns
@@ -87,18 +90,13 @@ class RemoteZarrDataset:
         """
         import fsspec
         if self._ds is None:
-            if self.var_list is not None:
-                urls = [self.path_url + "/" + var for var in self.var_list]
-                dataset_list = [xr.open_zarr(fsspec.get_mapper(url), consolidated=self.is_consolidated) for url in urls]
-                self._ds = xr.merge(dataset_list)
-            else:
-                self._ds = xr.open_zarr(self.path_url, consolidated=True)
-
+            store = fsspec.get_mapper(self.path_url)
+            self._ds = xr.open_zarr(store, group=self.group, consolidated=self.is_consolidated)
             self._ds.attrs.update(self.dset_attrs)
         return self._ds
 
     def load(self):
-        return self.merged_dataset
+        return self._merged_dataset()
 
 
 core = RemoteZarrDataset(**all_datasets['CORE'])
