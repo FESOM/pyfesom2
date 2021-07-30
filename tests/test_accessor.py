@@ -137,7 +137,7 @@ def test_select_bbox(dataset, bbox):
     with pytest.raises(ValueError):
         select_bbox(dataset[data_var], bbox)
 
-    sda = select_bbox(dataset[data_var], bbox, faces=dataset.faces)
+    sda = select_bbox(dataset[data_var], bbox, coords_dataset=dataset)
     slon_min, slat_min, slon_max, slat_max = (sda.lon.min(), sda.lat.min(),
                                               sda.lon.max(), sda.lon.max())
     assert slon_min >= bbox[0] and slon_max <= bbox[2]
@@ -183,7 +183,7 @@ def test_select_region(dataset, region):
         # dataarrays cannot contain faces so ValueError
         sda = select_region(test_data_array, region)
 
-    sda = select_region(test_data_array, region, faces=dataset.faces)
+    sda = select_region(test_data_array, region, coords_dataset=dataset)
     # returned region selection on data array is a dataset
     assert isinstance(sda, xr.Dataset)
 
