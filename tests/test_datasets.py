@@ -26,13 +26,13 @@ def local_dataset(request):
     da = datasets.open_dataset(data_path, mesh_path=mesh_path)
     yield da
 
-
 def check_dataset(dataset):
     assert isinstance(dataset, xr.Dataset)
     assert "nod2" in dataset.dims
     assert all([coord in dataset.coords for coord in ["lon", "lat"]])  # add faces eventually
 
 
+@pytest.mark.xfail(reason="Remote dataset")
 def test_remote_dataset(remote_dataset):
     check_dataset(remote_dataset)
     assert "Dataset URL" in remote_dataset.attrs
@@ -42,6 +42,7 @@ def test_local_dataset(local_dataset):
     check_dataset(local_dataset)
 
 
+@pytest.mark.xfail(reason="Remote dataset issues")
 def test_cmip6_grids(cmip6_grid):
     assert isinstance(cmip6_grid, xr.Dataset)
     assert "ncells" in cmip6_grid.dims

@@ -1,51 +1,56 @@
-import os
 import warnings
 from typing import Sequence
 from typing import Tuple, Optional
 
-import fsspec
 import numpy as np
 import xarray as xr
 
-from .config import USER_CACHE_DIR
-from .load_mesh_data import load_mesh
+from . import load_mesh
+from .ut import get_no_cyclic
+
+# TODO: in future seperate below dataset specification values to seperate text file retrieved as package resources/data.
+
+base_datasets = {
+    "core"            : {
+        "path_url"   : "https://swift.dkrz.de/v1/dkrz_035d8f6ff058403bb42f8302e6badfbc/pyfesom2/tutorial/core2",
+        "Dataset URL": "https://swiftbrowser.dkrz.de/public/dkrz_035d8f6ff058403bb42f8302e6badfbc/pyfesom2/tutorial/core2",
+        "group"      : "variables"},
+    # pi grid
+    "tutorial_dataset": {
+        'path_url'   : "https://swift.dkrz.de/v1/dkrz_035d8f6ff058403bb42f8302e6badfbc/pyfesom2/tutorial/pi-grid",
+        "Dataset URL": "https://swiftbrowser.dkrz.de/public/dkrz_035d8f6ff058403bb42f8302e6badfbc/pyfesom2/tutorial/pi-grid",
+        "group"      : "variables"}
+}
 
 cmip6_grids = {
-    'AWI-CM-LR': {
+    'cmip6_lr': {
         "path_url"   : "https://swift.dkrz.de/v1/dkrz_035d8f6ff058403bb42f8302e6badfbc/pyfesom2/cmip6-grids/zarr/awicm-lr",
         "Dataset URL": "https://swiftbrowser.dkrz.de/public/dkrz_035d8f6ff058403bb42f8302e6badfbc/pyfesom2/cmip6-grids/zarr/awicm-lr"},
-    'AWI-CM-MR': {
+    'cmip6_mr': {
         "path_url"   : "https://swift.dkrz.de/v1/dkrz_035d8f6ff058403bb42f8302e6badfbc/pyfesom2/cmip6-grids/zarr/awicm-mr",
         "Dataset URL": "https://swiftbrowser.dkrz.de/public/dkrz_035d8f6ff058403bb42f8302e6badfbc/pyfesom2/cmip6-grids/zarr/awicm-mr"},
-    'AWI-CM-HR': {
+    'cmip6_hr': {
         "path_url"   : "https://swift.dkrz.de/v1/dkrz_035d8f6ff058403bb42f8302e6badfbc/pyfesom2/cmip6-grids/zarr/awicm-hr",
         "Dataset URL": "https://swiftbrowser.dkrz.de/public/dkrz_035d8f6ff058403bb42f8302e6badfbc/pyfesom2/cmip6-grids/zarr/awicm-hr"},
 }
 
 frontier_datasets = {
-    "ROSSBY4.2"        : {
+    "rossby42"        : {
         "path_url"   : "https://swift.dkrz.de/v1/dkrz_035d8f6ff058403bb42f8302e6badfbc/pyfesom2/frontier/rossby42",
         "Dataset URL": "https://swiftbrowser.dkrz.de/public/dkrz_035d8f6ff058403bb42f8302e6badfbc/pyfesom2/frontier/rossby42"},
-    "ROSSBY4.2_level"  : {
+    "rossby42_level"  : {
         "path_url"   : "https://swift.dkrz.de/v1/dkrz_035d8f6ff058403bb42f8302e6badfbc/pyfesom2/frontier/rossby42_level_aceess",
         "Dataset URL": "https://swiftbrowser.dkrz.de/public/dkrz_035d8f6ff058403bb42f8302e6badfbc/pyfesom2/frontier/rossby42_level_aceess"},
-    "ROSSBY4.2_spatial": {
+    "rossby42_spatial": {
         "path_url"   : "https://swift.dkrz.de/v1/dkrz_035d8f6ff058403bb42f8302e6badfbc/pyfesom2/frontier/rossby42_spatial_aceess",
         "Dataset URL": "https://swiftbrowser.dkrz.de/public/dkrz_035d8f6ff058403bb42f8302e6badfbc/pyfesom2/frontier/rossby42_spatial_aceess"},
-    "A01"              : {
+    "arctic_1km"      : {
         "path_url"   : "https://swift.dkrz.de/v1/dkrz_02942825-0cab-44f3-ad37-80fd5d2e37e3/FESOM2_data/A01",
         "Dataset URL": "https://swiftbrowser.dkrz.de/public/dkrz_02942825-0cab-44f3-ad37-80fd5d2e37e3/FESOM2_data/A01"}
 }
 
 all_datasets = {
-    "CORE"   : {
-        "path_url"   : "https://swift.dkrz.de/v1/dkrz_035d8f6ff058403bb42f8302e6badfbc/pyfesom2/tutorial/core2",
-        "Dataset URL": "https://swiftbrowser.dkrz.de/public/dkrz_035d8f6ff058403bb42f8302e6badfbc/pyfesom2/tutorial/core2",
-        "group"      : "variables"},
-    "pi-grid": {
-        'path_url'   : "https://swift.dkrz.de/v1/dkrz_035d8f6ff058403bb42f8302e6badfbc/pyfesom2/tutorial/pi-grid",
-        "Dataset URL": "https://swiftbrowser.dkrz.de/public/dkrz_035d8f6ff058403bb42f8302e6badfbc/pyfesom2/tutorial/pi-grid",
-        "group"      : "variables"},
+    **base_datasets,
     **cmip6_grids,
     **frontier_datasets
 }
@@ -57,7 +62,7 @@ class RemoteZarrDataset:
     Dataset is only loaded on .load() for dataset contaning more variables
     """
 
-    def __init__(self, path_url: str, var_list: Optional[Sequence] = None, group: Optional[str] = None,
+    def __init__(self, path_url: str, group: Optional[str] = None,
                  consolidated: bool = True, **kwargs):
         """Initializes a remote zarr dataset.
 
@@ -66,23 +71,22 @@ class RemoteZarrDataset:
         ----------
         path_url: str
             Remote http(s) url for a dataset.
-        var_list: optional, list
-            These variable names are suffixed to path_url for retrieving data variables and each retrieved variable is
-            merged into a Xarray dataset. This is not necessary if there is only one variable in remote dataset.
+        group: optional, None
+            If the remote dataset contains only one data variable group need not be specified. While there are other
+            strategies to store and fetch molti-data-variable remote zarr datasets, the  supported approach (for
+            efficiency and to favor simplicity in specifying datasets) is to group multiple data variables under a
+            single Zarr group. Name of that group can be specified here.
         consolidated: bool
-            Read remote dataset as a consolidated Zarr dataset, applicable to datasets stored as consolidated.
+            Read remote dataset as a consolidated Zarr dataset. For remote datasets it is recommended to store
+            them as consolidated for any meaningful use.
         kwargs: optional
             These kwargs are added to dataset as attributes.
         """
         self.path_url = path_url  # can also be local path remove fsspec in that case
-        self.var_list = var_list
         self.group = group
         self.is_consolidated = consolidated
         self.dset_attrs = kwargs
         self._ds = None
-        self._fs = None
-        self.cache_path = os.path.join(USER_CACHE_DIR, self.path_url.split("/")[-1])
-        self._is_zarr_cache = False
 
     def _merged_dataset(self):
         """Merges data variables from remote url
@@ -91,78 +95,25 @@ class RemoteZarrDataset:
         -------
             xr.Dataset
         """
+        import fsspec
         if self._ds is None:
-            if self.var_list is not None:
-                urls = [self.path_url + "/" + var for var in self.var_list]
-                dataset_list = [
-                    # xr.open_zarr(zarr.LRUStoreCache(self._fs.get_mapper(self.path_url), max_size=None),
-                    #             group=self.group, consolidated=self.is_consolidated) for url in
-                    # urls]
-                    xr.open_zarr(self._fs.get_mapper(self.path_url),
-                                 group=self.group, consolidated=self.is_consolidated) for url in
-                    urls]
-                self._ds = xr.merge(dataset_list)
-            else:
-                # store = zarr.LRUStoreCache(self._fs.get_mapper(self.path_url), max_size=None)  # unlimited size
-                data_url = self.cache_path if self._is_zarr_cache else self.path_url
-                store = self._fs.get_mapper(data_url)
-                self._ds = xr.open_zarr(store, group=self.group, consolidated=self.is_consolidated)
-
+            store = fsspec.get_mapper(self.path_url)
+            self._ds = xr.open_zarr(store, group=self.group, consolidated=self.is_consolidated)
             self._ds.attrs.update(self.dset_attrs)
         return self._ds
 
-    def load(self, cached=True):
-        if not cached:
-            self._fs = fsspec.filesystem("http")
-        else:
-            if ".zattrs" in fsspec.get_mapper(self.cache_path):
-                self._is_zarr_cache = True
-                self._fs = fsspec.get_filesystem_class('file')()
-            else:
-                self._fs = fsspec.filesystem("filecache", target_protocol='http',
-                                             cache_storage=self.cache_path, expiry_time=False, check_files=False)
+    def load(self):
         return self._merged_dataset()
 
-    def download(self, root_path=None, **zarr_copy_kwargs):
-        import zarr
-        if not os.path.exists(os.path.join(self.cache_path, ".zattrs")):
-            self.clear_cache()  # if we download entire dataset we dont need other caches
-        mapper = fsspec.get_mapper(self.path_url)
-        output_path = root_path if root_path is not None else self.cache_path
-        try:
-            zarr.copy_all(zarr.open_consolidated(mapper), zarr.open_group(output_path), **zarr_copy_kwargs)
-            if self.is_consolidated:
-                import requests
-                metadata = requests.get(self.path_url + "/.zmetadata")
-                with open(output_path + "/.zmetadata", 'wt') as f:
-                    f.write(metadata.text)
-        #return f"Dataset downloaded at: {output_path}"
-        except zarr.CopyError:
-            warnings.warn(f'Cache directory {self.cache_path} for this dataset already contains entire data, if any errors persist use .clear_cache() method to clear the cache and re-download using .download() method.')
-        return self.load()
 
-    def clear_cache(self):
-        import shutil
-        try:
-            shutil.rmtree(self.cache_path)
-        except OSError:
-            warnings.warn(f'No cache dir {self.cache_path} found, skipping deletion.')
+def _add_remote_datasets_to_module(dataset_spec_dict):
+    import sys
+    current_module = sys.modules[__name__]
+    for dname, dspec_values in dataset_spec_dict.items():
+        setattr(current_module, dname, RemoteZarrDataset(**dspec_values))
 
 
-# TODO; generate the datasets automatically from dictionary keys
-# one option is to use user friendly keys in datasets and serattr on sys.modules[__name__] using a function
-
-core = RemoteZarrDataset(**all_datasets['CORE'])
-tutorial_dataset = RemoteZarrDataset(**all_datasets['pi-grid'])
-
-arctic_1km = RemoteZarrDataset(**all_datasets['A01'])
-rossby42 = RemoteZarrDataset(**all_datasets['ROSSBY4.2'])
-rossby42_spatial = RemoteZarrDataset(**all_datasets['ROSSBY4.2_spatial'])
-rossby42_level = RemoteZarrDataset(**all_datasets['ROSSBY4.2_level'])
-
-cmip6_lr = RemoteZarrDataset(**all_datasets['AWI-CM-LR'])
-cmip6_mr = RemoteZarrDataset(**all_datasets['AWI-CM-MR'])
-cmip6_hr = RemoteZarrDataset(**all_datasets['AWI-CM-HR'])
+_add_remote_datasets_to_module(all_datasets)
 
 
 def fesom_mesh_to_xr(path: str, alpha: int = 0, beta: int = 0, gamma: int = 0) -> xr.Dataset:
@@ -192,7 +143,8 @@ def fesom_mesh_to_xr(path: str, alpha: int = 0, beta: int = 0, gamma: int = 0) -
 
     """
     mesh = load_mesh(path, abg=[alpha, beta, gamma])
-    triangles = mesh.elem
+    ncyclic_inds = get_no_cyclic(mesh, mesh.elem)
+    triangles = mesh.elem[ncyclic_inds]
     nz_values = np.absolute(mesh.zlev)
     coords_dataset = xr.Dataset(coords={'lon'  : ('nod2', mesh.x2),
                                         'lat'  : ('nod2', mesh.y2),
