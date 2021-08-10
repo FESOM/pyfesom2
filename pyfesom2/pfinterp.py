@@ -217,6 +217,14 @@ def pfinterp():
         help="Map boundaries in -180 180 -90 90 format that will be used for interpolation.",
         metavar=("LONMIN", "LONMAX", "LATMIN", "LATMAX"),
     )
+    
+    parser.add_argument(
+        "--no_pi_mask",
+        type=bool,
+        default=False,
+        help="Do not apply PI mask by default"
+    )
+    
     parser.add_argument(
         "--res",
         "-r",
@@ -380,7 +388,8 @@ def pfinterp():
                 dumpfile=True,
                 basepath=None,
             )
-            interp_data = np.ma.masked_where(m2, interp_data)
+            if not args.no_pi_mask:
+                interp_data = np.ma.masked_where(m2, interp_data)
             interp_data = np.ma.masked_equal(interp_data, 0)
             da[timestep_index, depth_index, :, :] = interp_data[:]
 
