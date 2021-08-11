@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 #
 # This file is part of pyfesom2
-# Original code by Dmitry Sidorenko, Nikolay Koldunov, 
+# Original code by Dmitry Sidorenko, Nikolay Koldunov,
 # Qiang Wang, Sergey Danilov and Patrick Scholz
 #
 
@@ -217,6 +217,13 @@ def pfinterp():
         help="Map boundaries in -180 180 -90 90 format that will be used for interpolation.",
         metavar=("LONMIN", "LONMAX", "LATMIN", "LATMAX"),
     )
+
+    parser.add_argument(
+        "--no_pi_mask",
+        action="store_true",
+        help="Do not apply PI mask by default"
+    )
+
     parser.add_argument(
         "--res",
         "-r",
@@ -293,6 +300,7 @@ def pfinterp():
         print("Output file:                   {}".format(args.ofile))
         print("Euler angles of mesh rotation: {}".format(args.abg))
         print("Interpolation method:          {}".format(args.interp))
+        print("Do not mask PI by default:     {}".format(args.no_pi_mask))
 
     mesh = load_mesh(args.meshpath, abg=args.abg, usepickle=True, usejoblib=False)
 
@@ -380,7 +388,8 @@ def pfinterp():
                 dumpfile=True,
                 basepath=None,
             )
-            interp_data = np.ma.masked_where(m2, interp_data)
+            if not args.no_pi_mask:
+                interp_data = np.ma.masked_where(m2, interp_data)
             interp_data = np.ma.masked_equal(interp_data, 0)
             da[timestep_index, depth_index, :, :] = interp_data[:]
 
