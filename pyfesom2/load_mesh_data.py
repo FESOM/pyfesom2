@@ -517,7 +517,7 @@ def get_data(
         if not silent:
             print("Depth is None, 3d field will be returned")
 
-    dataset = xr.open_mfdataset(paths, combine="by_coords", **kwargs)
+    dataset = xr.open_mfdataset(paths, combine="by_coords", cftime=True, **kwargs)
     data = select_slices(dataset, variable, mesh, records, depth)
 
     if how == "mean":
