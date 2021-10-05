@@ -5,6 +5,12 @@ name: pyfesom2 main test
 on: [push]
 
 jobs:
+  update_requirements:
+      name: Update Requirements File
+      runs-on: "ubuntu-latest"
+      steps:
+        - uses: actions/checkout@master
+        - uses: ryan-rozario/pipreqs-action-cpy@master
   example-1:
     name: Ex1 (${{ matrix.python-version }}, ${{ matrix.os }})
     runs-on: ${{ matrix.os }}
@@ -32,4 +38,4 @@ jobs:
       - name: Test
         shell: bash -l {0}
         run: pytest
-      
+
