@@ -11,25 +11,8 @@ with open("README.md") as readme_file:
 with open("HISTORY.rst") as history_file:
     history = history_file.read()
 
-requirements = [
-    "cartopy",
-    "cmocean",
-    "dask",
-    "ipython",
-    "joblib",
-    "jupyter",
-    "matplotlib",
-    "netCDF4",
-    "numba",
-    "numpy",
-    "pandas",
-    "pyresample",
-    "pytest",
-    "scipy",
-    "seawater",
-    "shapely",
-    "xarray",
-]
+with open("requirements.txt") as requirements_file:
+    requirements = requirements_file.readlines()
 
 setup_requirements = ["pytest-runner"]
 
@@ -62,8 +45,8 @@ setup(
     keywords="pyfesom2",
     name="pyfesom2",
     packages=["pyfesom2"],
-    #package_dir={"pyfesom2": "pyfesom2"},
-    #package_data={"": ["*.geojson"]},
+    # package_dir={"pyfesom2": "pyfesom2"},
+    # package_data={"": ["*.geojson"]},
     setup_requires=setup_requirements,
     test_suite="tests",
     tests_require=test_requirements,
