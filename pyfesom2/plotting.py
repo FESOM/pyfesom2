@@ -259,6 +259,7 @@ def get_vector_forplot(
     influence=80000,
     lonreg2=None,
     latreg2=None,
+    no_pi_mask=False,
 ):
     if len(u.shape) > 1:
         raise ValueError(
@@ -313,10 +314,12 @@ def get_vector_forplot(
     u_int = u_int[0]
     v_int = v_int[0]
 
-    u_int = np.ma.masked_where(m2, u_int)
+    if not no_pi_mask:
+        u_int = np.ma.masked_where(m2, u_int)
     u_int = np.ma.masked_equal(u_int, 0)
 
-    v_int = np.ma.masked_where(m2, v_int)
+    if not no_pi_mask:
+        v_int = np.ma.masked_where(m2, v_int)
     v_int = np.ma.masked_equal(v_int, 0)
 
     return u_int, v_int, lonreg2, latreg2
@@ -344,6 +347,7 @@ def plot(
     interpolated_data=None,
     lonreg=None,
     latreg=None,
+    no_pi_mask=False,
 ):
     """
     Plots interpolated 2d field on the map.
@@ -403,6 +407,8 @@ def plot(
     basepath: str
         path where to store additional interpolation files. If None (default),
         the path of the mesh will be used.
+    no_pi_mask: bool
+        Mask PI by default or not.
     """
     if not isinstance(data, list):
         data = [data]
@@ -451,7 +457,8 @@ def plot(
     m2 = mask_ne(lonreg2, latreg2)
 
     for i in range(len(interpolated)):
-        interpolated[i] = np.ma.masked_where(m2, interpolated[i])
+        if not no_pi_mask:
+            interpolated[i] = np.ma.masked_where(m2, interpolated[i])
         interpolated[i] = np.ma.masked_equal(interpolated[i], 0)
 
     fig, ax = create_proj_figure(mapproj, rowscol, figsize)
