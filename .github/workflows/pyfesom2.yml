@@ -5,12 +5,18 @@ name: pyfesom2 main test
 on: [push]
 
 jobs:
-  update_requirements:
-      name: Update Requirements File
+  update_requirements_pip:
+      name: Update Requirements File Pip
       runs-on: "ubuntu-latest"
       steps:
-        - uses: actions/checkout@master
-        - uses: pgierz/pipreqs-action@master
+        - uses: actions/checkout@v2
+        - uses: pgierz/pipreqs-action@pip
+  update_requirements_conda:
+      name: Update Requirements File Conda
+      runs_on: "ubuntu-latest"
+      steps:
+          - uses: actions/checkout@v2
+          - uses: pgierz/pipreqs-action@conda
   example-1:
     name: Ex1 (${{ matrix.python-version }}, ${{ matrix.os }})
     runs-on: ${{ matrix.os }}
