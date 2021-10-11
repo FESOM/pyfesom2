@@ -1,25 +1,58 @@
-name: pyfesom2
 channels:
-  - conda-forge
+- conda-forge
 dependencies:
-  - pandas
-  - numpy>=1.16
-  - netCDF4
-  - joblib
-  - pyresample
-  - seawater
-  - numba
-  - scipy
-  - cartopy
-  - matplotlib!=3.3.1
-  - shapely
-  - jupyter
-  - ipython
-  - pytest
-  - cmocean
-  - zarr>=2.8.3
-  - fsspec==2021.06.1
-  - requests
-  - aiohttp
-  - dask
-  - xarray
+- 'cartopy
+
+  '
+- 'cmocean
+
+  '
+- 'dask
+
+  '
+- 'fsspec
+
+  '
+- 'joblib
+
+  '
+- 'matplotlib
+
+  '
+- 'netCDF4
+
+  '
+- 'numba
+
+  '
+- 'numpy
+
+  '
+- 'osgeo
+
+  '
+- 'pandas
+
+  '
+- 'pyproj
+
+  '
+- 'pyresample
+
+  '
+- 'pytest
+
+  '
+- 'scipy
+
+  '
+- 'seawater
+
+  '
+- 'Shapely
+
+  '
+- 'xarray
+
+  '
+name: pyfesom2
