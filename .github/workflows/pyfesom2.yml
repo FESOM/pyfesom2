@@ -13,7 +13,7 @@ jobs:
         - uses: pgierz/pipreqs-action@pip
   update_requirements_conda:
       name: Update Requirements File Conda
-      runs_on: "ubuntu-latest"
+      runs-on: "ubuntu-latest"
       steps:
           - uses: actions/checkout@v2
           - uses: pgierz/pipreqs-action@conda
