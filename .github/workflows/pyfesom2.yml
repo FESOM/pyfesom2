@@ -14,31 +14,21 @@ jobs:
         - uses: pgierz/pipreqs-action@conda
           with:
             CONDA_REQS: ci/requirements-py37.yml
-  example-1:
-    name: Ex1 (${{ matrix.python-version }}, ${{ matrix.os }})
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: ["ubuntu-latest"]
-        python-version: ["3.7"]
-    steps:
-      - uses: actions/checkout@v2
-      - uses: conda-incubator/setup-miniconda@v2
-        with:
-          auto-update-conda: true
-          activate-environment: pyfesom2
-          environment-file: ci/requirements-py37.yml
-          python-version: ${{ matrix.python-version }}
-          channels: conda-forge
-          auto-activate-base: false
-          show-channel-urls: true
-          # use-only-tar-bz2: true
-          allow-softlinks: true
-      - name: Install
-        shell: bash -l {0}
-        run: pip install -e .
-      - name: Test
-        shell: bash -l {0}
-        run: pytest
-
+        - uses: actions/checkout@v2
+        - uses: conda-incubator/setup-miniconda@v2
+          with:
+            auto-update-conda: true
+            activate-environment: pyfesom2
+            environment-file: ci/requirements-py37.yml
+            python-version: "3.7"
+            channels: conda-forge
+            auto-activate-base: false
+            show-channel-urls: true
+            # use-only-tar-bz2: true
+            allow-softlinks: true
+        - name: Install
+          shell: bash -l {0}
+          run: pip install -e .
+        - name: Test
+          shell: bash -l {0}
+          run: pytest
