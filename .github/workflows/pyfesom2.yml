@@ -5,8 +5,8 @@ name: pyfesom2 main test
 on: [push]
 
 jobs:
-  update_requirements:
-      name: Update Requirements File Pip
+  update_requirements_and_try_conda:
+      name: Main Test
       runs-on: "ubuntu-latest"
       steps:
         - uses: actions/checkout@v2
