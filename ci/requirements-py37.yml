@@ -1,58 +1,22 @@
 channels:
 - conda-forge
-dependencies:
-- 'cartopy
-
-  '
-- 'cmocean
-
-  '
-- 'dask
-
-  '
-- 'fsspec
-
-  '
-- 'joblib
-
-  '
-- 'matplotlib
-
-  '
-- 'netCDF4
-
-  '
-- 'numba
-
-  '
-- 'numpy
-
-  '
-- 'osgeo
-
-  '
-- 'pandas
-
-  '
-- 'pyproj
-
-  '
-- 'pyresample
-
-  '
-- 'pytest
-
-  '
-- 'scipy
-
-  '
-- 'seawater
-
-  '
-- 'Shapely
-
-  '
-- 'xarray
-
-  '
 name: pyfesom2
+dependencies:
+- cartopy
+- cmocean
+- dask
+- fsspec
+- joblib
+- matplotlib
+- netCDF4
+- numba
+- numpy
+- osgeo
+- pandas
+- pyproj
+- pyresample
+- pytest
+- scipy
+- seawater
+- Shapely
+- xarray
