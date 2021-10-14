@@ -25,17 +25,11 @@ jobs:
             - python3/3.5-intelbeta
     steps:
       - uses: actions/checkout@v2
-      - name: load ollie ${{ matrix.module }}
-        shell: bash -l {0}
-        run: module load ${{ matrix.module }}
-      - name: Install
+      - name: Run Test ${{ matrix.module }}
         shell: bash -l {0}
         run: |
+            module load ${{ matrix.module }}
             module list
             pip install -e .
-      - name: Test
-        shell: bash -l {0}
-        run: |
-            module list
             pytest
 
