@@ -5,7 +5,7 @@ on: [push]
 
 jobs:
   example-1:
-    name: Ex1 (ollie: ${{module}})
+    name: Ex1 (ollie: ${{ matrix.module }})
     runs-on: hpc_awi_ollie
     strategy:
       fail-fast: false
@@ -25,9 +25,9 @@ jobs:
             - python3/3.5-intelbeta
     steps:
       - uses: actions/checkout@v2
-      - name: load ollie ${{module}}
+      - name: load ollie ${{ matrix.module }}
         shell: bash -l {0}
-        run: module load ${{module}}
+        run: module load ${{ matrix.module }}
       - name: Install
         shell: bash -l {0}
         run: |
