@@ -30,6 +30,6 @@ jobs:
         run: |
             module load ${{ matrix.module }}
             module list
-            pip install -e .
+            pip install --user -e .
             pytest
 
