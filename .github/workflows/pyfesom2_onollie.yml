@@ -4,33 +4,33 @@ name: pyfesom2 ollie test
 on: [push]
 
 jobs:
-  example-1:
-    name: ollie ${{ matrix.module }}
-    runs-on: hpc_awi_ollie
-    strategy:
-      fail-fast: false
-      matrix:
-        module:
-            - python3/3.6.3-intel2018
-            - python3/3.6.5_intel2019
-            - python3/3.7.10_intel2021
-            - python3/3.7.7_intel2020
-            - python3/3.7.7_intel2020u2
-    steps:
-      - uses: actions/checkout@v2
-      - name: Run Test ${{ matrix.module }}
-        shell: bash -l {0}
-        run: |
-            module load ${{ matrix.module }}
-            module list
-            pip install --user -e .
-            pip install --user pytest
-            pytest
+    #  example-1:
+    #    name: ollie ${{ matrix.module }}
+    #    runs-on: hpc_awi_ollie
+    #    strategy:
+    #      fail-fast: false
+    #      matrix:
+    #        module:
+    #            - python3/3.6.3-intel2018
+    #            - python3/3.6.5_intel2019
+    #            - python3/3.7.10_intel2021
+    #            - python3/3.7.7_intel2020
+    #            - python3/3.7.7_intel2020u2
+    #    steps:
+    #      - uses: actions/checkout@v2
+    #      - name: Run Test ${{ matrix.module }}
+    #        shell: bash -l {0}
+    #        run: |
+    #            module load ${{ matrix.module }}
+    #            module list
+    #            pip install --user -e .
+    #            pip install --user pytest
+    #            pytest
   miniconda:
     name: ollie miniconda installation
     runs-on: hpc_awi_ollie
     env:
-        CONDA: github.workspace
+        CONDA: ${{ github.workspace }}
     steps:
       - uses: actions/checkout@v2
       - name: Setup Miniconda
