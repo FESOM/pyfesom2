@@ -5,7 +5,7 @@ on: [push]
 
 jobs:
   example-1:
-    name: Ex1 (ollie: ${{ matrix.module }})
+    name: Ex1 (ollie ${{ matrix.module }})
     runs-on: hpc_awi_ollie
     strategy:
       fail-fast: false
