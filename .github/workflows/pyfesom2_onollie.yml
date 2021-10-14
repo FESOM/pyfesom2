@@ -31,6 +31,9 @@ jobs:
     runs-on: hpc_awi_ollie
     steps:
       - uses: actions/checkout@v2
+      - name: Set CONDA variable
+        shell: bash -l {0}
+        run: export CONDA=$PWD
       - name: Setup Miniconda
         uses: conda-incubator/setup-miniconda@v2.1.1
         with:
