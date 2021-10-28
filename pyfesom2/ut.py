@@ -143,7 +143,9 @@ def scalar_g2r(al, be, ga, lon, lat):
     rotate_matrix[2, 0] = np.sin(be) * np.sin(al)
     rotate_matrix[2, 1] = -np.sin(be) * np.cos(al)
     rotate_matrix[2, 2] = np.cos(be)
-
+    
+    #rotate_matrix = np.linalg.pinv(rotate_matrix)
+    
     lat = lat * rad
     lon = lon * rad
 
@@ -233,7 +235,8 @@ def vec_rotate_r2g(al, be, ga, lon, lat, urot, vrot, flag):
     rotate_matrix[2, 1] = -np.sin(be) * np.cos(al)
     rotate_matrix[2, 2] = np.cos(be)
 
-    rotate_matrix = np.linalg.pinv(rotate_matrix)
+    rotate_matrix = np.linalg.pinv(rotate_matrix) 
+    
     rlat = rlat * rad
     rlon = rlon * rad
     lat = lat * rad
@@ -268,6 +271,110 @@ def vec_rotate_r2g(al, be, ga, lon, lat, urot, vrot, flag):
         + np.cos(lat) * tzr
     )
     u = -np.sin(lon) * txr + np.cos(lon) * tyr
+
+    u = np.array(u)
+    v = np.array(v)
+
+    return (u, v)
+
+def vec_rotate_g2r(al, be, ga, lon, lat, ugeo, vgeo, flag):
+    """
+    Rotate vectors from geographical coordinates to rotated coordinates.
+
+    Parameters
+    ----------
+    al : float
+        alpha Euler angle
+    be : float
+        beta Euler angle
+    ga : float
+        gamma Euler angle
+    lon : array
+        1d array of longitudes in rotated or geographical coordinates (see flag parameter)
+    lat : array
+        1d array of latitudes in rotated or geographical coordinates (see flag parameter)
+    ugeo : array
+        1d array of u component of the vector in geographical coordinates
+    vgeo : array
+        1d array of v component of the vector in geographical coordinates
+    flag : 1 or 0
+        flag=1  - lon,lat are in geographical coordinate
+        flag=0  - lon,lat are in rotated coordinate
+
+    Returns
+    -------
+    u : array
+        1d array of u component of the vector in rotated coordinates
+    v : array
+        1d array of v component of the vector in rotated coordinates
+
+    """
+
+    #   first get another coordinate
+    if flag == 1:
+        (rlon, rlat) = scalar_g2r(al, be, ga, lon, lat)
+    else:
+        rlon = lon
+        rlat = lat
+        (lon, lat) = scalar_r2g(al, be, ga, rlon, rlat)
+
+    #   then proceed...
+    rad = mt.pi / 180
+    al = al * rad
+    be = be * rad
+    ga = ga * rad
+
+    rotate_matrix = np.zeros(shape=(3, 3))
+    rotate_matrix[0, 0] = np.cos(ga) * np.cos(al) - np.sin(ga) * np.cos(be) * np.sin(al)
+    rotate_matrix[0, 1] = np.cos(ga) * np.sin(al) + np.sin(ga) * np.cos(be) * np.cos(al)
+    rotate_matrix[0, 2] = np.sin(ga) * np.sin(be)
+    rotate_matrix[1, 0] = -np.sin(ga) * np.cos(al) - np.cos(ga) * np.cos(be) * np.sin(
+        al
+    )
+    rotate_matrix[1, 1] = -np.sin(ga) * np.sin(al) + np.cos(ga) * np.cos(be) * np.cos(
+        al
+    )
+    rotate_matrix[1, 2] = np.cos(ga) * np.sin(be)
+    rotate_matrix[2, 0] = np.sin(be) * np.sin(al)
+    rotate_matrix[2, 1] = -np.sin(be) * np.cos(al)
+    rotate_matrix[2, 2] = np.cos(be)
+
+    #rotate_matrix = np.linalg.pinv(rotate_matrix) 
+    
+    rlat = rlat * rad
+    rlon = rlon * rad
+    lat = lat * rad
+    lon = lon * rad
+    
+    # vector in Cartesian 
+    txg = -vgeo * np.sin(lat) * np.cos(lon) - ugeo * np.sin(lon)
+    tyg = -vgeo * np.sin(lat) * np.sin(lon) + ugeo * np.cos(lon)
+    tzg = vgeo * np.cos(lat)
+
+    #   vector in rotated Cartesian
+    txr = (
+        rotate_matrix[0, 0] * txg
+        + rotate_matrix[0, 1] * tyg
+        + rotate_matrix[0, 2] * tzg
+    )
+    tyr = (
+        rotate_matrix[1, 0] * txg
+        + rotate_matrix[1, 1] * tyg
+        + rotate_matrix[1, 2] * tzg
+    )
+    tzr = (
+        rotate_matrix[2, 0] * txg
+        + rotate_matrix[2, 1] * tyg
+        + rotate_matrix[2, 2] * tzg
+    )
+
+    #   vector in rotated coordinate
+    v = (
+        -np.sin(rlat) * np.cos(rlon) * txr
+        - np.sin(rlat) * np.sin(rlon) * tyr
+        + np.cos(rlat) * tzr
+    )
+    u = -np.sin(rlon) * txr + np.cos(rlon) * tyr
 
     u = np.array(u)
     v = np.array(v)
