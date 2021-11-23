@@ -766,7 +766,7 @@ def _AddIceTransport(section, ds, data_path, mesh, abg):
         lon_elem_center = np.mean(mesh.x2[ds.elem_nods], axis=1)
         lat_elem_center = np.mean(mesh.y2[ds.elem_nods], axis=1)
 
-        u_ice_nods, v_ice_nods = pf.vec_rotate_r2g(abg[0], abg[1], abg[2], lon_elem_center[np.newaxis, :, np.newaxis],
+        u_ice_nods, v_ice_nods = vec_rotate_r2g(abg[0], abg[1], abg[2], lon_elem_center[np.newaxis, :, np.newaxis],
                                                    lat_elem_center[np.newaxis, :, np.newaxis], u_ice_nods, v_ice_nods, flag=1)
 
         # Write the triplets to the dataset
