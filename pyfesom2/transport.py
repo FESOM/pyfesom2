@@ -770,14 +770,14 @@ def _AddIceTransport(section, ds, data_path, mesh, abg):
                                                    lat_elem_center[np.newaxis, :, np.newaxis], u_ice_nods, v_ice_nods, flag=1)
 
         # Write the triplets to the dataset
-        ds['m_ice_nods'] = (('time','elem','tri'), m_ice_nods)
-        ds['u_ice_nods'] = (('time','elem','tri'), u_ice_nods)
-        ds['v_ice_nods'] = (('time','elem','tri'), v_ice_nods)
+        ds['m_ice_nods'] = (('time','elem','triple'), m_ice_nods)
+        ds['u_ice_nods'] = (('time','elem','triple'), u_ice_nods)
+        ds['v_ice_nods'] = (('time','elem','triple'), v_ice_nods)
 
         # Average the triplets and write to dataset
-        ds['m_ice'] = ds.m_ice_nods.mean(dim='tri')
-        ds['u_ice'] = ds.u_ice_nods.mean(dim='tri')
-        ds['v_ice'] = ds.v_ice_nods.mean(dim='tri')
+        ds['m_ice'] = ds.m_ice_nods.mean(dim='triple')
+        ds['u_ice'] = ds.u_ice_nods.mean(dim='triple')
+        ds['v_ice'] = ds.v_ice_nods.mean(dim='triple')
 
         # Compute the across section ice transport in m^3/s
         if section['orientation'] == 'zonal':
@@ -786,14 +786,17 @@ def _AddIceTransport(section, ds, data_path, mesh, abg):
         elif section['orientation'] == 'meridional':
             ds['ice_transport_across'] = ds.horizontal_distance * ds.m_ice * ds.u_ice
 
+        ds.ice_transport_across.attrs['description'] = 'ice volume transport of each single intersected cell'
+        ds.ice_transport_across.attrs['units'] = 'm^3/s'
+
     return ds
 
 
 def cross_section_transports(section,
                              mesh_path,
                              data_path,
-                             mesh_diag_path,
                              years,
+                             mesh_diag_path=None,
                              use_great_circle=True,
                              how='mean',
                              add_extent=1,
@@ -817,6 +820,8 @@ def cross_section_transports(section,
         directory where the mesh files are stored
     data_path (str)
         directory where the data is stored
+    years (np.ndarray)
+        numpy array with the years to compute transports
     mesh_diag_path (str: optional, default=None)
         directory where the mesh_diag file is stored, if None it is assumed to be located in data_path
     use_great_circle (bool)
