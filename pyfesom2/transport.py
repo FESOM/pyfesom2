@@ -152,10 +152,19 @@ def _ProcessInputs(section, mesh_path, data_path, mesh_diag_path, years, how, us
     # Add great circle information
     if use_great_circle:
         section['great_circle'] = True
+
     else:
         section['great_circle'] = False
-        warnings.warn('For zonal sections the length of the non-great-circle section is computed with a \
-                       reference length of 111.568 km/°E * cos(lat)')
+
+        if section['orientation'] == 'meridional':
+            warnings.warn('Meridional sections are always great circles. Setting use_great_circle=True')
+            section['great_circle'] = True
+
+        elif section['orientation'] == 'zonal':
+            warnings.warn('For zonal sections the length of the non-great-circle section is computed with a \
+                             reference length of 111.568 km/°E * cos(lat)')
+
+
 
 
     # add year information
@@ -492,6 +501,7 @@ def _CreateDataset(files, mesh, elem_box_indices, elem_box_nods, distances_betwe
     '''
 
     # LOAD THE VELOCITY DATA
+    print('--> Loading the velocity data into memory, this may take some time...')
     if how == 'ori':
         ds = xr.open_mfdataset(files, combine='by_coords', chunks=chunks).isel(
             elem=elem_box_indices).load()
@@ -685,6 +695,7 @@ def _AddTempSalt(section, ds, data_path, mesh):
     if not all(file_check):
         raise FileExistsError('One or more of the temperature/ salinity files do not exist!')
 
+    print('--> Loading the temperature and salinity data into memory, this may take some time...')
     # Open files
     ds_ts = xr.open_mfdataset(files, combine='by_coords', chunks={'nod2': 1e4})
 
@@ -751,6 +762,8 @@ def _AddIceTransport(section, ds, data_path, mesh, abg):
                         Skipping ice transport computation...')
     else:
         # Open files
+
+        print('--> Loading the ice data into memory, this should be fast...')
         ds_ice = xr.open_mfdataset(files, combine='by_coords')
 
         # Only load the nods that belong to elements that are part of the section
@@ -878,4 +891,5 @@ def cross_section_transports(section,
     if add_IT:
         ds = _AddIceTransport(section, ds, data_path, mesh, abg)
 
+    print('--> Done!')
     return ds, section
