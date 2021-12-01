@@ -155,7 +155,10 @@ def _ProcessInputs(section, mesh_path, data_path, years,mesh_diag_path):
         raise ValueError('Only zonal or meridional are currently supported!')
 
     # Check for existance of the files
-    files = [data_path + 'u.fesom.' + str(year) + '.nc' for year in years] + [data_path + 'v.fesom.' + str(year) + '.nc' for year in years]
+    files_u = [data_path + 'u.fesom.' + str(year) + '.nc' for year in years]
+    files_v = [data_path + 'v.fesom.' + str(year) + '.nc' for year in years]
+
+    files = files_u + files_v
 
     file_check = []
     for file in files:
