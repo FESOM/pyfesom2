@@ -159,7 +159,6 @@ def _ProcessInputs(section, mesh_path, data_path, years,mesh_diag_path):
     files_v = [data_path + 'v.fesom.' + str(year) + '.nc' for year in years]
 
     files = files_u + files_v
-    print(files)
 
     file_check = []
     for file in files:
