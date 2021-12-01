@@ -572,7 +572,9 @@ def _BringIntoAlongPathOrder(midpoints_edge, intersected_edge, elem_centers, sec
             # apply some tests, the matching element has to have len() == 2 and the previous element must also be contained
             if (len(matching_element) != 2) | (elem_order[-1] not in matching_element):
                 raise ValueError('Probably your section hit an island, that does not work! The last two working gridcell was at: ' +
-                                 str(c_lon[-1]) + '°E, ' + str(c_lat[-1]) + '°N. ' + 'Please use this coordinate tuple as the new end of the section!')
+                                 str(c_lon[-1]) + '°E, ' + str(c_lat[-1]) + '°N. ' +
+                                 'Please use this coordinate tuple as the new end of the section! ' +
+                                 'If this does not work please increase the add_extent parameter as it might be too small for your mesh resolution!')
 
             # find the matching element that's not the previous one, this is the next one
             if elem_order[-1] == matching_element[0]:
@@ -643,7 +645,9 @@ def _BringIntoAlongPathOrder(midpoints_edge, intersected_edge, elem_centers, sec
             # apply some tests, the matching element has to have len() == 2 and the previous element must also be contained
             if (len(matching_element) != 2) | (elem_order[-1] not in matching_element):
                 raise ValueError('Probably your section hit an island, that does not work! The last two working gridcell was at: ' +
-                                 str(c_lon[-1]) + '°E, ' + str(c_lat[-1]) + '°N. ' + 'Please use this coordinate tuple as the new end of the section!')
+                                 str(c_lon[-1]) + '°E, ' + str(c_lat[-1]) + '°N. ' +
+                                 'Please use this coordinate tuple as the new end of the section! ' +
+                                 'If this does not work please increase the add_extent parameter as it might be too small for your mesh resolution!')
 
             # find the matching element that's not the previous one, this is the next one
             if elem_order[-1] == matching_element[0]:
