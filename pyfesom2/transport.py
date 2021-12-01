@@ -10,6 +10,7 @@ import xarray as xr
 import numpy as np
 import shapely.geometry as sg
 import pyproj
+import pymap3d as pm
 from dask.diagnostics import ProgressBar
 ProgressBar().register()
 
