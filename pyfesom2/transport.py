@@ -1,7 +1,7 @@
 """
 Module for computing transports across sections from fesom2 output
 Author: Finn Heukamp (finn.heukamp@awi.de)
-Initial version: 23.12.2021
+Initial version: 23.11.2021
 """
 
 import warnings
@@ -17,8 +17,7 @@ from .load_mesh_data import load_mesh
 from .ut import vec_rotate_r2g, get_no_cyclic, cut_region
 
 
-
-def _ProcessInputs(section, mesh_path, data_path, mesh_diag_path, years, how, use_great_circle):
+def _ProcessInputs(section, mesh_path, data_path, years,mesh_diag_path):
     '''
     process_inputs.py
 
@@ -32,11 +31,21 @@ def _ProcessInputs(section, mesh_path, data_path, mesh_diag_path, years, how, us
         directory where the mesh files are stored
     data_path (str)
         directory where the data is stored
+    years (np.ndarray)
     mesh_diag_path (str: optional, default=None)
         directory where the mesh_diag file is stored, if None it is assumed to be located in data_path
 
     Returns
     -------
+    mesh (fesom.mesh object)
+        fesom mesh
+    mesh_diag (xr.dataset)
+        fesom mesh diag
+    section (dict)
+        section dictionary containing additional information
+    files (list)
+        list of velocity files
+
 
         '''
 
@@ -52,36 +61,18 @@ def _ProcessInputs(section, mesh_path, data_path, mesh_diag_path, years, how, us
     if not isinstance(mesh_path, str):
         raise ValueError('mesh path must be a string')
 
-    if not isinstance(data_path, str):
-        raise ValueError('data path must be a string')
-
     if (mesh_diag_path != None) & (not isinstance(mesh_diag_path, str)):
         raise ValueError('mesh diag path must be a string')
-
-    if (how != 'ori') & (how != 'mean'):
-        raise ValueError(
-            'how must be either ori for all timesteps or mean for the time mwan velocity')
-
-    # Check for existance of the files
-    files_u = [data_path + 'u.fesom.' + str(year) + '.nc' for year in years]
-    files_v = [data_path + 'v.fesom.' + str(year) + '.nc' for year in years]
-    files = files_u + files_v
-
-    file_check = []
-    for file in files:
-        file_check.append(isfile(file))
-
-    if not all(file_check):
-        raise FileExistsError('One or more of the velocity files do not exist!')
 
     if not isdir(mesh_path):
         raise FileExistsError('The mesh folder does not exist!')
 
     if mesh_diag_path == None:
-        mesh_diag_path = data_path + 'fesom.mesh.diag.nc'
+        mesh_diag_path = mesh_path + 'fesom.mesh.diag.nc'
         if not isfile(mesh_diag_path):
             raise FileExistsError(
                 'The fesom.mesh.diag.nc file is not located in data_path! Please specify the absolute path!')
+
     elif isinstance(mesh_diag_path, str):
         if not isfile(mesh_diag_path):
             raise FileExistsError('The mesh diag file does not exist!')
@@ -103,27 +94,40 @@ def _ProcessInputs(section, mesh_path, data_path, mesh_diag_path, years, how, us
         section_name = section
 
         presets = ["BSO", "BSX", "BEAR_SVAL", "SVAL_KVITOYA", "KVITOYA_FJL",
-                   "ST_ANNA_THROUGH", "SVINOY", "GIMSOY", "FRAMSTRAIT"]
+                   "ST_ANNA_THROUGH", "SVINOY", "GIMSOY", "FRAMSTRAIT", "FRAMSTRAIT_FULL",
+                  "BSO_FULL"]
         if not section in presets:
             raise ValueError('The chosen preset section does not exist!')
         else:
             if section_name == 'BSO':
                 section = {'lon_start': 19.999,
                            'lon_end': 19.999,
-                           'lat_start': 70,
-                           'lat_end': 74.5,
+                           'lat_start': 74.5,
+                           'lat_end': 70.08,
+                           }
+            if section_name == 'BSO_FULL':
+                section = {'lon_start': 19.999,
+                           'lon_end': 19.999,
+                           'lat_start': 78.8,
+                           'lat_end': 70.08,
                            }
 
             elif section_name == 'BSX':
                 section = {'lon_start': 64,
                            'lon_end': 64,
                            'lat_start': 76,
-                           'lat_end': 81,
+                           'lat_end': 80.66,
                            }
 
+            elif section_name == 'FRAMSTRAIT_FULL':
+                section = {'lon_start': -18.3,#-6,
+                           'lon_end': 10.6,
+                           'lat_start': 78.8,
+                           'lat_end': 78.8,
+                           }
             elif section_name == 'FRAMSTRAIT':
                 section = {'lon_start': -6,
-                           'lon_end': 10,
+                           'lon_end': 10.6,
                            'lat_start': 78.8,
                            'lat_end': 78.8,
                            }
@@ -139,39 +143,29 @@ def _ProcessInputs(section, mesh_path, data_path, mesh_diag_path, years, how, us
 
         section['name'] = section_name
 
-    # Find the orientation of the section
+    # Find the orientation of the section and look for the nesseccary velocity files
     if section['lon_start'] == section['lon_end']:
         section['orientation'] = 'meridional'
-    elif (section['lat_start'] == section['lat_end']) & (use_great_circle == False):
+
+    elif (section['lat_start'] == section['lat_end']) :
         section['orientation'] = 'zonal'
+
     else:
         section['orientation'] = 'other'
-        warnings.warn('The transport computation for non zonal or non meridional sections is experimental and \
-                       no warranty for its correctness is given!')
+        raise ValueError('Only zonal or meridional are currently supported!')
 
-    # Add great circle information
-    if use_great_circle:
-        section['great_circle'] = True
+    # Check for existance of the files
+    files = [data_path + 'u.fesom.' + str(year) + '.nc' for year in years] + [data_path + 'v.fesom.' + str(year) + '.nc' for year in years]
 
-    else:
-        section['great_circle'] = False
+    file_check = []
+    for file in files:
+        file_check.append(isfile(file))
 
-        if section['orientation'] == 'meridional':
-            warnings.warn('Meridional sections are always great circles. Setting use_great_circle=True')
-            section['great_circle'] = True
-
-        elif section['orientation'] == 'zonal':
-            warnings.warn('For zonal sections the length of the non-great-circle section is computed with a \
-                             reference length of 111.568 km/°E * cos(lat)')
+    if not all(file_check):
+        raise FileExistsError('One or more of the velocity files do not exist!')
 
 
-
-
-    # add year information
-    section['years'] = years
-
-    return mesh, mesh_diag, files, section
-
+    return mesh, mesh_diag, section, files
 
 def _ComputeWaypoints(section, mesh, use_great_circle):
     '''
@@ -187,7 +181,18 @@ def _ComputeWaypoints(section, mesh, use_great_circle):
         fesom.mesh
     use_great_circle (bool)
         True or False
+
+
+    Returns
+    -------
+    section waypoints ()
+        waypoints along the section
+    mesh (fesom.mesh object)
+        fesom mesh
+    section (dict)
+        dictionary containing section information
     '''
+
     if use_great_circle:
         # Compute the great circle coordinates along the section
         g = pyproj.Geod(ellps='WGS84')
@@ -219,39 +224,7 @@ def _ComputeWaypoints(section, mesh, use_great_circle):
 
     return section_waypoints, mesh, section
 
-
-def _Haversine(lon1, lat1, lon2, lat2, use_great_circle):
-    """
-    havesine_np,py
-
-    Calculate the great circle distance between two points
-    on the earth (specified in decimal degrees)
-    https://gist.github.com/susanli2016/57f37514fbc491e287c300616104fe77
-    In case the section is zonal, compute the distance along the latitude.
-
-    All args must be of equal length.
-
-    """
-    if use_great_circle:
-        lon1, lat1, lon2, lat2 = map(np.radians, [lon1, lat1, lon2, lat2])
-
-        dlon = lon2 - lon1
-        dlat = lat2 - lat1
-
-        a = np.sin(dlat/2.0)**2 + np.cos(lat1) * np.cos(lat2) * np.sin(dlon/2.0)**2
-
-        c = 2 * np.arcsin(np.sqrt(a))
-        km = 6367 * c
-
-    else:
-        lat1, lat2 = map(np.radians, [lat1, lat2])
-        dlon = np.abs(lon2 - lon1)
-        km = 111.321 * np.cos(lat1) * dlon
-
-    return km
-
-
-def _ReduceMeshElementNumber(section_waypoints, mesh, section, add_extent, use_great_circle):
+def _ReduceMeshElementNumber(section_waypoints, mesh, section, add_extent):
     '''
     reduce_element_number.py
 
@@ -293,7 +266,7 @@ def _ReduceMeshElementNumber(section_waypoints, mesh, section, add_extent, use_g
 
     # find the elements that are within the extent
     elem_no_nan, no_nan_triangles = cut_region(mesh, box_mesh)
-    no_cyclic_elem2 = get_no_cyclic(mesh, elem_no_nan)
+    no_cyclic_elem2 = pf.get_no_cyclic(mesh, elem_no_nan)
     elem_box_nods = elem_no_nan[no_cyclic_elem2]
 
     # create an array containing the indices of the elements that belong to the region
@@ -332,7 +305,6 @@ def _ReduceMeshElementNumber(section_waypoints, mesh, section, add_extent, use_g
 
     return elem_box_nods, elem_box_indices
 
-
 def _LinePolygonIntersections(mesh, section_waypoints, elem_box_nods, elem_box_indices):
     '''
     line_polygon_intersections.py
@@ -352,6 +324,14 @@ def _LinePolygonIntersections(mesh, section_waypoints, elem_box_nods, elem_box_i
 
     Returns
     -------
+    elem_box_nods (list)
+        list of indices that define the three nods of each element that belongs to the box
+    elem_box_indices (list)
+        list of indices where no_nan_triangles == True (to select the right elements when loading the data)
+    cell_intersections (list)
+        list with all intersections between the line element and the polygons
+    line_section (shapely.line)
+        shapely line element that represents the section
     '''
     # CREATE SHAPELY LINE AND POLYGON ELEMENTS
     line_section = sg.LineString(section_waypoints)
@@ -398,122 +378,407 @@ def _LinePolygonIntersections(mesh, section_waypoints, elem_box_nods, elem_box_i
     cell_intersections = list()
 
     for intersection in intersection_coords:
-        cell_intersections.append([(list(intersection)[0]), (list(intersection)[-1])])
+        cell_intersections.append([[list(intersection)[0]], [list(intersection)[-1]]])
 
     # remove indices of elements that are not intersected
     elem_box_nods = elem_box_nods[intersection_bool]
     elem_box_indices = elem_box_indices[intersection_bool]
 
-    return elem_box_nods, elem_box_indices, cell_intersections
+    return elem_box_nods, elem_box_indices, cell_intersections, line_section
 
-
-def _CreateVerticalGrid(cell_intersections, section, mesh, use_great_circle):
+def _FindIntersectedEdges(mesh, elem_box_nods, elem_box_indices, line_section, cell_intersections):
     '''
-    vertical_grid.py
-
-    Compute the properties of the vertical section grid
+    Find the two intersected edges of each mesh element along the section (2 out of three). In case the start/ end point is in the ocean only one edge is
+    intersected. In this case the associated mesh element is dropped.
 
     Inputs
     ------
+    mesh (fesom.mesh object)
+        mesh object
+    elem_box_nods (list)
+        list of indices that defines the three nods of each element that belongs to the box
+    elem_box_indices (list)
+        list of indices where no_nan_triangles == True (to select the right elements when loading the data)
     cell_intersections (list)
-        list of the edge intersection coordinates of each element in shapely.coordinates format
+        list with all intersections between the line element and the polygons
+    line_section (shapely.line)
+        shapely line element that represents the section
+
+    Returns
+    -------
+    intersected_edge (np.ndarray)
+        boolean array, True if edge of element is intersected, False otherwise
+    midpoints_edge (np.ndarray)
+        centers of the three edges asociated to each single mesh element
+    elem_centers (np.ndarray)
+        cener of the mesh element
+    elem_box_nods (list)
+        list of indices that defines the three nods of each element that belongs to the box
+    elem_box_indices (list)
+        list of indices where no_nan_triangles == True (to select the right elements when loading the data)
+    cell_intersections (list)
+        list with all intersections between the line element and the polygons
+
+    '''
+    # array with the lons and lats of the three nods forming one element
+    lon_elems = mesh.x2[elem_box_nods]
+    lat_elems = mesh.y2[elem_box_nods]
+
+    # array with the centers of the cells
+    lon_centers, lat_centers = np.mean(mesh.x2[elem_box_nods], axis=1), np.mean(mesh.y2[elem_box_nods], axis=1)
+    elem_centers = np.array([[lon_centers[i], lat_centers[i]] for i in range(len(lon_centers))])
+
+    # Find the element edges that are intersected (2 of 3 regular, 1 of 3 with land)
+    intersected_edge = np.ones((len(elem_centers),3), dtype=bool)
+    midpoints_edge = np.zeros((len(elem_centers),3,2)) # elem, edge, (lon,lat)
+
+    # iterate over all intersected elements
+    for ii in range(len(elem_centers)):
+        # extract the coordinates of the nods forming one element
+        lon1, lon2, lon3 = lon_elems[ii][0], lon_elems[ii][1], lon_elems[ii][2]
+        lat1, lat2, lat3 = lat_elems[ii][0], lat_elems[ii][1], lat_elems[ii][2]
+
+        # compute the midpoints of the element edge
+        midpoints_edge[ii,0,0] = (lon1+lon2)/2
+        midpoints_edge[ii,1,0] = (lon2+lon3)/2
+        midpoints_edge[ii,2,0] = (lon3+lon1)/2
+
+        midpoints_edge[ii,0,1] = (lat1+lat2)/2
+        midpoints_edge[ii,1,1] = (lat2+lat3)/2
+        midpoints_edge[ii,2,1] = (lat3+lat1)/2
+
+        # create shapely line elements for each of the element edges
+        line12 = sg.LineString([[lon1,lat1], [lon2,lat2]])
+        line23 = sg.LineString([[lon2,lat2], [lon3,lat3]])
+        line31 = sg.LineString([[lon3,lat3], [lon1,lat1]])
+
+        # find the element edges that intersect with the section
+        if not list(line12.intersection(line_section).coords):
+            intersected_edge[ii,0] = False
+        if not list(line23.intersection(line_section).coords):
+            intersected_edge[ii,1] = False
+        if not list(line31.intersection(line_section).coords):
+            intersected_edge[ii,2] = False
+
+        # when there is only one edge of the element hit then set all intersections to False and drop it later
+        if sum(intersected_edge[ii,:]) == 1:
+            intersected_edge[ii,:] = False
+
+    zeros_in_intersected_edge = np.where(intersected_edge.sum(axis=1) == 0)[0]
+    if len(zeros_in_intersected_edge) == 2:
+        print('The section starts and ends in the ocean. Those elements that contain the start and end coordinate of the section are droped.')
+    elif len(zeros_in_intersected_edge) == 1:
+        print('The section is land-ocean/ ocean-land. Those elements that contain the start and end coordinate of the section are droped.')
+    elif len(zeros_in_intersected_edge) == 0:
+        print('The section is land to land')
+    else:
+        raise ValueError('Your section contains to many cell edges that were intersected only once. Only 0, 1 or 2 are allowed.')
+
+    # Now drop those elements in the arrays
+    elem_box_nods = np.delete(elem_box_nods, zeros_in_intersected_edge, axis=0)
+    elem_box_indices = np.delete(elem_box_indices, zeros_in_intersected_edge)
+    midpoints_edge = np.delete(midpoints_edge, zeros_in_intersected_edge, axis=0)
+    elem_centers = np.delete(elem_centers, zeros_in_intersected_edge, axis=0)
+    intersected_edge = np.delete(intersected_edge, zeros_in_intersected_edge, axis=0)
+    cell_intersections = np.delete(np.array(cell_intersections).squeeze(), zeros_in_intersected_edge, axis=0)
+
+    return intersected_edge, midpoints_edge, elem_centers, elem_box_indices, elem_box_nods, cell_intersections
+
+def _BringIntoAlongPathOrder(midpoints_edge, intersected_edge, elem_centers, section):
+    '''
+    Brings the mesh elements and segment vectors into an along-section order (eastwards/ northwards).
+
+    Inputs
+    ------
+    intersected_edge (np.ndarray)
+        boolean array, True if edge of element is intersected, False otherwise
+    midpoints_edge (np.ndarray)
+        centers of the three edges asociated to each single mesh element
+    elem_centers (np.ndarray)
+        cener of the mesh element
     section (dict)
         section dictionary
-    mesh (fesom.mesh onject)
-        fesom.mesh
 
     Returns
     -------
-    distances_between (numpy.ndarray)
-        horizontal distance that each element is intersected by the section
-    distances_to_start (numpy.ndarray)
-        absolute distance of the center of the intersection segment to the section start
-    grid_cell_area (numpy.ndarray)
-        vertical area of the intersected elements
-    layer_thickness (numpy.ndarray)
-        thickness of individual layers
+    c_lon (list)
+        center longitude of mesh element
+    c_lat (list)
+        center latitude of mesh element
+    f_lon (list)
+        first edge midpoint latitude of the element
+    f_lat (list)
+        first edge midpoint longitude of the element
+    s_lon (list)
+         second edge midpoint latitude of the element
+    s_lat (list)
+         second edge midpoint longitude of the element
+    elem_order (list)
+        indices of the ascending elements
+
 
     '''
-    distances_between = []
-    distances_to_start = []
+   #### FIND THE FIRST POINT OF THE SECTION
 
-    for ii in range(len(cell_intersections)):
-        distances_between.append(_Haversine(cell_intersections[ii][0][0],  # lon1
-                                            cell_intersections[ii][0][1],   # lat1
-                                            cell_intersections[ii][1][0],   # lon2
-                                            cell_intersections[ii][1][1],  # lat2
-                                            use_great_circle
-                                            )
-                                 )
+    if section['orientation'] == 'zonal':
+        # find the westernnmost intersected edge midpoint
+        start_ind = np.argmin(midpoints_edge[intersected_edge,0])
+        start_value = midpoints_edge[intersected_edge,0][start_ind]
 
-        distances_to_start.append(_Haversine(section['lon_start'],
-                                             section['lat_start'],
-                                             (cell_intersections[ii][0][0] +
-                                              cell_intersections[ii][1][0]) / 2,
-                                             (cell_intersections[ii][0][1] +
-                                              cell_intersections[ii][1][1]) / 2,
-                                              use_great_circle
-                                             )
-                                  )
+        # create list for already used elements
+        first_element = list()
 
-    distances_between = np.array(distances_between) * 1000  # scale to m
-    distances_to_start = np.array(distances_to_start) * 1000  # scale to m
+        for ii in range(midpoints_edge.shape[0]):
 
-    layer_thickness = abs(np.diff(mesh.zlev))  # vertical layer thickness
-    grid_cell_area = distances_between[:, np.newaxis] * \
-        layer_thickness[np.newaxis, :]  # area of the intersected elements
+            # for each single midpoint tuple, check if the longitude is the same (then this is the first element)
+            if start_value in midpoints_edge[ii,intersected_edge[ii,:],0]:
+                first_element.append(ii)
+                #print(first_element)
 
-    return distances_between, distances_to_start, layer_thickness, grid_cell_area
+        #if len(first_element) > 1:
+            #raise ValueError('Something is wrong here...')
+
+        # now look which of the two intersected midpoints of the first element is intersected first
+        ind_first = np.where(midpoints_edge[first_element[0],intersected_edge[first_element[0],:],0] == start_value)[0]
+
+        # write the coordinates in the right order into lists (first_value, centeroid, second_value, (lon,lat)) for each element
+        f_lon, f_lat, s_lon, s_lat, c_lon, c_lat, elem_order = list(), list(), list(), list(), list(), list(), list()
+
+        c_lon.append(elem_centers[first_element[0],0])
+        c_lat.append(elem_centers[first_element[0],1])
+        f_lon.append(midpoints_edge[first_element[0], intersected_edge[first_element[0],:], 0][ind_first][0])
+        f_lat.append(midpoints_edge[first_element[0], intersected_edge[first_element[0],:], 1][ind_first][0])
+        s_lon.append(midpoints_edge[first_element[0], intersected_edge[first_element[0],:], 0][ind_first-1][0])# if ind_first =0 --> -1 which is the same index as 1
+        s_lat.append(midpoints_edge[first_element[0], intersected_edge[first_element[0],:], 1][ind_first-1][0])
+
+        elem_order.append(first_element[0])
 
 
-def _CreateDataset(files, mesh, elem_box_indices, elem_box_nods, distances_between, distances_to_start, grid_cell_area, how, abg, chunks):
+        ###### Bring all the elements into the right order
+
+        for jj in range(elem_centers.shape[0]-1):
+            # Now we repeat this procedure for the second value of the previous element
+            matching_element = list()
+            for ii in range(midpoints_edge.shape[0]):
+                # for each single midpoint tuple, check if the longitude is the same (then this is the next element)
+                if s_lon[-1] in midpoints_edge[ii,intersected_edge[ii,:],0]:
+                    matching_element.append(ii)
+            #print(jj, matching_element)
+
+            # apply some tests, the matching element has to have len() == 2 and the previous element must also be contained
+            if (len(matching_element) != 2) | (elem_order[-1] not in matching_element):
+                raise ValueError('Probably your section contians an island, that does not work!')
+
+            # find the matching element that's not the previous one, this is the next one
+            if elem_order[-1] == matching_element[0]:
+                ind = 1
+            else:
+                ind = 0
+
+            # now look which of the two intersected midpoints of the element is the same as the last second value
+            ind_first = np.where(midpoints_edge[matching_element[ind],intersected_edge[matching_element[ind],:],0] == s_lon[-1])[0]
+
+            # append to list in right order
+            c_lon.append(elem_centers[matching_element[ind],0])
+            c_lat.append(elem_centers[matching_element[ind],1])
+            f_lon.append(midpoints_edge[matching_element[ind], intersected_edge[matching_element[ind],:], 0][ind_first][0])
+            f_lat.append(midpoints_edge[matching_element[ind], intersected_edge[matching_element[ind],:], 1][ind_first][0])
+            s_lon.append(midpoints_edge[matching_element[ind], intersected_edge[matching_element[ind],:], 0][ind_first-1][0])# if ind_first =0 --> -1 which is the same index as 1
+            s_lat.append(midpoints_edge[matching_element[ind], intersected_edge[matching_element[ind],:], 1][ind_first-1][0])
+
+            elem_order.append(matching_element[ind])
+
+    elif section['orientation'] == 'meridional':
+
+        # find the southernmost intersected edge midpoint
+        start_ind = np.argmin(midpoints_edge[intersected_edge,1])
+        start_value = midpoints_edge[intersected_edge,1][start_ind]
+        #print(start_ind, start_value)
+
+        # create list for already used elements
+        first_element = list()
+
+        for ii in range(midpoints_edge.shape[0]):
+
+            # for each single midpoint tuple, check if the latitude is the same (then this is the first element)
+            if start_value in midpoints_edge[ii,intersected_edge[ii,:],1]:
+                first_element.append(ii)
+                #print(first_element)
+
+        #if len(first_element) > 1:
+            #raise ValueError('Something is wrong here...')
+
+        # now look which of the two intersected midpoints of the first element is intersected first
+        ind_first = np.where(midpoints_edge[first_element[0],intersected_edge[first_element[0],:],1] == start_value)[0]
+
+        # write the coordinates in the right order into lists (first_value, centeroid, second_value, (lon,lat)) for each element
+        f_lon, f_lat, s_lon, s_lat, c_lon, c_lat, elem_order = list(), list(), list(), list(), list(), list(), list()
+
+        c_lon.append(elem_centers[first_element[0],0])
+        c_lat.append(elem_centers[first_element[0],1])
+        f_lon.append(midpoints_edge[first_element[0], intersected_edge[first_element[0],:], 0][ind_first][0])
+        f_lat.append(midpoints_edge[first_element[0], intersected_edge[first_element[0],:], 1][ind_first][0])
+        s_lon.append(midpoints_edge[first_element[0], intersected_edge[first_element[0],:], 0][ind_first-1][0])# if ind_first =0 --> -1 which is the same index as 1
+        s_lat.append(midpoints_edge[first_element[0], intersected_edge[first_element[0],:], 1][ind_first-1][0])
+
+        elem_order.append(first_element[0])
+
+
+        ###### Bring all the elements into the right order
+
+        for jj in range(elem_centers.shape[0]-1):
+            # Now we repeat this procedure for the second value of the previous element
+            matching_element = list()
+            for ii in range(midpoints_edge.shape[0]):
+                # for each single midpoint tuple, check if the longitude is the same (then this is the next element)
+                if s_lat[-1] in midpoints_edge[ii,intersected_edge[ii,:],1]:
+                    matching_element.append(ii)
+            #print(jj, matching_element)
+
+            # apply some tests, the matching element has to have len() == 2 and the previous element must also be contained
+            if (len(matching_element) != 2) | (elem_order[-1] not in matching_element):
+                raise ValueError('Probably your section hit an island, that does not work! The last two working gridcell was at: ' +
+                                 str(c_lon[-1]) + '°E, ' + str(c_lat[-1]) + '°N. ' + 'Please use this coordinate tuple as the new end of the section!')
+
+            # find the matching element that's not the previous one, this is the next one
+            if elem_order[-1] == matching_element[0]:
+                ind = 1
+            else:
+                ind = 0
+
+            # now look which of the two intersected midpoints of the element is the same as the last second value
+            ind_first = np.where(midpoints_edge[matching_element[ind],intersected_edge[matching_element[ind],:],0] == s_lon[-1])[0]
+
+            # append to list in right order
+            c_lon.append(elem_centers[matching_element[ind],0])
+            c_lat.append(elem_centers[matching_element[ind],1])
+            f_lon.append(midpoints_edge[matching_element[ind], intersected_edge[matching_element[ind],:], 0][ind_first][0])
+            f_lat.append(midpoints_edge[matching_element[ind], intersected_edge[matching_element[ind],:], 1][ind_first][0])
+            s_lon.append(midpoints_edge[matching_element[ind], intersected_edge[matching_element[ind],:], 0][ind_first-1][0])# if ind_first =0 --> -1 which is the same index as 1
+            s_lat.append(midpoints_edge[matching_element[ind], intersected_edge[matching_element[ind],:], 1][ind_first-1][0])
+
+            elem_order.append(matching_element[ind])
+
+    #check if the no element appears twice
+    for i in elem_order:
+        if elem_order.count(i) > 1:
+            raise ValueError('An element appeared twice while sorting...' + str(i))
+    if len(elem_order) != elem_centers.shape[0]:
+        raise ValueError('Wrong number of elements while sorting along path...')
+
+
+    return c_lon, c_lat, f_lon, f_lat, s_lon, s_lat, elem_order
+
+def _ComputeBrokenLineSegments(f_lat, f_lon, s_lat, s_lon, c_lat, c_lon, section):
     '''
-    create_dataset.py
-
-    Load and unrotate the velocities on the elements that belong to the section and add variables to the dataset
+    Compute the two broken line segments that connect the intersected edge midpoints to the center of the mesh element
+    in local cartesian coordinates. Afterwards compute the effective length of the two segments in x and y direction.
 
     Inputs
     ------
-    files (list)
-        list of files to be loaded (u.fesom and v.fesom)
-    elem_box_indices (list)
-        list of indices that belong points towards the elements that belong to the section
-    elem_box_nods (list)
-        list of indices of the three nods that form each element
-    distances_between (np.ndarray)
-        list of the horizontal length of the single segments in m
-    distances_to_start (np.ndarray)
-        distance of the segment center to the starting point in m
-    grid_cell_area (np.ndarray)
-        cell weight for the transport calculations in m2
-    how (str)
-        either 'mean' or 'ori'
-    abg (list)
-        euler angles to rotate the fesom2 velocity output (default, [50, 15, -90])
-    chunks (dict)
-        chunks of the velocity dataset (default {'elem': 1e4})
+    c_lon (list)
+        center longitude of mesh element
+    c_lat (list)
+        center latitude of mesh element
+    f_lon (list)
+        first edge midpoint latitude of the element
+    f_lat (list)
+        first edge midpoint longitude of the element
+    s_lon (list)
+         second edge midpoint latitude of the element
+    s_lat (list)
+         second edge midpoint longitude of the element
+    section (dict)
+        section dictionary
 
     Returns
     -------
-    ds (xarray.Dataset)
-        dataset with the velocities
-
+    effective_dx (np.ndarray)
+        the effective length of the two segment elements in x direction to compute transport with v
+    effective_dy (np.ndarray)
+        the effective length of the two segment elements in y direction to compute transport with u
     '''
 
-    # LOAD THE VELOCITY DATA
-    print('--> Loading the velocity data into memory, this may take some time...')
-    if how == 'ori':
-        ds = xr.open_mfdataset(files, combine='by_coords', chunks=chunks).isel(
-            elem=elem_box_indices).load()
-    elif how == 'mean':
-        ds = xr.open_mfdataset(files, combine='by_coords', chunks=chunks).isel(
-            elem=elem_box_indices).mean(dim='time').load()
+    # create an array for the segment vectors (2 for each element) with the shape (elem, (dlon,dlat))
+    first_segment_vector = np.ones((len(f_lon), 2))
+    second_segment_vector = np.ones_like(first_segment_vector)
+    for ii in range(len(f_lon)):
 
-    # rename u and v to u_rot, v_rot
-    ds = ds.rename({'u': 'u_rot'})
-    ds = ds.rename({'v': 'v_rot'})
+        # FIRST VECTOR OF THE ELEMENT
+        # switch to a local cartesian coordinate system (centered at the element midpoint) and compute the vector connecting
+        # the center of the intersected edge with the center of the element (always pointing outwards from the center of the element)
+        dx, dy, dz = pm.geodetic2enu(lat0=c_lat[ii],
+                                        lon0=c_lon[ii],
+                                        h0=0,
+                                        lat=f_lat[ii],
+                                        lon=f_lon[ii],
+                                        h=0,
+                                     ell=pm.utils.Ellipsoid('wgs84')
+                                   )
 
-    # ADD SOME FURTHER VARIABLES
+        first_segment_vector[ii,0], first_segment_vector[ii,1] = -dx, -dy # turn the vector to point towards the center, in the direction of the section
+
+        # SECOND VECTOR OF THE ELEMENT
+        dx, dy, dz = pm.geodetic2enu(lat0=c_lat[ii],
+                                        lon0=c_lon[ii],
+                                        h0=0,
+                                        lat=s_lat[ii],
+                                        lon=s_lon[ii],
+                                        h=0,
+                                     ell=pm.utils.Ellipsoid('wgs84')
+                                   )
+
+        second_segment_vector[ii,0], second_segment_vector[ii,1] = dx, dy
+
+    # define the sign of the segment length
+    if section['orientation'] == 'zonal':
+
+        effective_dx = first_segment_vector[:,0] + second_segment_vector[:,0]
+        effective_dy = -first_segment_vector[:,1] - second_segment_vector[:,1]
+
+
+    if section['orientation'] == 'meridional':
+
+        effective_dx = -first_segment_vector[:,0] - second_segment_vector[:,0]
+        effective_dy = first_segment_vector[:,1] + second_segment_vector[:,1]
+
+
+    return effective_dx, effective_dy
+
+def _CreateVerticalGrid(effective_dx, effective_dy, mesh_diag):
+    '''
+    Creates the vertical grid to compute transports through the section
+
+    Inputs
+    ------
+    effective_dx (np.ndarray)
+        the effective length of the two segment elements in x direction to compute transport with v
+    effective_dy (np.ndarray)
+        the effective length of the two segment elements in y direction to compute transport with u
+
+    Returns
+    -------
+    vertical_cell_area_dx (np.ndarray)
+        the cell area for each mesh element to be multiplied by the meridional velocity
+    vertical_cell_area_dy (np.ndarray)
+        the cell area for each mesh element to be multiplied by the zonal velocity
+
+    '''
+    # take the layer thickness
+    layer_thickness = np.abs(np.diff(mesh_diag.zbar))
+
+    # compute the vertical area for dx and dy
+    vertical_cell_area_dx = layer_thickness[:,np.newaxis] * effective_dx[np.newaxis,:]
+    vertical_cell_area_dy = layer_thickness[:,np.newaxis] * effective_dy[np.newaxis,:]
+
+    return vertical_cell_area_dx, vertical_cell_area_dy
+
+def _AddMetaData(ds, elem_box_indices, elem_box_nods, effective_dx, effective_dy, vertical_cell_area_dx, vertical_cell_area_dy, c_lon, c_lat):
+    '''
+    Add some meta-data to the dataset.
+    '''
+
+     # ADD SOME FURTHER VARIABLES
     ds.assign_coords({'triple': ("triple", [1, 2, 3])})
 
     # elem_indices
@@ -524,307 +789,157 @@ def _CreateDataset(files, mesh, elem_box_indices, elem_box_nods, distances_betwe
     ds['elem_nods'] = (('elem', 'triple'), elem_box_nods)
     ds.elem_nods.attrs['description'] = 'indices of the 3 nods that represent the elements that belong to the section relative to the global data field'
 
-    # horizontal_distance
-    ds['horizontal_distance'] = (('elem'), distances_between)
-    ds.horizontal_distance.attrs['description'] = 'width of the intersection for each element'
-    ds.horizontal_distance.attrs['units'] = 'm'
-
-    # distance_to_start
-    ds['distances_to_start'] = (('elem'), distances_to_start)
-    ds.distances_to_start.attrs['description'] = 'horizontal distance of the center of the segment to the start of the section'
-    ds.distances_to_start.attrs['units'] = 'm'
+    # horizontal_distances
+    ds['zonal_distance'] = (('elem'), effective_dx)
+    ds.zonal_distance.attrs['description'] = 'width of the two broken lines in each element in west-east direction'
+    ds.zonal_distance.attrs['units'] = 'm'
+    ds['meridional_distance'] = (('elem'), effective_dy)
+    ds.meridional_distance.attrs['description'] = 'width of the two broken lines in each element in south-east direction'
+    ds.meridional_distance.attrs['units'] = 'm'
 
     # vertical_cell_area
-    ds['vertical_cell_area'] = (('elem', 'nz1'), grid_cell_area)
-    ds.vertical_cell_area.attrs['description'] = 'cell area of the single intersected elements'
-    ds.vertical_cell_area.attrs['units'] = 'm^2'
+    ds['vertical_cell_area_dx'] = (('elem', 'nz1'), np.transpose(vertical_cell_area_dx))
+    ds.vertical_cell_area_dx.attrs['description'] = 'cell area of the single intersected elements in east-west direction'
+    ds.vertical_cell_area_dx.attrs['units'] = 'm^2'
 
+    ds['vertical_cell_area_dy'] = (('elem', 'nz1'), np.transpose(vertical_cell_area_dy))
+    ds.vertical_cell_area_dy.attrs['description'] = 'cell area of the single intersected elements in south-north direction'
+    ds.vertical_cell_area_dy.attrs['units'] = 'm^2'
+
+    # lon lat
+    ds['lon_center'] = (('elem'), c_lon)
+    ds.lon_center.attrs['description'] = 'longitude of the element centers'
+    ds.lon_center.attrs['units'] = '°E'
+
+    ds['lat_center'] = (('elem'), c_lat)
+    ds.lat_center.attrs['description'] = 'latitude of the element centers'
+    ds.lat_center.attrs['units'] = '°E'
+
+    return ds
+
+def _UnrotateLoadVelocity(how, files, elem_box_indices, elem_box_nods, vertical_cell_area_dx, vertical_cell_area_dy, c_lon, c_lat, effective_dx, effective_dy, elem_order, chunks, mesh, abg):
+    '''
+    Load and unrotate the fesom velocity files. Additionally bring the mesh elements into the right order (according to the section)
+
+    Inputs
+    ------
+    how (str)
+        mean or ori
+    files (list)
+        list of strings contianing the files to load
+    elem_box_nods (list)
+        list of indices that defines the three nods of each element that belongs to the box
+    elem_box_indices (list)
+        list of indices where no_nan_triangles == True (to select the right elements when loading the data)
+    vertical_cell_area_dx (np.ndarray)
+        the cell area for each mesh element to be multiplied by the meridional velocity
+    vertical_cell_area_dy (np.ndarray)
+        the cell area for each mesh element to be multiplied by the zonal velocity
+    c_lon (list)
+        center longitude of mesh element
+    c_lat (list)
+        center latitude of mesh element
+    effective_dx (np.ndarray)
+        the effective length of the two segment elements in x direction to compute transport with v
+    effective_dy (np.ndarray)
+        the effective length of the two segment elements in y direction to compute transport with u
+    chunks (dict)
+        chunks for dask (default: {'elem': 1e5}
+    mesh (fesom.mesh object)
+        fesom.mesh
+    abg (list)
+        mesh rotation [50 15 -90]
+
+    Returns
+    -------
+    ds (xr.Dataset)
+        dataset containing all variables
+
+
+    '''
+
+     # decide on the loading strategy, for small datasets combine the data to one dataset, for large datasets load files individually
+#    overload = xr.open_dataset(files[0]).nbytes * 1e-6 * len(files) >= RAMthresh
+#    if overload:
+#        datasets = []
+#
+#        for file in files:
+#            # Load
+#            ds = xr.open_dataset(file).isel(elem=elem_box_indices).load()
+#            # Add some Meta data
+#            ds = _AddMetaData(ds, elem_box_indices, elem_box_nods, segment_length, vertical_cell_area)
+#
+#            # rename u and v to u_rot, v_rot
+#            ds = ds.rename({'u': 'u_rot'})
+#            ds = ds.rename({'v': 'v_rot'})
+#
+#            # UNROTATE
+#            lon_elem_center = np.mean(mesh.x2[ds.elem_nods], axis=1)
+#            lat_elem_center = np.mean(mesh.y2[ds.elem_nods], axis=1)
+#
+#            u, v = vec_rotate_r2g(abg[0], abg[1], abg[2], lon_elem_center[np.newaxis, :, np.newaxis],
+#                                     lat_elem_center[np.newaxis, :, np.newaxis], ds.u_rot.values, ds.v_rot.values, flag=1)
+#
+#            ds['u'] = (('time', 'elem', 'nz1'), u)
+#            ds['v'] = (('time', 'elem', 'nz1'), v)
+#
+#            datasets.append(ds)
+#
+#        # merge the datasers along time dimension
+#        ds = xr.concat(datasets, dim='time')
+
+#    else:
+        # Load and merge at the same time
+    ds = xr.open_mfdataset(files, combine='by_coords', chunks=chunks).isel(
+        elem=elem_box_indices).load()
+
+    ds = _AddMetaData(ds, elem_box_indices, elem_box_nods, effective_dx, effective_dy, vertical_cell_area_dx, vertical_cell_area_dy, c_lon, c_lat)
+
+    # rename u and v to u_rot, v_rot
+    ds = ds.rename({'u': 'u_rot'})
+    ds = ds.rename({'v': 'v_rot'})
     # UNROTATE
     lon_elem_center = np.mean(mesh.x2[ds.elem_nods], axis=1)
     lat_elem_center = np.mean(mesh.y2[ds.elem_nods], axis=1)
-
     u, v = vec_rotate_r2g(abg[0], abg[1], abg[2], lon_elem_center[np.newaxis, :, np.newaxis],
                              lat_elem_center[np.newaxis, :, np.newaxis], ds.u_rot.values, ds.v_rot.values, flag=1)
 
     ds['u'] = (('time', 'elem', 'nz1'), u)
     ds['v'] = (('time', 'elem', 'nz1'), v)
 
-    return ds
+    ds = ds.drop_vars(['u_rot','v_rot'])
 
+    # bring u and v into the right order
+    ds['u'] = ds.u.isel(elem=elem_order)
+    ds['v'] = ds.v.isel(elem=elem_order)
 
-def _ComputeTransports(ds, mesh, section, cell_intersections, section_waypoints, use_great_circle):
-    '''
-    compute_transports.py
-
-    Computes the transports across the section by taking the dot product of the section normal vector and the local velocity vector
-
-    Inputs
-    ------
-    ds (xarray.Dataset)
-        dataset containing the velocities etc.
-    mesh (fesom.mesh object)
-        fesom.mesh
-    section (dict)
-        section dictionary
-    cell_intersections (list)
-        list with all the two intersection coordinates of each mesh element
-    section_waypoints (list)
-        list of all the section waypoints
-    use_great_circle (bool)
-        True or False
-
-    Returns
-    -------
-    ds (xarray.Dataset)
-        final dataset
-
-    '''
-
-    # COMPUTE THE NORMAL VECTORS TO THE SECTION
-
-    # in all section['orientation'] == 'other' cases the normal vector of the intersection segments have to be computed individually
-    if section['orientation'] == 'other':
-        # compute the normal vector for each section segment, segments are computed from west to east
-        # in this case, the normal vector will always point towards north-east
-        segment_vectors = np.ones((len(cell_intersections), 2))
-        normal_vectors = np.ones((len(cell_intersections), 2))
-
-        # compute the single segment vectors connecting the two intercections of each element (vec(AB) = B - A)
-        # compute the normal vector for each of the segment vectors
-        for ii in range(len(cell_intersections)):
-            segment_vectors[ii, :] = np.array(
-                cell_intersections[ii][1]) - np.array(cell_intersections[ii][0])
-
-            # 2D normal vector for (a,b) is (-b,a)
-            normal_vectors[ii, 0] = -segment_vectors[ii, 1]
-            normal_vectors[ii, 1] = segment_vectors[ii, 0]
-
-        # normalize normal vector
-        norm = np.sqrt(np.sum(normal_vectors**2, axis=1))**(-1)
-        normal_vectors = normal_vectors * norm[:, np.newaxis]
-
-        # length test: norm of normal vector has to == 1 (|n| = 1)
-        length_test = np.sqrt(np.sum(normal_vectors**2, axis=1))
-        if any(1 - np.abs(length_test) > 1e-10):
-            raise ValueError('Length of the normalized normal vector != 1 +- 1e-10')
-
-        # angle test: angle between segment and normal vector == 0 (dot product == 0)
-        angle_test = [np.dot(segment_vectors[i, :], normal_vectors[i, :])
-                      for i in range(len(segment_vectors))]
-        if any(np.abs(angle_test) > 1e-5):
-            raise ValueError('Angle between normalized normal vector and segment vector != 90°')
-
-    # COMPUTE TRANSPORT ACROSS SECTION
-
-    # in meridional case the section is a great circle anyway and the across section velocity is given by u
-    if section['orientation'] == 'meridional':
-        # * ds.vertical_cell_area.values[np.newaxis,:,:])
-        ds['velocity_across'] = (('time', 'elem', 'nz1'), ds.u.values)
-
-    # in zonal case with no great circle the across section velocity is given by v
-    elif (section['orientation'] == 'zonal') & (use_great_circle == False):
-        # * ds.vertical_cell_area.values[np.newaxis,:,:])
-        ds['velocity_across'] = (('time', 'elem', 'nz1'), ds.v.values)
-
-    # in all other cases the across section velocity is the dot product of velocity and section normal vector
-    elif section['orientation'] == 'other':
-        # split the normal vector into x and y part
-        normal_x = normal_vectors[:, 0]
-        normal_y = normal_vectors[:, 1]
-
-        ds['velocity_across'] = ds.u * normal_x[np.newaxis, :, np.newaxis] + \
-            ds.v * normal_y[np.newaxis, :, np.newaxis]
-
-    # compute transport across section
-    ds['transport_across'] = (('time', 'elem', 'nz1'), ds['velocity_across'].values *
-                              ds.vertical_cell_area.values[np.newaxis, :, :])
-
-    # add attributes
-    ds.transport_across.attrs['description'] = 'volume transport of each single cell through the section'
-    ds.transport_across.attrs['units'] = 'm^3/s'
-
-    ds.velocity_across.attrs['description'] = 'across section velocity'
-    ds.velocity_across.attrs['units'] = 'm/s'
-
-    # Drop unwanted VARIABLES
-    ds = ds.drop(['u_rot', 'v_rot'])
-
-    # SORTBY DISTANCE
-    ds = ds.sortby('distances_to_start')
+    if how == 'mean':
+        ds = ds.mean(dim='time')
 
     return ds
 
-
-def _AddTempSalt(section, ds, data_path, mesh):
+def _TransportAcross(ds):
     '''
-    _AddTempSalt.py
-
-    Adds temperature and salinity values to the section. The temperature and salinity is converted from nods to elements by taking the average
-    of the three nods that form the element.
+    Compute the transport across the broken line elements
 
     Inputs
     ------
-    section (dict)
-        section dictionary
-    ds (xarray.Dataset)
-        dataset containing the velocities etc.
-    data_path (str)
-        directory where the fesom output is stored
-    mesh (fesom mesh file)
-        fesom mesh file
-
-    Returns
-    -------
-
     ds (xr.Dataset)
-        final dataset
-
-
-    '''
-
-    # Check for existance of the files
-    years = section['years']
-    files_temp = [data_path + 'temp.fesom.' + str(year) + '.nc' for year in years]
-    files_salt = [data_path + 'salt.fesom.' + str(year) + '.nc' for year in years]
-    files = files_temp + files_salt
-
-    file_check = []
-    for file in files:
-        file_check.append(isfile(file))
-
-    if not all(file_check):
-        raise FileExistsError('One or more of the temperature/ salinity files do not exist!')
-
-    print('--> Loading the temperature and salinity data into memory, this may take some time...')
-    # Open files
-    ds_ts = xr.open_mfdataset(files, combine='by_coords', chunks={'nod2': 1e4})
-
-    # Only load the nods that belong to elements that are part of the section
-    # Flatten the triplets first
-    ds_ts = ds_ts.isel(nod2=ds.elem_nods.values.flatten()).load()
-
-    # Reshape to triplets again and average all three values to obtain an estimate of the elements properties
-    temp = ds_ts.temp.values.reshape(len(ds.time), len(ds.elem_nods), 3, mesh.nlev - 1).mean(axis=2)
-    salt = ds_ts.salt.values.reshape(len(ds.time), len(ds.elem_nods), 3, mesh.nlev - 1).mean(axis=2)
-
-    # Add to dataset
-    ds['temp'] = (('time', 'elem', 'nz1'), temp)
-    ds['salt'] = (('time', 'elem', 'nz1'), salt)
-
-    return ds
-
-
-
-def _AddIceTransport(section, ds, data_path, mesh, abg):
-
-    '''
-    _AddIceTransport.py
-
-    Adds the ice volume transport across the section by averaging the ice velocity to of 3 nods of the intersected elements.
-
-    Inputs
-    ------
-    section (dict)
-        section dictionary
-    ds (xarray.Dataset)
-        dataset containing the velocities etc.
-    data_path (str)
-        directory where the fesom output is stored
-    mesh (fesom mesh file)
-        fesom mesh file
+        dataset
 
     Returns
     -------
-
     ds (xr.Dataset)
-        final dataset
+        updated dataset
+
 
     '''
-
-    # Check for existance of the files
-    years = section['years']
-    files_uice = [data_path + 'uice.fesom.' + str(year) + '.nc' for year in years]
-    files_vice = [data_path + 'vice.fesom.' + str(year) + '.nc' for year in years]
-    files_mice = [data_path + 'm_ice.fesom.' + str(year) + '.nc' for year in years]
-
-    files = files_uice + files_vice + files_mice
-
-    file_check = []
-    for file in files:
-        file_check.append(isfile(file))
-
-    if not all(file_check):
-        raise FileExistsError('One or more of the ice velocity files do not exist!')
-
-    # prohibit the orientation=other case
-    if section['orientation'] == 'other':
-        warnings.warn('Currently the ice transport across non-zonal/ non-meridional sections is not implemented! \
-                        Skipping ice transport computation...')
-    else:
-        # Open files
-
-        print('--> Loading the ice data into memory, this should be fast...')
-        ds_ice = xr.open_mfdataset(files, combine='by_coords')
-
-        # Only load the nods that belong to elements that are part of the section
-        # Flatten the triplets first
-        ds_ice_section = ds_ice.isel(nod2=ds.elem_nods.values.flatten())
-
-        # Reshape to triplets again
-        m_ice_nods = ds_ice_section.m_ice.values.reshape((len(ds_ice_section.time), len(ds.elem), 3))
-        u_ice_nods = ds_ice_section.uice.values.reshape((len(ds_ice_section.time), len(ds.elem), 3))
-        v_ice_nods = ds_ice_section.vice.values.reshape((len(ds_ice_section.time), len(ds.elem), 3))
-
-        # Rotate the velocity vectors
-        lon_elem_center = np.mean(mesh.x2[ds.elem_nods], axis=1)
-        lat_elem_center = np.mean(mesh.y2[ds.elem_nods], axis=1)
-
-        u_ice_nods, v_ice_nods = vec_rotate_r2g(abg[0], abg[1], abg[2], lon_elem_center[np.newaxis, :, np.newaxis],
-                                                   lat_elem_center[np.newaxis, :, np.newaxis], u_ice_nods, v_ice_nods, flag=1)
-
-        # Write the triplets to the dataset
-        ds['m_ice_nods'] = (('time','elem','triple'), m_ice_nods)
-        ds['u_ice_nods'] = (('time','elem','triple'), u_ice_nods)
-        ds['v_ice_nods'] = (('time','elem','triple'), v_ice_nods)
-
-        # Average the triplets and write to dataset
-        ds['m_ice'] = ds.m_ice_nods.mean(dim='triple')
-        ds['u_ice'] = ds.u_ice_nods.mean(dim='triple')
-        ds['v_ice'] = ds.v_ice_nods.mean(dim='triple')
-
-        # Compute the across section ice transport in m^3/s
-        if section['orientation'] == 'zonal':
-            ds['ice_transport_across'] = ds.horizontal_distance * ds.m_ice * ds.v_ice
-
-        elif section['orientation'] == 'meridional':
-            ds['ice_transport_across'] = ds.horizontal_distance * ds.m_ice * ds.u_ice
-
-        ds.ice_transport_across.attrs['description'] = 'ice volume transport of each single intersected cell'
-        ds.ice_transport_across.attrs['units'] = 'm^3/s'
+    ds['transport_across'] = ds.u * ds.vertical_cell_area_dy +  ds.v * ds.vertical_cell_area_dx
 
     return ds
 
-
-def cross_section_transports(section,
-                             mesh_path,
-                             data_path,
-                             years,
-                             mesh_diag_path=None,
-                             use_great_circle=True,
-                             how='mean',
-                             add_extent=1,
-                             abg=[50, 15, -90],
-                             add_TS=False,
-                             add_IT=False,
-                             chunks={'elem': 1e4}
-
-                             ):
+def cross_section_transport(section, mesh_path, data_path, years, mesh_diag_path=None, how='mean', add_extent=1, abg=[50, 15, -90], add_TS=False, add_IT=False, chunks={'elem': 1e4}, use_great_circle=False):
     '''
-    cross_section_transports.py
-
-    Computes the horizontal transport across a vertical section from fesom2 velocity output on mesh elements, by computing the intersections
-    of the section with the elements.
-
     Inputs
     ------
     section (list, str)
@@ -833,8 +948,6 @@ def cross_section_transports(section,
         directory where the mesh files are stored
     data_path (str)
         directory where the data is stored
-    years (np.ndarray)
-        numpy array with the years to compute transports
     mesh_diag_path (str: optional, default=None)
         directory where the mesh_diag file is stored, if None it is assumed to be located in data_path
     use_great_circle (bool)
@@ -850,7 +963,7 @@ def cross_section_transports(section,
     add_TS (bool)
         add temperature and salinity to the section (default=False)
     add_IT (bool)
-        add ice transport across the section (default=False)
+        add ice transport to the section (default=False)
     chunks (dict)
         chunks for parallelising the velocity data (default: chunks={'elem': 1e4})
 
@@ -862,34 +975,25 @@ def cross_section_transports(section,
         dictionary containing all section information
 
     '''
+    # Wrap up all the subroutines to a main function
+    mesh, mesh_diag, section, files = _ProcessInputs(section, mesh_path, data_path, years, mesh_diag_path=None)
 
-    # Wrap the subfunctions up
-    mesh, mesh_diag, files, section = _ProcessInputs(
-        section, mesh_path, data_path, mesh_diag_path, years, how, use_great_circle)
+    section_waypoints, mesh, section = _ComputeWaypoints(section, mesh, use_great_circle)
 
-    section_waypoints, mesh, section = _ComputeWaypoints(
-        section, mesh, use_great_circle)
+    elem_box_nods, elem_box_indices = _ReduceMeshElementNumber(section_waypoints, mesh, section, add_extent)
 
-    elem_box_nods, elem_box_indices = _ReduceMeshElementNumber(
-        section_waypoints, mesh, section, add_extent, use_great_circle)
+    elem_box_nods, elem_box_indices, cell_intersections, line_section = _LinePolygonIntersections(mesh, section_waypoints, elem_box_nods, elem_box_indices)
 
-    elem_box_nods, elem_box_indices, cell_intersections = _LinePolygonIntersections(
-        mesh, section_waypoints, elem_box_nods, elem_box_indices)
+    intersected_edge, midpoints_edge, elem_centers, elem_box_indices, elem_box_nods, cell_intersections = _FindIntersectedEdges(mesh, elem_box_nods, elem_box_indices, line_section, cell_intersections)
 
-    distances_between, distances_to_start, layer_thickness, grid_cell_area = _CreateVerticalGrid(
-        cell_intersections, section, mesh, use_great_circle)
+    c_lon, c_lat, f_lon, f_lat, s_lon, s_lat, elem_order = _BringIntoAlongPathOrder(midpoints_edge, intersected_edge, elem_centers, section)
 
-    ds = _CreateDataset(files, mesh, elem_box_indices, elem_box_nods,
-                        distances_between, distances_to_start, grid_cell_area, how, abg, chunks)
+    effective_dx, effective_dy = _ComputeBrokenLineSegments(f_lat, f_lon, s_lat, s_lon, c_lat, c_lon, section)
 
-    ds = _ComputeTransports(ds, mesh, section, cell_intersections,
-                            section_waypoints, use_great_circle)
+    vertical_cell_area_dx, vertical_cell_area_dy = _CreateVerticalGrid(effective_dx, effective_dy, mesh_diag)
 
-    if add_TS:
-        ds = _AddTempSalt(section, ds, data_path, mesh)
+    ds = _UnrotateLoadVelocity(how, files, elem_box_indices, elem_box_nods, vertical_cell_area_dx, vertical_cell_area_dy, c_lon, c_lat, effective_dx, effective_dy, elem_order, chunks, mesh, abg)
 
-    if add_IT:
-        ds = _AddIceTransport(section, ds, data_path, mesh, abg)
+    ds = _TransportAcross(ds)
 
-    print('--> Done!')
-    return ds, section
+    return  ds, section
