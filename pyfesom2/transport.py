@@ -270,7 +270,7 @@ def _ReduceMeshElementNumber(section_waypoints, mesh, section, add_extent):
 
     # find the elements that are within the extent
     elem_no_nan, no_nan_triangles = cut_region(mesh, box_mesh)
-    no_cyclic_elem2 = pf.get_no_cyclic(mesh, elem_no_nan)
+    no_cyclic_elem2 = get_no_cyclic(mesh, elem_no_nan)
     elem_box_nods = elem_no_nan[no_cyclic_elem2]
 
     # create an array containing the indices of the elements that belong to the region
