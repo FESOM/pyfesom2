@@ -93,7 +93,7 @@ def _ProcessInputs(section, mesh_path, data_path, years, mesh_diag_path):
     elif isinstance(section, str):
         section_name = section
 
-        presets = ["BSO", "BSX", "ST_ANNA_TROUGH", , "FRAMSTRAIT", "FRAMSTRAIT_FULL",
+        presets = ["BSO", "BSX", "ST_ANNA_TROUGH", "FRAMSTRAIT", "FRAMSTRAIT_FULL",
                   "BSO_FULL", "BS_40E"]
         if not section in presets:
             raise ValueError('The chosen preset section does not exist!')
