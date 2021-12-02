@@ -575,7 +575,7 @@ def _BringIntoAlongPathOrder(midpoints_edge, intersected_edge, elem_centers, sec
                                 'Increase the add_extent parameter as it might be too small for your mesh resolution! ' +
                                 'Otherwise, the last working gridcell was at: ' +
                                  str(c_lon[-1]) + '°E, ' + str(c_lat[-1]) + '°N. ' +
-                                 'Please use this coordinate tuple as the new start or end of the section! ' +
+                                 'Please use this coordinate tuple as the new start or end of the section! '
                                  )
 
             # find the matching element that's not the previous one, this is the next one
@@ -650,7 +650,7 @@ def _BringIntoAlongPathOrder(midpoints_edge, intersected_edge, elem_centers, sec
                                 'Increase the add_extent parameter as it might be too small for your mesh resolution! ' +
                                 'Otherwise, the last working gridcell was at: ' +
                                  str(c_lon[-1]) + '°E, ' + str(c_lat[-1]) + '°N. ' +
-                                 'Please use this coordinate tuple as the new start or end of the section! ' +
+                                 'Please use this coordinate tuple as the new start or end of the section! '
                                  )
 
             # find the matching element that's not the previous one, this is the next one
