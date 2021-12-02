@@ -421,16 +421,16 @@ def select_slices(dataset, variable, mesh, records, depth, continuous=False):
 
         # this just can't work and probably never worked :)
     if ("nz1" in dataset.dims) and (depth != None):
-        if (continuous == True) and len(data.dims == 3) and (dind.step == None):
+        if (continuous == True) and (len(data.dims) == 3) and (dind.step == None):
             data = data[:, :, dind]
-        elif (continuous == True) and len(data.dims == 2) and (dind.step == None):
+        elif (continuous == True) and (len(data.dims) == 2) and (dind.step == None):
             data = data[:, dind]
         elif continuous == False:
             data = data.isel(nz1=dind)
     elif ("nz" in dataset.dims) and (depth != None):
-        if (continuous == True) and len(data.dims == 3) and (dind.step == None):
+        if (continuous == True) and (len(data.dims) == 3) and (dind.step == None):
             data = data[:, :, dind]
-        elif (continuous == True) and len(data.dims == 2) and (dind.step == None):
+        elif (continuous == True) and (len(data.dims) == 2) and (dind.step == None):
             data = data[:, dind]
         elif continuous == False:
             data = data.isel(nz=dind)
