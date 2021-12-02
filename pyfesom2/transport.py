@@ -837,7 +837,7 @@ def _AddMetaData(ds, elem_box_indices, elem_box_nods, effective_dx, effective_dy
 
     return ds
 
-def _UnrotateLoadVelocity(how, files, elem_box_indices, elem_box_nods, vertical_cell_area_dx, vertical_cell_area_dy, c_lon, c_lat, effective_dx, effective_dy, elem_order, chunks, mesh, abg, RAMthresh=25):
+def _UnrotateLoadVelocity(how, files, elem_box_indices, elem_box_nods, vertical_cell_area_dx, vertical_cell_area_dy, c_lon, c_lat, effective_dx, effective_dy, elem_order, chunks, mesh, abg):
     '''
     Load and unrotate the fesom velocity files. Additionally bring the mesh elements into the right order (according to the section)
 
@@ -879,9 +879,9 @@ def _UnrotateLoadVelocity(how, files, elem_box_indices, elem_box_nods, vertical_
     '''
 
      # decide on the loading strategy, for small datasets combine the data to one dataset, for large datasets load files individually
-    overload = xr.open_dataset(files[0]).nbytes * 1e-9 * len(files) >= RAMthresh
+    overload = xr.open_dataset(files[0]).nbytes * 1e-9 * len(files) >= 25
     if overload:
-        print('A lot of data... (' + str(np.round(xr.open_dataset(files[0]).nbytes * 1e-9 * len(files))) + 'GB) This will take some time... Go and get a coffee in the meantime!')
+        print('A lot of velocity data (' + str(np.round(xr.open_dataset(files[0]).nbytes * 1e-9 * len(files), decimals=2)) + 'GB)... This will take some time... Go and get a coffee in the meantime!')
 
     # Load and merge at the same time
     ProgressBar().register()
@@ -971,6 +971,10 @@ def _AddTempSalt(section, ds, data_path, mesh, years):
 
     if not all(file_check):
         raise FileExistsError('One or more of the temperature/ salinity files do not exist!')
+
+    overload = xr.open_dataset(files[0]).nbytes * 1e-9 * len(files) >= 25
+    if overload:
+        print('A lot of TS data (' + str(np.round(xr.open_dataset(files[0]).nbytes * 1e-9 * len(files), decimals=2)) + 'GB)... This will take some time... Go and get a coffee in the meantime!')
 
     # Open files
     ds_ts = xr.open_mfdataset(files, combine='by_coords', chunks={'nod2': 1e4})
