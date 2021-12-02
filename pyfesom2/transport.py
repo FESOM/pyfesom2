@@ -93,9 +93,8 @@ def _ProcessInputs(section, mesh_path, data_path, years, mesh_diag_path):
     elif isinstance(section, str):
         section_name = section
 
-        presets = ["BSO", "BSX", "BEAR_SVAL", "SVAL_KVITOYA", "KVITOYA_FJL",
-                   "ST_ANNA_THROUGH", "SVINOY", "GIMSOY", "FRAMSTRAIT", "FRAMSTRAIT_FULL",
-                  "BSO_FULL"]
+        presets = ["BSO", "BSX", "ST_ANNA_TROUGH", , "FRAMSTRAIT", "FRAMSTRAIT_FULL",
+                  "BSO_FULL", "BS_40E"]
         if not section in presets:
             raise ValueError('The chosen preset section does not exist!')
         else:
@@ -132,11 +131,18 @@ def _ProcessInputs(section, mesh_path, data_path, years, mesh_diag_path):
                            'lat_end': 78.8,
                            }
 
-            elif section_name == 'BEAR_SVAL':
-                section = {'lon_start': 19.999,
-                           'lon_end': 19.999,
-                           'lat_start': 74.5,
-                           'lat_end': 78,
+            elif section_name == 'ST_ANNA_TROUGH':
+                section = {'lon_start': 60,
+                           'lon_end': 80,
+                           'lat_start': 80,
+                           'lat_end': 80,
+                           }
+
+            elif section_name == 'BS_40E':
+                section = {'lon_start': 40,
+                           'lon_end': 40,
+                           'lat_start': 68,
+                           'lat_end': 80,
                            }
 
             # add more presets here
