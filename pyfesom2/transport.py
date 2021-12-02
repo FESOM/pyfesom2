@@ -933,7 +933,7 @@ def _TransportAcross(ds):
 
     return ds
 
-def _AddTempSalt(section, ds, data_path, mesh, years):
+def _AddTempSalt(section, ds, data_path, mesh, years, elem_order):
     '''
     _AddTempSalt.py
 
@@ -990,6 +990,10 @@ def _AddTempSalt(section, ds, data_path, mesh, years):
     # Add to dataset
     ds['temp'] = (('time', 'elem', 'nz1'), temp)
     ds['salt'] = (('time', 'elem', 'nz1'), salt)
+
+    # bring temp and sal into the right order
+    ds['temp'] = ds.temp.isel(elem=elem_order)
+    ds['salt'] = ds.salt.isel(elem=elem_order)
 
     return ds
 
@@ -1050,6 +1054,6 @@ def cross_section_transport(section, mesh_path, data_path, years, mesh_diag_path
     ds = _TransportAcross(ds)
 
     if add_TS:
-        ds = _AddTempSalt(section, ds, data_path, mesh, years)
+        ds = _AddTempSalt(section, ds, data_path, mesh, years, elem_order)
 
     return  ds, section
