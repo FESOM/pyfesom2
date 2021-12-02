@@ -889,7 +889,7 @@ def _UnrotateLoadVelocity(how, files, elem_box_indices, elem_box_nods, vertical_
             # Load
             print('A lot of data... The files are loaded and processed separately...')
             # Load and merge at the same time
-            ds = xr.open_dataset(file, chunks=chunks).isel(
+            ds = xr.open_dataset(file).isel(
                 elem=elem_box_indices).load()
             # Append the datasets to list
             datasets.append(ds)
