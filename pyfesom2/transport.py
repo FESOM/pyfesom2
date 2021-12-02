@@ -959,7 +959,64 @@ def _TransportAcross(ds):
 
     return ds
 
-def cross_section_transport(section, mesh_path, data_path, years, mesh_diag_path=None, how='mean', add_extent=1, abg=[50, 15, -90], add_TS=False, add_IT=False, chunks={'elem': 1e4}, use_great_circle=False):
+def _AddTempSalt(section, ds, data_path, mesh):
+    '''
+    _AddTempSalt.py
+
+    Adds temperature and salinity values to the section. The temperature and salinity is converted from nods to elements by taking the average
+    of the three nods that form the element.
+
+    Inputs
+    ------
+    section (dict)
+        section dictionary
+    ds (xarray.Dataset)
+        dataset containing the velocities etc.
+    data_path (str)
+        directory where the fesom output is stored
+    mesh (fesom mesh file)
+        fesom mesh file
+
+    Returns
+    -------
+
+    ds (xr.Dataset)
+        final dataset
+
+
+    '''
+
+    # Check for existance of the files
+    years = section['years']
+    files_temp = [data_path + 'temp.fesom.' + str(year) + '.nc' for year in years]
+    files_salt = [data_path + 'salt.fesom.' + str(year) + '.nc' for year in years]
+    files = files_temp + files_salt
+
+    file_check = []
+    for file in files:
+        file_check.append(isfile(file))
+
+    if not all(file_check):
+        raise FileExistsError('One or more of the temperature/ salinity files do not exist!')
+
+    # Open files
+    ds_ts = xr.open_mfdataset(files, combine='by_coords', chunks={'nod2': 1e4})
+
+    # Only load the nods that belong to elements that are part of the section
+    # Flatten the triplets first
+    ds_ts = ds_ts.isel(nod2=ds.elem_nods.values.flatten()).load()
+
+    # Reshape to triplets again and average all three values to obtain an estimate of the elements properties
+    temp = ds_ts.temp.values.reshape(len(ds.time), len(ds.elem_nods), 3, mesh.nlev - 1).mean(axis=2)
+    salt = ds_ts.salt.values.reshape(len(ds.time), len(ds.elem_nods), 3, mesh.nlev - 1).mean(axis=2)
+
+    # Add to dataset
+    ds['temp'] = (('time', 'elem', 'nz1'), temp)
+    ds['salt'] = (('time', 'elem', 'nz1'), salt)
+
+    return ds
+
+def cross_section_transport(section, mesh_path, data_path, years, mesh_diag_path=None, how='mean', add_extent=1, abg=[50, 15, -90], add_TS=False, chunks={'elem': 1e4}, use_great_circle=False):
     '''
     Inputs
     ------
@@ -983,8 +1040,6 @@ def cross_section_transport(section, mesh_path, data_path, years, mesh_diag_path
         rotation of the velocity data (default=[50,15,-90])
     add_TS (bool)
         add temperature and salinity to the section (default=False)
-    add_IT (bool)
-        add ice transport to the section (default=False)
     chunks (dict)
         chunks for parallelising the velocity data (default: chunks={'elem': 1e4})
 
@@ -1016,5 +1071,8 @@ def cross_section_transport(section, mesh_path, data_path, years, mesh_diag_path
     ds = _UnrotateLoadVelocity(how, files, elem_box_indices, elem_box_nods, vertical_cell_area_dx, vertical_cell_area_dy, c_lon, c_lat, effective_dx, effective_dy, elem_order, chunks, mesh, abg)
 
     ds = _TransportAcross(ds)
+
+    if add_TS:
+        ds = _AddTempSalt(section, ds, data_path, mesh)
 
     return  ds, section
