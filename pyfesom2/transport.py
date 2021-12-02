@@ -13,7 +13,7 @@ import pyproj
 import pymap3d as pm
 from dask.diagnostics import ProgressBar
 ProgressBar().register()
-
+from tqdm.notebook import tqdm
 from .load_mesh_data import load_mesh
 from .ut import vec_rotate_r2g, get_no_cyclic, cut_region
 
@@ -885,7 +885,7 @@ def _UnrotateLoadVelocity(how, files, elem_box_indices, elem_box_nods, vertical_
         print('Loading individual files')
         datasets = []
 
-        for file in files:
+        for file in tqdm(files):
             # Load
             print('A lot of data... The files are loaded and processed separately...')
             # Load and merge at the same time
