@@ -891,31 +891,31 @@ def _UnrotateLoadVelocity(how, files, elem_box_indices, elem_box_nods, vertical_
             # Load and merge at the same time
             ds = xr.open_dataset(file, chunks=chunks).isel(
                 elem=elem_box_indices).load()
-
-            ds = _AddMetaData(ds, elem_box_indices, elem_box_nods, effective_dx, effective_dy, vertical_cell_area_dx, vertical_cell_area_dy, c_lon, c_lat)
-
-            # rename u and v to u_rot, v_rot
-            ds = ds.rename({'u': 'u_rot'})
-            ds = ds.rename({'v': 'v_rot'})
-            # UNROTATE
-            lon_elem_center = np.mean(mesh.x2[ds.elem_nods], axis=1)
-            lat_elem_center = np.mean(mesh.y2[ds.elem_nods], axis=1)
-            u, v = vec_rotate_r2g(abg[0], abg[1], abg[2], lon_elem_center[np.newaxis, :, np.newaxis],
-                                     lat_elem_center[np.newaxis, :, np.newaxis], ds.u_rot.values, ds.v_rot.values, flag=1)
-
-            ds['u'] = (('time', 'elem', 'nz1'), u)
-            ds['v'] = (('time', 'elem', 'nz1'), v)
-
-            ds = ds.drop_vars(['u_rot','v_rot'])
-
-            # bring u and v into the right order
-            ds['u'] = ds.u.isel(elem=elem_order)
-            ds['v'] = ds.v.isel(elem=elem_order)
-
+            # Append the datasets to list
             datasets.append(ds)
 
         # merge the datasers along time dimension
         ds = xr.concat(datasets, dim='time')
+
+        ds = _AddMetaData(ds, elem_box_indices, elem_box_nods, effective_dx, effective_dy, vertical_cell_area_dx, vertical_cell_area_dy, c_lon, c_lat)
+
+        # rename u and v to u_rot, v_rot
+        ds = ds.rename({'u': 'u_rot'})
+        ds = ds.rename({'v': 'v_rot'})
+        # UNROTATE
+        lon_elem_center = np.mean(mesh.x2[ds.elem_nods], axis=1)
+        lat_elem_center = np.mean(mesh.y2[ds.elem_nods], axis=1)
+        u, v = vec_rotate_r2g(abg[0], abg[1], abg[2], lon_elem_center[np.newaxis, :, np.newaxis],
+                                 lat_elem_center[np.newaxis, :, np.newaxis], ds.u_rot.values, ds.v_rot.values, flag=1)
+
+        ds['u'] = (('time', 'elem', 'nz1'), u)
+        ds['v'] = (('time', 'elem', 'nz1'), v)
+
+        ds = ds.drop_vars(['u_rot','v_rot'])
+
+        # bring u and v into the right order
+        ds['u'] = ds.u.isel(elem=elem_order)
+        ds['v'] = ds.v.isel(elem=elem_order)
 
     else:
         #print('Merging files')
