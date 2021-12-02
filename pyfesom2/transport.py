@@ -18,7 +18,7 @@ from .load_mesh_data import load_mesh
 from .ut import vec_rotate_r2g, get_no_cyclic, cut_region
 
 
-def _ProcessInputs(section, mesh_path, data_path, years,mesh_diag_path):
+def _ProcessInputs(section, mesh_path, data_path, years, mesh_diag_path):
     '''
     process_inputs.py
 
@@ -959,7 +959,7 @@ def _TransportAcross(ds):
 
     return ds
 
-def _AddTempSalt(section, ds, data_path, mesh):
+def _AddTempSalt(section, ds, data_path, mesh, years):
     '''
     _AddTempSalt.py
 
@@ -987,7 +987,6 @@ def _AddTempSalt(section, ds, data_path, mesh):
     '''
 
     # Check for existance of the files
-    years = section['years']
     files_temp = [data_path + 'temp.fesom.' + str(year) + '.nc' for year in years]
     files_salt = [data_path + 'salt.fesom.' + str(year) + '.nc' for year in years]
     files = files_temp + files_salt
@@ -1073,6 +1072,6 @@ def cross_section_transport(section, mesh_path, data_path, years, mesh_diag_path
     ds = _TransportAcross(ds)
 
     if add_TS:
-        ds = _AddTempSalt(section, ds, data_path, mesh)
+        ds = _AddTempSalt(section, ds, data_path, mesh, years)
 
     return  ds, section
