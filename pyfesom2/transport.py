@@ -12,7 +12,6 @@ import shapely.geometry as sg
 import pyproj
 import pymap3d as pm
 from dask.diagnostics import ProgressBar
-ProgressBar().register()
 from tqdm.notebook import tqdm
 from .load_mesh_data import load_mesh
 from .ut import vec_rotate_r2g, get_no_cyclic, cut_region
@@ -882,14 +881,13 @@ def _UnrotateLoadVelocity(how, files, elem_box_indices, elem_box_nods, vertical_
      # decide on the loading strategy, for small datasets combine the data to one dataset, for large datasets load files individually
     overload = xr.open_dataset(files[0]).nbytes * 1e-9 * len(files) >= RAMthresh
     if overload:
-        print('Loading individual files')
+        print('A lot of data... The files are loaded and processed separately...')
         datasets = []
 
         for file in tqdm(files):
-            # Load
-            print('A lot of data... The files are loaded and processed separately...')
+
             # Load and merge at the same time
-            ds = xr.open_dataset(file).isel(
+            ds = xr.open_dataset(file, chunks=chunks).isel(
                 elem=elem_box_indices).load()
             # Append the datasets to list
             datasets.append(ds)
@@ -920,6 +918,7 @@ def _UnrotateLoadVelocity(how, files, elem_box_indices, elem_box_nods, vertical_
     else:
         #print('Merging files')
         # Load and merge at the same time
+        ProgressBar().register()
         ds = xr.open_mfdataset(files, combine='by_coords', chunks=chunks).isel(
             elem=elem_box_indices).load()
 
