@@ -30,7 +30,8 @@ requirements = [
     "shapely",
     "xarray",
     "pyproj",
-    "pymap3d"
+    "pymap3d",
+    "tqdm"
 ]
 
 setup_requirements = ["pytest-runner"]
