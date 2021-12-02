@@ -838,7 +838,7 @@ def _AddMetaData(ds, elem_box_indices, elem_box_nods, effective_dx, effective_dy
 
     return ds
 
-def _UnrotateLoadVelocity(how, files, elem_box_indices, elem_box_nods, vertical_cell_area_dx, vertical_cell_area_dy, c_lon, c_lat, effective_dx, effective_dy, elem_order, chunks, mesh, abg):
+def _UnrotateLoadVelocity(how, files, elem_box_indices, elem_box_nods, vertical_cell_area_dx, vertical_cell_area_dy, c_lon, c_lat, effective_dx, effective_dy, elem_order, chunks, mesh, abg, RAMthresh=25):
     '''
     Load and unrotate the fesom velocity files. Additionally bring the mesh elements into the right order (according to the section)
 
@@ -880,59 +880,68 @@ def _UnrotateLoadVelocity(how, files, elem_box_indices, elem_box_nods, vertical_
     '''
 
      # decide on the loading strategy, for small datasets combine the data to one dataset, for large datasets load files individually
-#    overload = xr.open_dataset(files[0]).nbytes * 1e-6 * len(files) >= RAMthresh
-#    if overload:
-#        datasets = []
-#
-#        for file in files:
-#            # Load
-#            ds = xr.open_dataset(file).isel(elem=elem_box_indices).load()
-#            # Add some Meta data
-#            ds = _AddMetaData(ds, elem_box_indices, elem_box_nods, segment_length, vertical_cell_area)
-#
-#            # rename u and v to u_rot, v_rot
-#            ds = ds.rename({'u': 'u_rot'})
-#            ds = ds.rename({'v': 'v_rot'})
-#
-#            # UNROTATE
-#            lon_elem_center = np.mean(mesh.x2[ds.elem_nods], axis=1)
-#            lat_elem_center = np.mean(mesh.y2[ds.elem_nods], axis=1)
-#
-#            u, v = vec_rotate_r2g(abg[0], abg[1], abg[2], lon_elem_center[np.newaxis, :, np.newaxis],
-#                                     lat_elem_center[np.newaxis, :, np.newaxis], ds.u_rot.values, ds.v_rot.values, flag=1)
-#
-#            ds['u'] = (('time', 'elem', 'nz1'), u)
-#            ds['v'] = (('time', 'elem', 'nz1'), v)
-#
-#            datasets.append(ds)
-#
-#        # merge the datasers along time dimension
-#        ds = xr.concat(datasets, dim='time')
+    overload = xr.open_dataset(files[0]).nbytes * 1e-9 * len(files) >= RAMthresh
+    if overload:
+        print('Loading individual files')
+        datasets = []
 
-#    else:
+        for file in files:
+            # Load
+            print('A lot of data... The files are loaded and processed separately...')
+            # Load and merge at the same time
+            ds = xr.open_dataset(file, chunks=chunks).isel(
+                elem=elem_box_indices).load()
+
+            ds = _AddMetaData(ds, elem_box_indices, elem_box_nods, effective_dx, effective_dy, vertical_cell_area_dx, vertical_cell_area_dy, c_lon, c_lat)
+
+            # rename u and v to u_rot, v_rot
+            ds = ds.rename({'u': 'u_rot'})
+            ds = ds.rename({'v': 'v_rot'})
+            # UNROTATE
+            lon_elem_center = np.mean(mesh.x2[ds.elem_nods], axis=1)
+            lat_elem_center = np.mean(mesh.y2[ds.elem_nods], axis=1)
+            u, v = vec_rotate_r2g(abg[0], abg[1], abg[2], lon_elem_center[np.newaxis, :, np.newaxis],
+                                     lat_elem_center[np.newaxis, :, np.newaxis], ds.u_rot.values, ds.v_rot.values, flag=1)
+
+            ds['u'] = (('time', 'elem', 'nz1'), u)
+            ds['v'] = (('time', 'elem', 'nz1'), v)
+
+            ds = ds.drop_vars(['u_rot','v_rot'])
+
+            # bring u and v into the right order
+            ds['u'] = ds.u.isel(elem=elem_order)
+            ds['v'] = ds.v.isel(elem=elem_order)
+
+            datasets.append(ds)
+
+        # merge the datasers along time dimension
+        ds = xr.concat(datasets, dim='time')
+
+    else:
+        #print('Merging files')
         # Load and merge at the same time
-    ds = xr.open_mfdataset(files, combine='by_coords', chunks=chunks).isel(
-        elem=elem_box_indices).load()
+        ds = xr.open_mfdataset(files, combine='by_coords', chunks=chunks).isel(
+            elem=elem_box_indices).load()
 
-    ds = _AddMetaData(ds, elem_box_indices, elem_box_nods, effective_dx, effective_dy, vertical_cell_area_dx, vertical_cell_area_dy, c_lon, c_lat)
+        ds = _AddMetaData(ds, elem_box_indices, elem_box_nods, effective_dx, effective_dy, vertical_cell_area_dx, vertical_cell_area_dy, c_lon, c_lat)
 
-    # rename u and v to u_rot, v_rot
-    ds = ds.rename({'u': 'u_rot'})
-    ds = ds.rename({'v': 'v_rot'})
-    # UNROTATE
-    lon_elem_center = np.mean(mesh.x2[ds.elem_nods], axis=1)
-    lat_elem_center = np.mean(mesh.y2[ds.elem_nods], axis=1)
-    u, v = vec_rotate_r2g(abg[0], abg[1], abg[2], lon_elem_center[np.newaxis, :, np.newaxis],
-                             lat_elem_center[np.newaxis, :, np.newaxis], ds.u_rot.values, ds.v_rot.values, flag=1)
+        # rename u and v to u_rot, v_rot
+        ds = ds.rename({'u': 'u_rot'})
+        ds = ds.rename({'v': 'v_rot'})
+        # UNROTATE
+        lon_elem_center = np.mean(mesh.x2[ds.elem_nods], axis=1)
+        lat_elem_center = np.mean(mesh.y2[ds.elem_nods], axis=1)
+        u, v = vec_rotate_r2g(abg[0], abg[1], abg[2], lon_elem_center[np.newaxis, :, np.newaxis],
+                                 lat_elem_center[np.newaxis, :, np.newaxis], ds.u_rot.values, ds.v_rot.values, flag=1)
 
-    ds['u'] = (('time', 'elem', 'nz1'), u)
-    ds['v'] = (('time', 'elem', 'nz1'), v)
+        ds['u'] = (('time', 'elem', 'nz1'), u)
+        ds['v'] = (('time', 'elem', 'nz1'), v)
 
-    ds = ds.drop_vars(['u_rot','v_rot'])
+        ds = ds.drop_vars(['u_rot','v_rot'])
 
-    # bring u and v into the right order
-    ds['u'] = ds.u.isel(elem=elem_order)
-    ds['v'] = ds.v.isel(elem=elem_order)
+        # bring u and v into the right order
+        ds['u'] = ds.u.isel(elem=elem_order)
+        ds['v'] = ds.v.isel(elem=elem_order)
 
     if how == 'mean':
         ds = ds.mean(dim='time')
