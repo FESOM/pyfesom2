@@ -573,7 +573,7 @@ def _BringIntoAlongPathOrder(midpoints_edge, intersected_edge, elem_centers, sec
             if (len(matching_element) != 2) | (elem_order[-1] not in matching_element):
                 raise ValueError('Probably your section hit an island, that does not work! The last two working gridcell was at: ' +
                                  str(c_lon[-1]) + '°E, ' + str(c_lat[-1]) + '°N. ' +
-                                 'Please use this coordinate tuple as the new end of the section! ' +
+                                 'Please use this coordinate tuple as the new end/start of the section! ' +
                                  'If this does not work please increase the add_extent parameter as it might be too small for your mesh resolution!')
 
             # find the matching element that's not the previous one, this is the next one
@@ -674,6 +674,14 @@ def _BringIntoAlongPathOrder(midpoints_edge, intersected_edge, elem_centers, sec
             raise ValueError('An element appeared twice while sorting...' + str(i))
     if len(elem_order) != elem_centers.shape[0]:
         raise ValueError('Wrong number of elements while sorting along path...')
+
+    # Add the segments to the section dictionary
+    section['f_lon'] = f_lon
+    section['c_lon'] = c_lon
+    section['s_lon'] = s_lon
+    section['f_lat'] = f_lat
+    section['c_lat'] = c_lat
+    section['s_lat'] = s_lat
 
 
     return c_lon, c_lat, f_lon, f_lat, s_lon, s_lat, elem_order
