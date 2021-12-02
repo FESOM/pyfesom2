@@ -419,6 +419,7 @@ def select_slices(dataset, variable, mesh, records, depth, continuous=False):
     else:
         raise ValueError("Records should be ether -1 or instance of a list or a slice.")
 
+        # this just can't work and probably never worked :)
     if ("nz1" in dataset.dims) and (depth != None):
         if (continuous == True) and len(data.dims == 3) and (dind.step == None):
             data = data[:, :, dind]
@@ -449,6 +450,7 @@ def get_data(
     compute=True,
     continuous=False,
     silent = False,
+    transpose = True, 
     **kwargs
 ):
     """
@@ -482,6 +484,8 @@ def get_data(
         Some dummy data have to be provided for result_path and years
     compute: bool
         Do the actual computations or not. Default True.
+    trnspose: bool
+        Transpose to the old FESOM2.1 format with [time, nod2, nz1] dimension order.
     **kwargs: dict
        you can add aditional arguments to pass to the xarray.open_mfdataset (for example slice sizes)
 
@@ -538,7 +542,20 @@ def get_data(
         data = data
     else:
         pass
-
+    
+#     print(data)
+    print(data.dims)
+    print("nz1" in data.dims)
+    print(len(data.dims) == 3)
+    print(data.dims != ('time', 'nod2', 'nz1'))
+    
+    if transpose:
+        if ("nz1" in data.dims) and (len(data.dims) == 3) and (data.dims != ('time', 'nod2', 'nz1')):
+            print('I am here')
+            data = data.transpose('time', 'nod2', 'nz1')
+        elif ("nz" in data.dims) and (len(data.dims) == 3) and (data.dims != ('time', 'nod2', 'nz')):
+            data = data.transpose('time', 'nod2', 'nz')
+        
     if compute:
         data = data.compute()
         data = data.data
