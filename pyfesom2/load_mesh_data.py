@@ -550,11 +550,16 @@ def get_data(
     print(data.dims != ('time', 'nod2', 'nz1'))
     
     if transpose:
-        if ("nz1" in data.dims) and (len(data.dims) == 3) and (data.dims != ('time', 'nod2', 'nz1')):
-            print('I am here')
-            data = data.transpose('time', 'nod2', 'nz1')
-        elif ("nz" in data.dims) and (len(data.dims) == 3) and (data.dims != ('time', 'nod2', 'nz')):
-            data = data.transpose('time', 'nod2', 'nz')
+        if len(data.dims) == 3:
+            if ("nz1" in data.dims) and (data.dims != ('time', 'nod2', 'nz1')):
+                data = data.transpose('time', 'nod2', 'nz1')
+            elif ("nz" in data.dims) and (data.dims != ('time', 'nod2', 'nz')):
+                data = data.transpose('time', 'nod2', 'nz')
+        elif len(data.dims) == 2:
+            if ("nz1" in data.dims) and (data.dims != ('nod2', 'nz1')):
+                data = data.transpose('nod2', 'nz1')
+            elif ("nz" in data.dims) and (data.dims != ('nod2', 'nz')):
+                data = data.transpose('nod2', 'nz')
         
     if compute:
         data = data.compute()
