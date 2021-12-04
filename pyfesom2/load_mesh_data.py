@@ -551,15 +551,26 @@ def get_data(
     
     if transpose:
         if len(data.dims) == 3:
-            if ("nz1" in data.dims) and (data.dims != ('time', 'nod2', 'nz1')):
+            if ("nz1" in data.dims) and ("nod2" in data.dims) and (data.dims != ('time', 'nod2', 'nz1')):
                 data = data.transpose('time', 'nod2', 'nz1')
-            elif ("nz" in data.dims) and (data.dims != ('time', 'nod2', 'nz')):
+            elif ("nz" in data.dims) and ("nod2" in data.dims) and (data.dims != ('time', 'nod2', 'nz')):
                 data = data.transpose('time', 'nod2', 'nz')
+                
+            elif ("nz1" in data.dims) and ("elem" in data.dims) and (data.dims != ('time', 'elem', 'nz1')):
+                data = data.transpose('time', 'elem', 'nz1')
+            elif ("nz" in data.dims) and ("elem" in data.dims) and (data.dims != ('time', 'elem', 'nz')):
+                data = data.transpose('time', 'elem', 'nz')
+                
         elif len(data.dims) == 2:
-            if ("nz1" in data.dims) and (data.dims != ('nod2', 'nz1')):
+            if ("nz1" in data.dims) and ("nod2" in data.dims) and (data.dims != ('nod2', 'nz1')):
                 data = data.transpose('nod2', 'nz1')
-            elif ("nz" in data.dims) and (data.dims != ('nod2', 'nz')):
+            elif ("nz" in data.dims) and ("nod2" in data.dims) and (data.dims != ('nod2', 'nz')):
                 data = data.transpose('nod2', 'nz')
+                
+            if ("nz1" in data.dims) and ("elem" in data.dims) and (data.dims != ('elem', 'nz1')):
+                data = data.transpose('elem', 'nz1')
+            elif ("nz" in data.dims) and ("elem" in data.dims) and (data.dims != ('elem', 'nz')):
+                data = data.transpose('elem', 'nz')
         
     if compute:
         data = data.compute()
