@@ -1,4 +1,4 @@
-name: pyfesom
+name: pyfesom2
 channels:
   - conda-forge
 dependencies:
