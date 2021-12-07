@@ -474,13 +474,13 @@ def _FindIntersectedEdges(mesh, elem_box_nods, elem_box_indices, line_section, c
             intersected_edge[ii,:] = False
 
     zeros_in_intersected_edge = np.where(intersected_edge.sum(axis=1) == 0)[0]
-    if len(zeros_in_intersected_edge) == 2:
-        print('The section starts and ends in the ocean. Those elements that contain the start and end coordinate of the section are droped.')
-    elif len(zeros_in_intersected_edge) == 1:
-        print('The section is land-ocean/ ocean-land. Those elements that contain the start and end coordinate of the section are droped.')
-    elif len(zeros_in_intersected_edge) == 0:
-        print('The section is land to land')
-    else:
+    #if len(zeros_in_intersected_edge) == 2:
+    #    print('The section starts and ends in the ocean. Those elements that contain the start and end coordinate of the section are droped.')
+    #elif len(zeros_in_intersected_edge) == 1:
+    #    print('The section is land-ocean/ ocean-land. Those elements that contain the start and end coordinate of the section are droped.')
+    #elif len(zeros_in_intersected_edge) == 0:
+    #    print('The section is land to land')
+    if len(zeros_in_intersected_edge) > 2:
         raise ValueError('Your section contains to many cell edges that were intersected only once. Only 0, 1 or 2 are allowed.')
 
     # Now drop those elements in the arrays
