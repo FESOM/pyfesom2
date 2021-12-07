@@ -1003,6 +1003,22 @@ def _AddTempSalt(section, ds, data_path, mesh, years, elem_order):
 
     return ds
 
+def _OrderIndices(ds, elem_order):
+    '''Brings the indices into the right order.
+
+    Inputs
+    ------
+    ds (xr.dataset)
+        dataset containing transport
+    elem_order (list)
+        order
+    '''
+
+    ds['elem_indices'] = ds.elem_indices.isel(elem=elem_order)
+    ds['elem_nods'] = ds.elem_nods.isel(elem=elem_order)
+
+    return ds
+
 def cross_section_transport(section, mesh_path, data_path, years, mesh_diag_path=None, how='mean', add_extent=1, abg=[50, 15, -90], add_TS=False, chunks={'elem': 1e4}, use_great_circle=False):
     '''
     Inputs
@@ -1061,5 +1077,7 @@ def cross_section_transport(section, mesh_path, data_path, years, mesh_diag_path
 
     if add_TS:
         ds = _AddTempSalt(section, ds, data_path, mesh, years, elem_order)
+
+    ds = _OrderIndices(ds, elem_order)
 
     return  ds, section
