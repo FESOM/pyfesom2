@@ -23,3 +23,6 @@ dependencies:
   - aiohttp
   - dask
   - xarray
+  - pyproj
+  - pymap3d
+  - tqdm
