@@ -768,7 +768,11 @@ def _CreateVerticalGrid(effective_dx, effective_dy, mesh_diag):
 
     '''
     # take the layer thickness
-    layer_thickness = np.abs(np.diff(mesh_diag.zbar))
+    # old mesh_diag: zbar, new mesh_diag: nz
+    try:
+        layer_thickness = np.abs(np.diff(mesh_diag.zbar))
+    except:
+        layer_thickness = np.abs(np.diff(mesh_diag.nz))
 
     # compute the vertical area for dx and dy
     vertical_cell_area_dx = layer_thickness[:,np.newaxis] * effective_dx[np.newaxis,:]
