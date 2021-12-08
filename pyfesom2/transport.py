@@ -49,6 +49,7 @@ def _ProcessInputs(section, data_path, years):
 
         '''
 
+    print('Starting computation...')
     # Check the input data types
     if not isinstance(section, list) | isinstance(section, str):
         raise ValueError(
@@ -150,7 +151,7 @@ def _ProcessInputs(section, data_path, years):
     if not all(file_check):
         raise FileExistsError('One or more of the velocity files do not exist!')
 
-
+    print('\nYour section: ', section['name'], ': Start: ', section['lon_start'], '°E ', section['lat_start'], '°N ', 'End: ', section['lon_end'], '°E ', section['lat_end'], '°N')
     return section, files
 
 def _ComputeWaypoints(section, mesh, use_great_circle):
@@ -324,7 +325,8 @@ def _LinePolygonIntersections(mesh, section_waypoints, elem_box_nods, elem_box_i
 
     polygon_list = list()
 
-    for ii in range(elem_box_nods.shape[0]):
+    print('\nConverting grid cells to Polygons... (If this takes very long try to reduce the add_extent parameter)')
+    for ii in tqdm(range(elem_box_nods.shape[0])):
         polygon_list.append(
             sg.Polygon(
                 [
@@ -347,7 +349,8 @@ def _LinePolygonIntersections(mesh, section_waypoints, elem_box_nods, elem_box_i
     intersection_points = list()
 
     # check for intersections
-    for ii in range(len(polygon_list)):
+    print('Looking for intersected grid cells...')
+    for ii in tqdm(range(len(polygon_list))):
         intersection = polygon_list[ii].intersection(line_section).coords
 
         # if no intersections (coords == [])
@@ -865,10 +868,11 @@ def _UnrotateLoadVelocity(how, files, elem_box_indices, elem_box_nods, vertical_
 
     '''
 
+    print('Loading the data into memory...')
      # decide on the loading strategy, for small datasets combine the data to one dataset, for large datasets load files individually
     overload = xr.open_dataset(files[0]).nbytes * 1e-9 * len(files) >= 25
     if overload:
-        print('A lot of velocity data (' + str(np.round(xr.open_dataset(files[0]).nbytes * 1e-9 * len(files), decimals=2)) + 'GB)... This will take some time... Go and get a coffee in the meantime!')
+        print('A lot of velocity data (' + str(np.round(xr.open_dataset(files[0]).nbytes * 1e-9 * len(files), decimals=2)) + 'GB)... This will take some time...')
 
     # Load and merge at the same time
     ProgressBar().register()
@@ -961,7 +965,7 @@ def _AddTempSalt(section, ds, data_path, mesh, years, elem_order):
 
     overload = xr.open_dataset(files[0]).nbytes * 1e-9 * len(files) >= 25
     if overload:
-        print('A lot of TS data (' + str(np.round(xr.open_dataset(files[0]).nbytes * 1e-9 * len(files), decimals=2)) + 'GB)... This will take some time... Go and get a coffee in the meantime!')
+        print('A lot of TS data (' + str(np.round(xr.open_dataset(files[0]).nbytes * 1e-9 * len(files), decimals=2)) + 'GB)... This will take some time...')
 
     # Open files
     ds_ts = xr.open_mfdataset(files, combine='by_coords', chunks={'nod2': 1e4})
@@ -998,6 +1002,7 @@ def _OrderIndices(ds, elem_order):
     ds['elem_indices'] = ds.elem_indices.isel(elem=elem_order)
     ds['elem_nods'] = ds.elem_nods.isel(elem=elem_order)
 
+    print('\n Done!')
     return ds
 
 def cross_section_transport(section, mesh, data_path, years, mesh_diag, how='mean', add_extent=1, abg=[50, 15, -90], add_TS=False, chunks={'elem': 1e4}, use_great_circle=False):
