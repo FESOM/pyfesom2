@@ -17,7 +17,7 @@ from .load_mesh_data import load_mesh
 from .ut import vec_rotate_r2g, get_no_cyclic, cut_region
 
 
-def _ProcessInputs(section, mesh_path, data_path, years, mesh_diag_path):
+def _ProcessInputs(section, data_path, years):
     '''
     process_inputs.py
 
@@ -57,29 +57,6 @@ def _ProcessInputs(section, mesh_path, data_path, years, mesh_diag_path):
     if isinstance(section, list) & (len(section) != 4):
         raise ValueError(
             'The section must be a list of form [lon_start, lon_end, lat_start, lat_end]')
-
-    if not isinstance(mesh_path, str):
-        raise ValueError('mesh path must be a string')
-
-    if (mesh_diag_path != None) & (not isinstance(mesh_diag_path, str)):
-        raise ValueError('mesh diag path must be a string')
-
-    if not isdir(mesh_path):
-        raise FileExistsError('The mesh folder does not exist!')
-
-    if mesh_diag_path == None:
-        mesh_diag_path = mesh_path + 'fesom.mesh.diag.nc'
-        if not isfile(mesh_diag_path):
-            raise FileExistsError(
-                'The fesom.mesh.diag.nc file is not located in data_path! Please specify the absolute path!')
-
-    elif isinstance(mesh_diag_path, str):
-        if not isfile(mesh_diag_path):
-            raise FileExistsError('The mesh diag file does not exist!')
-
-    # Load the mesh and the mesh_diag files
-    mesh = load_mesh(mesh_path)
-    mesh_diag = xr.open_dataset(mesh_diag_path)
 
     # Create the section dictionary
     if isinstance(section, list):
@@ -174,7 +151,7 @@ def _ProcessInputs(section, mesh_path, data_path, years, mesh_diag_path):
         raise FileExistsError('One or more of the velocity files do not exist!')
 
 
-    return mesh, mesh_diag, section, files
+    return section, files
 
 def _ComputeWaypoints(section, mesh, use_great_circle):
     '''
@@ -1019,18 +996,18 @@ def _OrderIndices(ds, elem_order):
 
     return ds
 
-def cross_section_transport(section, mesh_path, data_path, years, mesh_diag_path=None, how='mean', add_extent=1, abg=[50, 15, -90], add_TS=False, chunks={'elem': 1e4}, use_great_circle=False):
+def cross_section_transport(section, mesh, data_path, years, mesh_diag, how='mean', add_extent=1, abg=[50, 15, -90], add_TS=False, chunks={'elem': 1e4}, use_great_circle=False):
     '''
     Inputs
     ------
     section (list, str)
         either a list of the form [lon_start, lon_end, lat_start, lat_end] or a string for a preset section: 'FRAMSTRAIT', 'BSO'
-    mesh_path (str)
-        directory where the mesh files are stored
+    mesh (fesom.mesh file)
+        fesom.mesh file
     data_path (str)
         directory where the data is stored
-    mesh_diag_path (str: optional, default=None)
-        directory where the mesh_diag file is stored, if None it is assumed to be located in data_path
+    mesh_diag (xr.Dataset)
+        fesom.mesh.diag file
     use_great_circle (bool)
         compute the section waypoints along a great great circle (default=True)
     how (str)
@@ -1055,7 +1032,7 @@ def cross_section_transport(section, mesh_path, data_path, years, mesh_diag_path
 
     '''
     # Wrap up all the subroutines to a main function
-    mesh, mesh_diag, section, files = _ProcessInputs(section, mesh_path, data_path, years, mesh_diag_path=None)
+    section, files = _ProcessInputs(section, data_path, years)
 
     section_waypoints, mesh, section = _ComputeWaypoints(section, mesh, use_great_circle)
 
