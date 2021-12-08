@@ -17,7 +17,7 @@ from .load_mesh_data import load_mesh
 from .ut import vec_rotate_r2g, get_no_cyclic, cut_region
 
 
-def _ProcessInputs(section, data_path, years):
+def _ProcessInputs(section, data_path, years, n_points):
     '''
     process_inputs.py
 
@@ -32,8 +32,11 @@ def _ProcessInputs(section, data_path, years):
     data_path (str)
         directory where the data is stored
     years (np.ndarray)
+        years to compute
     mesh_diag_path (str: optional, default=None)
         directory where the mesh_diag file is stored, if None it is assumed to be located in data_path
+    n_points (int)
+        number of waypoints between start and end of section
 
     Returns
     -------
@@ -59,6 +62,11 @@ def _ProcessInputs(section, data_path, years):
         raise ValueError(
             'The section must be a list of form [lon_start, lon_end, lat_start, lat_end]')
 
+    if not isinstance(n_points, int):
+        raise ValueError(
+            'n_points must be an integer!'
+        )
+        
     # Create the section dictionary
     if isinstance(section, list):
         section = {'lon_start': section[0],
@@ -154,7 +162,7 @@ def _ProcessInputs(section, data_path, years):
     print('\nYour section: ', section['name'], ': Start: ', section['lon_start'], '°E ', section['lat_start'], '°N ', 'End: ', section['lon_end'], '°E ', section['lat_end'], '°N')
     return section, files
 
-def _ComputeWaypoints(section, mesh, use_great_circle):
+def _ComputeWaypoints(section, mesh, use_great_circle, n_points):
     '''
     compute_waypoints.py
 
@@ -188,7 +196,7 @@ def _ComputeWaypoints(section, mesh, use_great_circle):
                                    section['lat_start'],
                                    section['lon_end'],
                                    section['lat_end'],
-                                   1000
+                                   npoints
                                    )
         # bring into the desired shape [[],...,[]]
         section_waypoints = [[section_waypoints[i][0], section_waypoints[i][1]]
@@ -198,12 +206,12 @@ def _ComputeWaypoints(section, mesh, use_great_circle):
         # Compute the 'linear' connection between the section start and end
         section_lon = np.linspace(section['lon_start'],
                                   section['lon_end'],
-                                  1000
+                                  npoints
                                   )
 
         section_lat = np.linspace(section['lat_start'],
                                   section['lat_end'],
-                                  1000
+                                  npoints
                                   )
 
         # Bring the section coordinates into the disired shape [[],...,[]]
@@ -1005,7 +1013,7 @@ def _OrderIndices(ds, elem_order):
     print('\n Done!')
     return ds
 
-def cross_section_transport(section, mesh, data_path, years, mesh_diag, how='mean', add_extent=1, abg=[50, 15, -90], add_TS=False, chunks={'elem': 1e4}, use_great_circle=False):
+def cross_section_transport(section, mesh, data_path, years, mesh_diag, how='mean', add_extent=1, abg=[50, 15, -90], add_TS=False, chunks={'elem': 1e4}, use_great_circle=False, n_points=1000):
     '''
     Inputs
     ------
@@ -1031,6 +1039,8 @@ def cross_section_transport(section, mesh, data_path, years, mesh_diag, how='mea
         add temperature and salinity to the section (default=False)
     chunks (dict)
         chunks for parallelising the velocity data (default: chunks={'elem': 1e4})
+    n_points (int)
+        number of waypoints between start and end of section
 
     Returns
     -------
@@ -1041,9 +1051,9 @@ def cross_section_transport(section, mesh, data_path, years, mesh_diag, how='mea
 
     '''
     # Wrap up all the subroutines to a main function
-    section, files = _ProcessInputs(section, data_path, years)
+    section, files = _ProcessInputs(section, data_path, years, n_points)
 
-    section_waypoints, mesh, section = _ComputeWaypoints(section, mesh, use_great_circle)
+    section_waypoints, mesh, section = _ComputeWaypoints(section, mesh, use_great_circle, n_points)
 
     elem_box_nods, elem_box_indices = _ReduceMeshElementNumber(section_waypoints, mesh, section, add_extent)
 
