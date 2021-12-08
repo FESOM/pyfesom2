@@ -66,7 +66,7 @@ def _ProcessInputs(section, data_path, years, n_points):
         raise ValueError(
             'n_points must be an integer!'
         )
-        
+
     # Create the section dictionary
     if isinstance(section, list):
         section = {'lon_start': section[0],
@@ -196,7 +196,7 @@ def _ComputeWaypoints(section, mesh, use_great_circle, n_points):
                                    section['lat_start'],
                                    section['lon_end'],
                                    section['lat_end'],
-                                   npoints
+                                   n_points
                                    )
         # bring into the desired shape [[],...,[]]
         section_waypoints = [[section_waypoints[i][0], section_waypoints[i][1]]
@@ -206,12 +206,12 @@ def _ComputeWaypoints(section, mesh, use_great_circle, n_points):
         # Compute the 'linear' connection between the section start and end
         section_lon = np.linspace(section['lon_start'],
                                   section['lon_end'],
-                                  npoints
+                                  n_points
                                   )
 
         section_lat = np.linspace(section['lat_start'],
                                   section['lat_end'],
-                                  npoints
+                                  n_points
                                   )
 
         # Bring the section coordinates into the disired shape [[],...,[]]
