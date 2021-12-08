@@ -53,6 +53,7 @@ def _ProcessInputs(section, data_path, years, n_points):
         '''
 
     print('Starting computation...')
+
     # Check the input data types
     if not isinstance(section, list) | isinstance(section, str):
         raise ValueError(
@@ -67,22 +68,46 @@ def _ProcessInputs(section, data_path, years, n_points):
             'n_points must be an integer!'
         )
 
-    # Create the section dictionary
-    if isinstance(section, list):
-        section = {'lon_start': section[0],
-                   'lon_end': section[1],
-                   'lat_start': section[2],
-                   'lat_end': section[3],
-                   }
-        section['name'] = 'not specified'
+    # Check for existance of the files
+    files_u = [data_path + 'u.fesom.' + str(year) + '.nc' for year in years]
+    files_v = [data_path + 'v.fesom.' + str(year) + '.nc' for year in years]
 
-    elif isinstance(section, str):
+    files = files_u + files_v
+
+    file_check = []
+    for file in files:
+        file_check.append(isfile(file))
+
+    if not all(file_check):
+        raise FileExistsError('One or more of the velocity files do not exist!')
+
+    return files
+
+def _CreateLoadSection(section):
+    '''
+    Load the section parameters from present or create from custom section_name
+
+    Inputs
+    ------
+    section (list, str)
+        either a list of the form [lon_start, lon_end, lat_start, lat_end] or a string for a preset section
+
+    Returns
+    -------
+    section (dict)
+        section dictionary
+    '''
+
+    # Create the section dictionary from preset
+    if isinstance(section, str):
         section_name = section
 
         presets = ["BSO", "BSX", "ST_ANNA_TROUGH", "FRAMSTRAIT", "FRAMSTRAIT_FULL",
                   "BSO_FULL", "BS_40E"]
-        if not section in presets:
-            raise ValueError('The chosen preset section does not exist! Choose from:' + str(presets))
+
+        if not section_name in presets:
+            raise ValueError('The chosen preset section does not exist! Choose from:' + str(presets)
+                                + ' or add your own preset to _CreateLoadSection.py in pyfesom.transport.py')
         else:
             if section_name == 'BSO':
                 section = {'lon_start': 19.999,
@@ -110,6 +135,7 @@ def _ProcessInputs(section, data_path, years, n_points):
                            'lat_start': 78.8,
                            'lat_end': 78.8,
                            }
+
             elif section_name == 'FRAMSTRAIT':
                 section = {'lon_start': -6,
                            'lon_end': 10.6,
@@ -135,6 +161,15 @@ def _ProcessInputs(section, data_path, years, n_points):
 
         section['name'] = section_name
 
+    # create custom section dict
+    elif isinstance(section, list):
+        section = {'lon_start': section[0],
+                   'lon_end': section[1],
+                   'lat_start': section[2],
+                   'lat_end': section[3],
+                   }
+        section['name'] = 'not specified'
+
     # Find the orientation of the section and look for the nesseccary velocity files
     if section['lon_start'] == section['lon_end']:
         section['orientation'] = 'meridional'
@@ -146,21 +181,9 @@ def _ProcessInputs(section, data_path, years, n_points):
         section['orientation'] = 'other'
         raise ValueError('Only zonal or meridional are currently supported!')
 
-    # Check for existance of the files
-    files_u = [data_path + 'u.fesom.' + str(year) + '.nc' for year in years]
-    files_v = [data_path + 'v.fesom.' + str(year) + '.nc' for year in years]
-
-    files = files_u + files_v
-
-    file_check = []
-    for file in files:
-        file_check.append(isfile(file))
-
-    if not all(file_check):
-        raise FileExistsError('One or more of the velocity files do not exist!')
-
     print('\nYour section: ', section['name'], ': Start: ', section['lon_start'], '°E ', section['lat_start'], '°N ', 'End: ', section['lon_end'], '°E ', section['lat_end'], '°N')
-    return section, files
+
+    return section
 
 def _ComputeWaypoints(section, mesh, use_great_circle, n_points):
     '''
@@ -1051,7 +1074,9 @@ def cross_section_transport(section, mesh, data_path, years, mesh_diag, how='mea
 
     '''
     # Wrap up all the subroutines to a main function
-    section, files = _ProcessInputs(section, data_path, years, n_points)
+    files = _ProcessInputs(section, data_path, years, n_points)
+
+    section = _CreateLoadSection(section)
 
     section_waypoints, mesh, section = _ComputeWaypoints(section, mesh, use_great_circle, n_points)
 
