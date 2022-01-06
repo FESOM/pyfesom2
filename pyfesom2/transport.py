@@ -5,15 +5,21 @@ Initial version: 23.11.2021
 """
 
 import warnings
-from os.path import isfile, isdir
-import xarray as xr
+from os.path import isfile
+
+import cartopy.crs as ccrs
+import cartopy.feature as cfeature
+import matplotlib.pyplot as plt
+import matplotlib.ticker as mticker
 import numpy as np
-import shapely.geometry as sg
-import pyproj
 import pymap3d as pm
+import pyproj
+import shapely.geometry as sg
+import xarray as xr
+from cartopy.mpl.gridliner import LONGITUDE_FORMATTER, LATITUDE_FORMATTER
 from dask.diagnostics import ProgressBar
 from tqdm.notebook import tqdm
-from .load_mesh_data import load_mesh
+
 from .ut import vec_rotate_r2g, get_no_cyclic, cut_region
 
 
@@ -83,6 +89,7 @@ def _ProcessInputs(section, data_path, years, n_points):
 
     return files
 
+
 def _CreateLoadSection(section):
     '''
     Load the section parameters from present or create from custom section_name
@@ -103,11 +110,11 @@ def _CreateLoadSection(section):
         section_name = section
 
         presets = ["BSO", "BSX", "ST_ANNA_TROUGH", "FRAMSTRAIT", "FRAMSTRAIT_FULL",
-                  "BSO_FULL", "BS_40E"]
+                   "BSO_FULL", "BS_40E"]
 
         if not section_name in presets:
             raise ValueError('The chosen preset section does not exist! Choose from:' + str(presets)
-                                + ' or add your own preset to _CreateLoadSection.py in pyfesom.transport.py')
+                             + ' or add your own preset to _CreateLoadSection.py in pyfesom.transport.py')
         else:
             if section_name == 'BSO':
                 section = {'lon_start': 19.999,
@@ -130,7 +137,7 @@ def _CreateLoadSection(section):
                            }
 
             elif section_name == 'FRAMSTRAIT_FULL':
-                section = {'lon_start': -18.3,#-6,
+                section = {'lon_start': -18.3,  # -6,
                            'lon_end': 10.6,
                            'lat_start': 78.8,
                            'lat_end': 78.8,
@@ -170,20 +177,22 @@ def _CreateLoadSection(section):
                    }
         section['name'] = 'not specified'
 
-    # Find the orientation of the section and look for the nesseccary velocity files
+    # Find the orientation of the section and look for the necessary velocity files
     if section['lon_start'] == section['lon_end']:
         section['orientation'] = 'meridional'
 
-    elif (section['lat_start'] == section['lat_end']) :
+    elif (section['lat_start'] == section['lat_end']):
         section['orientation'] = 'zonal'
 
     else:
         section['orientation'] = 'other'
         raise ValueError('Only zonal or meridional are currently supported!')
 
-    print('\nYour section: ', section['name'], ': Start: ', section['lon_start'], '°E ', section['lat_start'], '°N ', 'End: ', section['lon_end'], '°E ', section['lat_end'], '°N')
+    print('\nYour section: ', section['name'], ': Start: ', section['lon_start'], '°E ', section['lat_start'], '°N ',
+          'End: ', section['lon_end'], '°E ', section['lat_end'], '°N')
 
     return section
+
 
 def _ComputeWaypoints(section, mesh, use_great_circle, n_points):
     '''
@@ -242,6 +251,7 @@ def _ComputeWaypoints(section, mesh, use_great_circle, n_points):
 
     return section_waypoints, mesh, section
 
+
 def _ReduceMeshElementNumber(section_waypoints, mesh, section, add_extent):
     '''
     reduce_element_number.py
@@ -290,38 +300,8 @@ def _ReduceMeshElementNumber(section_waypoints, mesh, section, add_extent):
     # create an array containing the indices of the elements that belong to the region
     elem_box_indices = np.arange(mesh.e2d)[no_nan_triangles]
 
-    # Compute the distance of each section coodinate to the center of each element to further reduce the amount of polygons needed
-    # in case of meridional or zonal section the chosen box is already small enough to be loaded and no further elements have to be removed
-    # in all other cases the rectangular box gets to large and needs further shrinking
-    if section['orientation'] == 'other':
-        min_dist = add_extent * 100  # minimum distance in km to take element into account
-        distance_bool = list()
-
-        # compute the center of each element
-        element_center_lon = np.mean(mesh.x2[elem_box_nods], axis=1)
-        element_center_lat = np.mean(mesh.y2[elem_box_nods], axis=1)
-
-        for ii in range(len(element_center_lat)):
-            lon_temp = np.repeat(element_center_lon[ii], len(section_waypoints_lon))
-            lat_temp = np.repeat(element_center_lat[ii], len(section_waypoints_lat))
-
-            distances = _Haversine(lon_temp,
-                                   lat_temp,
-                                   section_waypoints_lon,
-                                   section_waypoints_lat,
-                                   False
-                                   )
-
-            if any(distances <= min_dist):
-                distance_bool.append(True)
-            else:
-                distance_bool.append(False)
-
-        # remove the elements that are to far away from the section
-        elem_box_nods = elem_box_nods[distance_bool]
-        elem_box_indices = elem_box_indices[distance_bool]
-
     return elem_box_nods, elem_box_indices
+
 
 def _LinePolygonIntersections(mesh, section_waypoints, elem_box_nods, elem_box_indices):
     '''
@@ -406,6 +386,7 @@ def _LinePolygonIntersections(mesh, section_waypoints, elem_box_nods, elem_box_i
 
     return elem_box_nods, elem_box_indices, cell_intersections, line_section
 
+
 def _FindIntersectedEdges(mesh, elem_box_nods, elem_box_indices, line_section, cell_intersections):
     '''
     Find the two intersected edges of each mesh element along the section (2 out of three). In case the start/ end point is in the ocean only one edge is
@@ -449,8 +430,8 @@ def _FindIntersectedEdges(mesh, elem_box_nods, elem_box_indices, line_section, c
     elem_centers = np.array([[lon_centers[i], lat_centers[i]] for i in range(len(lon_centers))])
 
     # Find the element edges that are intersected (2 of 3 regular, 1 of 3 with land)
-    intersected_edge = np.ones((len(elem_centers),3), dtype=bool)
-    midpoints_edge = np.zeros((len(elem_centers),3,2)) # elem, edge, (lon,lat)
+    intersected_edge = np.ones((len(elem_centers), 3), dtype=bool)
+    midpoints_edge = np.zeros((len(elem_centers), 3, 2))  # elem, edge, (lon,lat)
 
     # iterate over all intersected elements
     for ii in range(len(elem_centers)):
@@ -459,40 +440,41 @@ def _FindIntersectedEdges(mesh, elem_box_nods, elem_box_indices, line_section, c
         lat1, lat2, lat3 = lat_elems[ii][0], lat_elems[ii][1], lat_elems[ii][2]
 
         # compute the midpoints of the element edge
-        midpoints_edge[ii,0,0] = (lon1+lon2)/2
-        midpoints_edge[ii,1,0] = (lon2+lon3)/2
-        midpoints_edge[ii,2,0] = (lon3+lon1)/2
+        midpoints_edge[ii, 0, 0] = (lon1 + lon2) / 2
+        midpoints_edge[ii, 1, 0] = (lon2 + lon3) / 2
+        midpoints_edge[ii, 2, 0] = (lon3 + lon1) / 2
 
-        midpoints_edge[ii,0,1] = (lat1+lat2)/2
-        midpoints_edge[ii,1,1] = (lat2+lat3)/2
-        midpoints_edge[ii,2,1] = (lat3+lat1)/2
+        midpoints_edge[ii, 0, 1] = (lat1 + lat2) / 2
+        midpoints_edge[ii, 1, 1] = (lat2 + lat3) / 2
+        midpoints_edge[ii, 2, 1] = (lat3 + lat1) / 2
 
         # create shapely line elements for each of the element edges
-        line12 = sg.LineString([[lon1,lat1], [lon2,lat2]])
-        line23 = sg.LineString([[lon2,lat2], [lon3,lat3]])
-        line31 = sg.LineString([[lon3,lat3], [lon1,lat1]])
+        line12 = sg.LineString([[lon1, lat1], [lon2, lat2]])
+        line23 = sg.LineString([[lon2, lat2], [lon3, lat3]])
+        line31 = sg.LineString([[lon3, lat3], [lon1, lat1]])
 
         # find the element edges that intersect with the section
         if not list(line12.intersection(line_section).coords):
-            intersected_edge[ii,0] = False
+            intersected_edge[ii, 0] = False
         if not list(line23.intersection(line_section).coords):
-            intersected_edge[ii,1] = False
+            intersected_edge[ii, 1] = False
         if not list(line31.intersection(line_section).coords):
-            intersected_edge[ii,2] = False
+            intersected_edge[ii, 2] = False
 
         # when there is only one edge of the element hit then set all intersections to False and drop it later
-        if sum(intersected_edge[ii,:]) == 1:
-            intersected_edge[ii,:] = False
+        if sum(intersected_edge[ii, :]) == 1:
+            intersected_edge[ii, :] = False
 
     zeros_in_intersected_edge = np.where(intersected_edge.sum(axis=1) == 0)[0]
-    #if len(zeros_in_intersected_edge) == 2:
+    # if len(zeros_in_intersected_edge) == 2:
     #    print('The section starts and ends in the ocean. Those elements that contain the start and end coordinate of the section are droped.')
-    #elif len(zeros_in_intersected_edge) == 1:
+    # elif len(zeros_in_intersected_edge) == 1:
     #    print('The section is land-ocean/ ocean-land. Those elements that contain the start and end coordinate of the section are droped.')
-    #elif len(zeros_in_intersected_edge) == 0:
+    # elif len(zeros_in_intersected_edge) == 0:
     #    print('The section is land to land')
     if len(zeros_in_intersected_edge) > 2:
-        raise ValueError('Your section contains to many cell edges that were intersected only once. Only 0, 1 or 2 are allowed.')
+        raise ValueError(
+            'Your section contains to many cell edges that were intersected only once. Only 0, 1 or 2 are allowed.')
 
     # Now drop those elements in the arrays
     elem_box_nods = np.delete(elem_box_nods, zeros_in_intersected_edge, axis=0)
@@ -504,7 +486,113 @@ def _FindIntersectedEdges(mesh, elem_box_nods, elem_box_indices, line_section, c
 
     return intersected_edge, midpoints_edge, elem_centers, elem_box_indices, elem_box_nods, cell_intersections
 
-def _BringIntoAlongPathOrder(midpoints_edge, intersected_edge, elem_centers, section):
+
+def _IslandErrorPlot(c_lon, c_lat, f_lon, f_lat, s_lon, s_lat, files, mesh):
+    '''
+    Plots a closeup map of the island that was hit
+    '''
+
+    print(
+        'Oops, your section hit something before it reached the end coordinate... Please look at the plot and eventually modify your section!')
+    # load first file (u.fesom.*.nc)
+    ds_first = xr.open_dataset(files[0]).isel(nz1=5).mean(dim='time')
+
+    fig, ax = plt.subplots(1, 2, figsize=(20, 10), subplot_kw=dict(projection=ccrs.PlateCarree()))
+    box_mesh_1 = [c_lon[-1] - .75, c_lon[-1] + .75, c_lat[-1] - .75, c_lat[-1] + .75]
+    box_mesh_2 = [c_lon[-1] - 10, c_lon[-1] + 10, c_lat[-1] - 10, c_lat[-1] + 10]
+
+    for axis in ax:
+        gl = axis.gridlines(
+            crs=ccrs.PlateCarree(),
+            draw_labels=True,
+            linewidth=1,
+            color="gray",
+            alpha=0.5,
+            linestyle="--",
+            x_inline=True,
+            y_inline=False,
+            zorder=20,
+        )
+
+        if axis == ax[0]:
+            # crop the data for fast plotting
+            axis.set_extent(box_mesh_1, crs=ccrs.PlateCarree())
+
+            gl.xlocator = mticker.FixedLocator(np.arange(box_mesh_1[0], box_mesh_1[1], .1))
+            gl.ylocator = mticker.FixedLocator(np.arange(box_mesh_1[-2], box_mesh_1[-1], .1))
+            gl.xformatter = LONGITUDE_FORMATTER
+            gl.yformatter = LATITUDE_FORMATTER
+            axis.add_feature(cfeature.COASTLINE, zorder=10)
+
+            # Crop the data
+            box_mesh_large = [box_mesh_1[0] - 1, box_mesh_1[1] + 1, box_mesh_1[2] - 1, box_mesh_1[3] + 1]
+            data_to_plot = ds_first.u.values
+            elem_no_nan, no_nan_triangles = cut_region(mesh, box_mesh_large)
+            no_cyclic_elem2 = get_no_cyclic(mesh, elem_no_nan)
+            # masked values do not work in cartopy
+            data_to_plot = data_to_plot[no_nan_triangles][no_cyclic_elem2]
+            data_to_plot[data_to_plot == 0] = np.nan
+            elem_to_plot = elem_no_nan[no_cyclic_elem2]
+
+            # Plot tripcolor
+            image = axis.tripcolor(
+                mesh.x2,
+                mesh.y2,
+                elem_to_plot,
+                data_to_plot,
+                transform=ccrs.PlateCarree(),
+                cmap='RdBu_r',
+
+                edgecolors="k"
+            )
+        else:
+            # crop the data for fast plotting
+            axis.set_extent(box_mesh_2, crs=ccrs.PlateCarree())
+
+            gl.xlocator = mticker.FixedLocator(np.arange(box_mesh_2[0], box_mesh_2[1], 2))
+            gl.ylocator = mticker.FixedLocator(np.arange(box_mesh_2[-2], box_mesh_2[-1], 2))
+            gl.xformatter = LONGITUDE_FORMATTER
+            gl.yformatter = LATITUDE_FORMATTER
+
+            axis.add_feature(cfeature.COASTLINE, zorder=10)
+
+            # Crop the data
+            # box_mesh_large = [box_mesh_2[0] - 2, box_mesh_2[1] + 2, box_mesh_2[2] - 2, box_mesh_2[3] + 2]
+            # data_to_plot = ds_first.u.values
+            # elem_no_nan, no_nan_triangles = cut_region(mesh, box_mesh_large)
+            # no_cyclic_elem2 = get_no_cyclic(mesh, elem_no_nan)
+            # masked values do not work in cartopy
+            # data_to_plot = data_to_plot[no_nan_triangles][no_cyclic_elem2]
+            # data_to_plot[data_to_plot == 0] = np.nan
+            # elem_to_plot = elem_no_nan[no_cyclic_elem2]
+
+            # Plot tripcolor
+            # image = axis.tripcolor(
+        #                        mesh.x2,
+        #                        mesh.y2,
+        #                        elem_to_plot,
+        #                        data_to_plot,
+        #                        transform=ccrs.PlateCarree(),
+        #                        cmap='RdBu_r',
+        #                        edgecolors="k"
+
+        # plot section
+        for i in range(len(f_lon)):
+            axis.plot([f_lon[i], c_lon[i], s_lon[i]],
+                      [f_lat[i], c_lat[i], s_lat[i]],
+                      'r-s',
+                      transform=ccrs.PlateCarree(),
+                      linewidth=2,
+                      markersize=2
+                      )
+
+        # plot last working cell
+        axis.plot(s_lon[-1], s_lat[-1], 'r*', markersize=15)
+    plt.show()
+    return
+
+
+def _BringIntoAlongPathOrder(midpoints_edge, intersected_edge, elem_centers, section, files, mesh):
     '''
     Brings the mesh elements and segment vectors into an along-section order (eastwards/ northwards).
 
@@ -538,12 +626,12 @@ def _BringIntoAlongPathOrder(midpoints_edge, intersected_edge, elem_centers, sec
 
 
     '''
-   #### FIND THE FIRST POINT OF THE SECTION
+    #### FIND THE FIRST POINT OF THE SECTION
 
     if section['orientation'] == 'zonal':
         # find the westernnmost intersected edge midpoint
-        start_ind = np.argmin(midpoints_edge[intersected_edge,0])
-        start_value = midpoints_edge[intersected_edge,0][start_ind]
+        start_ind = np.argmin(midpoints_edge[intersected_edge, 0])
+        start_value = midpoints_edge[intersected_edge, 0][start_ind]
 
         # create list for already used elements
         first_element = list()
@@ -551,48 +639,51 @@ def _BringIntoAlongPathOrder(midpoints_edge, intersected_edge, elem_centers, sec
         for ii in range(midpoints_edge.shape[0]):
 
             # for each single midpoint tuple, check if the longitude is the same (then this is the first element)
-            if start_value in midpoints_edge[ii,intersected_edge[ii,:],0]:
+            if start_value in midpoints_edge[ii, intersected_edge[ii, :], 0]:
                 first_element.append(ii)
-                #print(first_element)
+                # print(first_element)
 
-        #if len(first_element) > 1:
-            #raise ValueError('Something is wrong here...')
+        # if len(first_element) > 1:
+        # raise ValueError('Something is wrong here...')
 
         # now look which of the two intersected midpoints of the first element is intersected first
-        ind_first = np.where(midpoints_edge[first_element[0],intersected_edge[first_element[0],:],0] == start_value)[0]
+        ind_first = np.where(midpoints_edge[first_element[0], intersected_edge[first_element[0], :], 0] == start_value)[
+            0]
 
         # write the coordinates in the right order into lists (first_value, centeroid, second_value, (lon,lat)) for each element
         f_lon, f_lat, s_lon, s_lat, c_lon, c_lat, elem_order = list(), list(), list(), list(), list(), list(), list()
 
-        c_lon.append(elem_centers[first_element[0],0])
-        c_lat.append(elem_centers[first_element[0],1])
-        f_lon.append(midpoints_edge[first_element[0], intersected_edge[first_element[0],:], 0][ind_first][0])
-        f_lat.append(midpoints_edge[first_element[0], intersected_edge[first_element[0],:], 1][ind_first][0])
-        s_lon.append(midpoints_edge[first_element[0], intersected_edge[first_element[0],:], 0][ind_first-1][0])# if ind_first =0 --> -1 which is the same index as 1
-        s_lat.append(midpoints_edge[first_element[0], intersected_edge[first_element[0],:], 1][ind_first-1][0])
+        c_lon.append(elem_centers[first_element[0], 0])
+        c_lat.append(elem_centers[first_element[0], 1])
+        f_lon.append(midpoints_edge[first_element[0], intersected_edge[first_element[0], :], 0][ind_first][0])
+        f_lat.append(midpoints_edge[first_element[0], intersected_edge[first_element[0], :], 1][ind_first][0])
+        s_lon.append(midpoints_edge[first_element[0], intersected_edge[first_element[0], :], 0][ind_first - 1][
+                         0])  # if ind_first =0 --> -1 which is the same index as 1
+        s_lat.append(midpoints_edge[first_element[0], intersected_edge[first_element[0], :], 1][ind_first - 1][0])
 
         elem_order.append(first_element[0])
 
-
         ###### Bring all the elements into the right order
 
-        for jj in range(elem_centers.shape[0]-1):
+        for jj in range(elem_centers.shape[0] - 1):
             # Now we repeat this procedure for the second value of the previous element
             matching_element = list()
             for ii in range(midpoints_edge.shape[0]):
                 # for each single midpoint tuple, check if the longitude is the same (then this is the next element)
-                if s_lon[-1] in midpoints_edge[ii,intersected_edge[ii,:],0]:
+                if s_lon[-1] in midpoints_edge[ii, intersected_edge[ii, :], 0]:
                     matching_element.append(ii)
-            #print(jj, matching_element)
+            # print(jj, matching_element)
 
             # apply some tests, the matching element has to have len() == 2 and the previous element must also be contained
             if (len(matching_element) != 2) | (elem_order[-1] not in matching_element):
-                raise ValueError('Either your section hit an island or your add_extent parameter was chosen too small! ' +
-                                'Increase the add_extent parameter as it might be too small for your mesh resolution! ' +
-                                'Otherwise, the last working gridcell was at: ' +
-                                 str(c_lon[-1]) + '°E, ' + str(c_lat[-1]) + '°N. ' +
-                                 'Please use this coordinate tuple as the new start or end of the section! '
-                                 )
+                _IslandErrorPlot(c_lon, c_lat, f_lon, f_lat, s_lon, s_lat, files, mesh)
+                raise ValueError(
+                    'Either your section hit an island or your add_extent parameter was chosen too small! ' +
+                    'Increase the add_extent parameter as it might be too small for your mesh resolution! ' +
+                    'Otherwise, the last working gridcell was at: ' +
+                    str(c_lon[-1]) + '°E, ' + str(c_lat[-1]) + '°N. ' +
+                    'Please use this coordinate tuple as the new start or end of the section! '
+                )
 
             # find the matching element that's not the previous one, this is the next one
             if elem_order[-1] == matching_element[0]:
@@ -601,24 +692,32 @@ def _BringIntoAlongPathOrder(midpoints_edge, intersected_edge, elem_centers, sec
                 ind = 0
 
             # now look which of the two intersected midpoints of the element is the same as the last second value
-            ind_first = np.where(midpoints_edge[matching_element[ind],intersected_edge[matching_element[ind],:],0] == s_lon[-1])[0]
+            ind_first = \
+                np.where(
+                    midpoints_edge[matching_element[ind], intersected_edge[matching_element[ind], :], 0] == s_lon[-1])[
+                    0]
 
             # append to list in right order
-            c_lon.append(elem_centers[matching_element[ind],0])
-            c_lat.append(elem_centers[matching_element[ind],1])
-            f_lon.append(midpoints_edge[matching_element[ind], intersected_edge[matching_element[ind],:], 0][ind_first][0])
-            f_lat.append(midpoints_edge[matching_element[ind], intersected_edge[matching_element[ind],:], 1][ind_first][0])
-            s_lon.append(midpoints_edge[matching_element[ind], intersected_edge[matching_element[ind],:], 0][ind_first-1][0])# if ind_first =0 --> -1 which is the same index as 1
-            s_lat.append(midpoints_edge[matching_element[ind], intersected_edge[matching_element[ind],:], 1][ind_first-1][0])
+            c_lon.append(elem_centers[matching_element[ind], 0])
+            c_lat.append(elem_centers[matching_element[ind], 1])
+            f_lon.append(
+                midpoints_edge[matching_element[ind], intersected_edge[matching_element[ind], :], 0][ind_first][0])
+            f_lat.append(
+                midpoints_edge[matching_element[ind], intersected_edge[matching_element[ind], :], 1][ind_first][0])
+            s_lon.append(
+                midpoints_edge[matching_element[ind], intersected_edge[matching_element[ind], :], 0][ind_first - 1][
+                    0])  # if ind_first =0 --> -1 which is the same index as 1
+            s_lat.append(
+                midpoints_edge[matching_element[ind], intersected_edge[matching_element[ind], :], 1][ind_first - 1][0])
 
             elem_order.append(matching_element[ind])
 
     elif section['orientation'] == 'meridional':
 
         # find the southernmost intersected edge midpoint
-        start_ind = np.argmin(midpoints_edge[intersected_edge,1])
-        start_value = midpoints_edge[intersected_edge,1][start_ind]
-        #print(start_ind, start_value)
+        start_ind = np.argmin(midpoints_edge[intersected_edge, 1])
+        start_value = midpoints_edge[intersected_edge, 1][start_ind]
+        # print(start_ind, start_value)
 
         # create list for already used elements
         first_element = list()
@@ -626,48 +725,52 @@ def _BringIntoAlongPathOrder(midpoints_edge, intersected_edge, elem_centers, sec
         for ii in range(midpoints_edge.shape[0]):
 
             # for each single midpoint tuple, check if the latitude is the same (then this is the first element)
-            if start_value in midpoints_edge[ii,intersected_edge[ii,:],1]:
+            if start_value in midpoints_edge[ii, intersected_edge[ii, :], 1]:
                 first_element.append(ii)
-                #print(first_element)
+                # print(first_element)
 
-        #if len(first_element) > 1:
-            #raise ValueError('Something is wrong here...')
+        # if len(first_element) > 1:
+        # raise ValueError('Something is wrong here...')
 
         # now look which of the two intersected midpoints of the first element is intersected first
-        ind_first = np.where(midpoints_edge[first_element[0],intersected_edge[first_element[0],:],1] == start_value)[0]
+        ind_first = np.where(midpoints_edge[first_element[0], intersected_edge[first_element[0], :], 1] == start_value)[
+            0]
 
         # write the coordinates in the right order into lists (first_value, centeroid, second_value, (lon,lat)) for each element
         f_lon, f_lat, s_lon, s_lat, c_lon, c_lat, elem_order = list(), list(), list(), list(), list(), list(), list()
 
-        c_lon.append(elem_centers[first_element[0],0])
-        c_lat.append(elem_centers[first_element[0],1])
-        f_lon.append(midpoints_edge[first_element[0], intersected_edge[first_element[0],:], 0][ind_first][0])
-        f_lat.append(midpoints_edge[first_element[0], intersected_edge[first_element[0],:], 1][ind_first][0])
-        s_lon.append(midpoints_edge[first_element[0], intersected_edge[first_element[0],:], 0][ind_first-1][0])# if ind_first =0 --> -1 which is the same index as 1
-        s_lat.append(midpoints_edge[first_element[0], intersected_edge[first_element[0],:], 1][ind_first-1][0])
+        c_lon.append(elem_centers[first_element[0], 0])
+        c_lat.append(elem_centers[first_element[0], 1])
+        f_lon.append(midpoints_edge[first_element[0], intersected_edge[first_element[0], :], 0][ind_first][0])
+        f_lat.append(midpoints_edge[first_element[0], intersected_edge[first_element[0], :], 1][ind_first][0])
+        s_lon.append(midpoints_edge[first_element[0], intersected_edge[first_element[0], :], 0][ind_first - 1][
+                         0])  # if ind_first =0 --> -1 which is the same index as 1
+        s_lat.append(midpoints_edge[first_element[0], intersected_edge[first_element[0], :], 1][ind_first - 1][0])
 
         elem_order.append(first_element[0])
 
-
         ###### Bring all the elements into the right order
 
-        for jj in range(elem_centers.shape[0]-1):
+        for jj in range(elem_centers.shape[0] - 1):
             # Now we repeat this procedure for the second value of the previous element
             matching_element = list()
             for ii in range(midpoints_edge.shape[0]):
                 # for each single midpoint tuple, check if the longitude is the same (then this is the next element)
-                if s_lat[-1] in midpoints_edge[ii,intersected_edge[ii,:],1]:
+                if s_lat[-1] in midpoints_edge[ii, intersected_edge[ii, :], 1]:
                     matching_element.append(ii)
-            #print(jj, matching_element)
+            # print(jj, matching_element)
 
             # apply some tests, the matching element has to have len() == 2 and the previous element must also be contained
             if (len(matching_element) != 2) | (elem_order[-1] not in matching_element):
-                raise ValueError('Either your section hit an island or your add_extent parameter was chosen too small! ' +
-                                'Increase the add_extent parameter as it might be too small for your mesh resolution! ' +
-                                'Otherwise, the last working gridcell was at: ' +
-                                 str(c_lon[-1]) + '°E, ' + str(c_lat[-1]) + '°N. ' +
-                                 'Please use this coordinate tuple as the new start or end of the section! '
-                                 )
+                # Draw Island plot
+                _IslandErrorPlot(c_lon, c_lat, f_lon, f_lat, s_lon, s_lat, files, mesh)
+                raise ValueError(
+                    'Either your section hit an island or your add_extent parameter was chosen too small! ' +
+                    'Increase the add_extent parameter as it might be too small for your mesh resolution! ' +
+                    'Otherwise, the last working gridcell was at: ' +
+                    str(c_lon[-1]) + '°E, ' + str(c_lat[-1]) + '°N. ' +
+                    'Please use this coordinate tuple as the new start or end of the section! '
+                )
 
             # find the matching element that's not the previous one, this is the next one
             if elem_order[-1] == matching_element[0]:
@@ -676,19 +779,27 @@ def _BringIntoAlongPathOrder(midpoints_edge, intersected_edge, elem_centers, sec
                 ind = 0
 
             # now look which of the two intersected midpoints of the element is the same as the last second value
-            ind_first = np.where(midpoints_edge[matching_element[ind],intersected_edge[matching_element[ind],:],0] == s_lon[-1])[0]
+            ind_first = \
+                np.where(
+                    midpoints_edge[matching_element[ind], intersected_edge[matching_element[ind], :], 0] == s_lon[-1])[
+                    0]
 
             # append to list in right order
-            c_lon.append(elem_centers[matching_element[ind],0])
-            c_lat.append(elem_centers[matching_element[ind],1])
-            f_lon.append(midpoints_edge[matching_element[ind], intersected_edge[matching_element[ind],:], 0][ind_first][0])
-            f_lat.append(midpoints_edge[matching_element[ind], intersected_edge[matching_element[ind],:], 1][ind_first][0])
-            s_lon.append(midpoints_edge[matching_element[ind], intersected_edge[matching_element[ind],:], 0][ind_first-1][0])# if ind_first =0 --> -1 which is the same index as 1
-            s_lat.append(midpoints_edge[matching_element[ind], intersected_edge[matching_element[ind],:], 1][ind_first-1][0])
+            c_lon.append(elem_centers[matching_element[ind], 0])
+            c_lat.append(elem_centers[matching_element[ind], 1])
+            f_lon.append(
+                midpoints_edge[matching_element[ind], intersected_edge[matching_element[ind], :], 0][ind_first][0])
+            f_lat.append(
+                midpoints_edge[matching_element[ind], intersected_edge[matching_element[ind], :], 1][ind_first][0])
+            s_lon.append(
+                midpoints_edge[matching_element[ind], intersected_edge[matching_element[ind], :], 0][ind_first - 1][
+                    0])  # if ind_first =0 --> -1 which is the same index as 1
+            s_lat.append(
+                midpoints_edge[matching_element[ind], intersected_edge[matching_element[ind], :], 1][ind_first - 1][0])
 
             elem_order.append(matching_element[ind])
 
-    #check if the no element appears twice
+    # check if the no element appears twice
     for i in elem_order:
         if elem_order.count(i) > 1:
             raise ValueError('An element appeared twice while sorting...' + str(i))
@@ -703,8 +814,8 @@ def _BringIntoAlongPathOrder(midpoints_edge, intersected_edge, elem_centers, sec
     section['c_lat'] = c_lat
     section['s_lat'] = s_lat
 
-
     return c_lon, c_lat, f_lon, f_lat, s_lon, s_lat, elem_order
+
 
 def _ComputeBrokenLineSegments(f_lat, f_lon, s_lat, s_lon, c_lat, c_lon, section):
     '''
@@ -740,47 +851,44 @@ def _ComputeBrokenLineSegments(f_lat, f_lon, s_lat, s_lon, c_lat, c_lon, section
     first_segment_vector = np.ones((len(f_lon), 2))
     second_segment_vector = np.ones_like(first_segment_vector)
     for ii in range(len(f_lon)):
-
         # FIRST VECTOR OF THE ELEMENT
         # switch to a local cartesian coordinate system (centered at the element midpoint) and compute the vector connecting
         # the center of the intersected edge with the center of the element (always pointing outwards from the center of the element)
         dx, dy, dz = pm.geodetic2enu(lat0=c_lat[ii],
-                                        lon0=c_lon[ii],
-                                        h0=0,
-                                        lat=f_lat[ii],
-                                        lon=f_lon[ii],
-                                        h=0,
+                                     lon0=c_lon[ii],
+                                     h0=np.array(0),
+                                     lat=f_lat[ii],
+                                     lon=f_lon[ii],
+                                     h=np.array(0),
                                      ell=pm.utils.Ellipsoid('wgs84')
-                                   )
+                                     )
 
-        first_segment_vector[ii,0], first_segment_vector[ii,1] = -dx, -dy # turn the vector to point towards the center, in the direction of the section
+        first_segment_vector[ii, 0], first_segment_vector[
+            ii, 1] = -dx, -dy  # turn the vector to point towards the center, in the direction of the section
 
         # SECOND VECTOR OF THE ELEMENT
         dx, dy, dz = pm.geodetic2enu(lat0=c_lat[ii],
-                                        lon0=c_lon[ii],
-                                        h0=0,
-                                        lat=s_lat[ii],
-                                        lon=s_lon[ii],
-                                        h=0,
+                                     lon0=c_lon[ii],
+                                     h0=np.array(0),
+                                     lat=s_lat[ii],
+                                     lon=s_lon[ii],
+                                     h=np.array(0),
                                      ell=pm.utils.Ellipsoid('wgs84')
-                                   )
+                                     )
 
-        second_segment_vector[ii,0], second_segment_vector[ii,1] = dx, dy
+        second_segment_vector[ii, 0], second_segment_vector[ii, 1] = dx, dy
 
     # define the sign of the segment length
     if section['orientation'] == 'zonal':
-
-        effective_dx = first_segment_vector[:,0] + second_segment_vector[:,0]
-        effective_dy = -first_segment_vector[:,1] - second_segment_vector[:,1]
-
+        effective_dx = first_segment_vector[:, 0] + second_segment_vector[:, 0]
+        effective_dy = -first_segment_vector[:, 1] - second_segment_vector[:, 1]
 
     if section['orientation'] == 'meridional':
-
-        effective_dx = -first_segment_vector[:,0] - second_segment_vector[:,0]
-        effective_dy = first_segment_vector[:,1] + second_segment_vector[:,1]
-
+        effective_dx = -first_segment_vector[:, 0] - second_segment_vector[:, 0]
+        effective_dy = first_segment_vector[:, 1] + second_segment_vector[:, 1]
 
     return effective_dx, effective_dy
+
 
 def _CreateVerticalGrid(effective_dx, effective_dy, mesh_diag):
     '''
@@ -809,42 +917,49 @@ def _CreateVerticalGrid(effective_dx, effective_dy, mesh_diag):
         layer_thickness = np.abs(np.diff(mesh_diag.nz))
 
     # compute the vertical area for dx and dy
-    vertical_cell_area_dx = layer_thickness[:,np.newaxis] * effective_dx[np.newaxis,:]
-    vertical_cell_area_dy = layer_thickness[:,np.newaxis] * effective_dy[np.newaxis,:]
+    vertical_cell_area_dx = layer_thickness[:, np.newaxis] * effective_dx[np.newaxis, :]
+    vertical_cell_area_dy = layer_thickness[:, np.newaxis] * effective_dy[np.newaxis, :]
 
     return vertical_cell_area_dx, vertical_cell_area_dy
 
-def _AddMetaData(ds, elem_box_indices, elem_box_nods, effective_dx, effective_dy, vertical_cell_area_dx, vertical_cell_area_dy, c_lon, c_lat):
+
+def _AddMetaData(ds, elem_box_indices, elem_box_nods, effective_dx, effective_dy, vertical_cell_area_dx,
+                 vertical_cell_area_dy, c_lon, c_lat):
     '''
     Add some meta-data to the dataset.
     '''
 
-     # ADD SOME FURTHER VARIABLES
+    # ADD SOME FURTHER VARIABLES
     ds.assign_coords({'triple': ("triple", [1, 2, 3])})
 
     # elem_indices
     ds['elem_indices'] = (('elem'), elem_box_indices)
-    ds.elem_indices.attrs['description'] = 'indices of the elements that belong to the section relative to the global data field'
+    ds.elem_indices.attrs[
+        'description'] = 'indices of the elements that belong to the section relative to the global data field'
 
     # elem_nods
     ds['elem_nods'] = (('elem', 'triple'), elem_box_nods)
-    ds.elem_nods.attrs['description'] = 'indices of the 3 nods that represent the elements that belong to the section relative to the global data field'
+    ds.elem_nods.attrs[
+        'description'] = 'indices of the 3 nods that represent the elements that belong to the section relative to the global data field'
 
     # horizontal_distances
     ds['zonal_distance'] = (('elem'), effective_dx)
     ds.zonal_distance.attrs['description'] = 'width of the two broken lines in each element in west-east direction'
     ds.zonal_distance.attrs['units'] = 'm'
     ds['meridional_distance'] = (('elem'), effective_dy)
-    ds.meridional_distance.attrs['description'] = 'width of the two broken lines in each element in south-east direction'
+    ds.meridional_distance.attrs[
+        'description'] = 'width of the two broken lines in each element in south-east direction'
     ds.meridional_distance.attrs['units'] = 'm'
 
     # vertical_cell_area
     ds['vertical_cell_area_dx'] = (('elem', 'nz1'), np.transpose(vertical_cell_area_dx))
-    ds.vertical_cell_area_dx.attrs['description'] = 'cell area of the single intersected elements in east-west direction'
+    ds.vertical_cell_area_dx.attrs[
+        'description'] = 'cell area of the single intersected elements in east-west direction'
     ds.vertical_cell_area_dx.attrs['units'] = 'm^2'
 
     ds['vertical_cell_area_dy'] = (('elem', 'nz1'), np.transpose(vertical_cell_area_dy))
-    ds.vertical_cell_area_dy.attrs['description'] = 'cell area of the single intersected elements in south-north direction'
+    ds.vertical_cell_area_dy.attrs[
+        'description'] = 'cell area of the single intersected elements in south-north direction'
     ds.vertical_cell_area_dy.attrs['units'] = 'm^2'
 
     # lon lat
@@ -858,7 +973,9 @@ def _AddMetaData(ds, elem_box_indices, elem_box_nods, effective_dx, effective_dy
 
     return ds
 
-def _UnrotateLoadVelocity(how, files, elem_box_indices, elem_box_nods, vertical_cell_area_dx, vertical_cell_area_dy, c_lon, c_lat, effective_dx, effective_dy, elem_order, chunks, mesh, abg):
+
+def _UnrotateLoadVelocity(how, files, elem_box_indices, elem_box_nods, vertical_cell_area_dx, vertical_cell_area_dy,
+                          c_lon, c_lat, effective_dx, effective_dy, elem_order, chunks, mesh, abg):
     '''
     Load and unrotate the fesom velocity files. Additionally bring the mesh elements into the right order (according to the section)
 
@@ -900,17 +1017,19 @@ def _UnrotateLoadVelocity(how, files, elem_box_indices, elem_box_nods, vertical_
     '''
 
     print('Loading the data into memory...')
-     # decide on the loading strategy, for small datasets combine the data to one dataset, for large datasets load files individually
+    # decide on the loading strategy, for small datasets combine the data to one dataset, for large datasets load files individually
     overload = xr.open_dataset(files[0]).nbytes * 1e-9 * len(files) >= 25
     if overload:
-        print('A lot of velocity data (' + str(np.round(xr.open_dataset(files[0]).nbytes * 1e-9 * len(files), decimals=2)) + 'GB)... This will take some time...')
+        print('A lot of velocity data (' + str(np.round(xr.open_dataset(files[0]).nbytes * 1e-9 * len(files),
+                                                        decimals=2)) + 'GB)... This will take some time...')
 
     # Load and merge at the same time
     ProgressBar().register()
     ds = xr.open_mfdataset(files, combine='by_coords', chunks=chunks).isel(
         elem=elem_box_indices).load()
 
-    ds = _AddMetaData(ds, elem_box_indices, elem_box_nods, effective_dx, effective_dy, vertical_cell_area_dx, vertical_cell_area_dy, c_lon, c_lat)
+    ds = _AddMetaData(ds, elem_box_indices, elem_box_nods, effective_dx, effective_dy, vertical_cell_area_dx,
+                      vertical_cell_area_dy, c_lon, c_lat)
 
     # rename u and v to u_rot, v_rot
     ds = ds.rename({'u': 'u_rot'})
@@ -919,12 +1038,12 @@ def _UnrotateLoadVelocity(how, files, elem_box_indices, elem_box_nods, vertical_
     lon_elem_center = np.mean(mesh.x2[ds.elem_nods], axis=1)
     lat_elem_center = np.mean(mesh.y2[ds.elem_nods], axis=1)
     u, v = vec_rotate_r2g(abg[0], abg[1], abg[2], lon_elem_center[np.newaxis, :, np.newaxis],
-                             lat_elem_center[np.newaxis, :, np.newaxis], ds.u_rot.values, ds.v_rot.values, flag=1)
+                          lat_elem_center[np.newaxis, :, np.newaxis], ds.u_rot.values, ds.v_rot.values, flag=1)
 
     ds['u'] = (('time', 'elem', 'nz1'), u)
     ds['v'] = (('time', 'elem', 'nz1'), v)
 
-    ds = ds.drop_vars(['u_rot','v_rot'])
+    ds = ds.drop_vars(['u_rot', 'v_rot'])
 
     # bring u and v into the right order
     ds['u'] = ds.u.isel(elem=elem_order)
@@ -951,16 +1070,17 @@ def _TransportAcross(ds):
 
 
     '''
-    ds['transport_across'] = ds.u * ds.vertical_cell_area_dy +  ds.v * ds.vertical_cell_area_dx
+    ds['transport_across'] = ds.u * ds.vertical_cell_area_dy + ds.v * ds.vertical_cell_area_dx
 
     return ds
+
 
 def _AddTempSalt(section, ds, data_path, mesh, years, elem_order):
     '''
     _AddTempSalt.py
 
-    Adds temperature and salinity values to the section. The temperature and salinity is converted from nods to elements by taking the average
-    of the three nods that form the element.
+    Adds temperature and salinity values to the section. The temperature and salinity is converted from nods to elements
+    by taking the average of the three nods that form the element.
 
     Inputs
     ------
@@ -996,7 +1116,8 @@ def _AddTempSalt(section, ds, data_path, mesh, years, elem_order):
 
     overload = xr.open_dataset(files[0]).nbytes * 1e-9 * len(files) >= 25
     if overload:
-        print('A lot of TS data (' + str(np.round(xr.open_dataset(files[0]).nbytes * 1e-9 * len(files), decimals=2)) + 'GB)... This will take some time...')
+        print('A lot of TS data (' + str(np.round(xr.open_dataset(files[0]).nbytes * 1e-9 * len(files),
+                                                  decimals=2)) + 'GB)... This will take some time...')
 
     # Open files
     ds_ts = xr.open_mfdataset(files, combine='by_coords', chunks={'nod2': 1e4})
@@ -1019,6 +1140,7 @@ def _AddTempSalt(section, ds, data_path, mesh, years, elem_order):
 
     return ds
 
+
 def _OrderIndices(ds, elem_order):
     '''Brings the indices into the right order.
 
@@ -1036,7 +1158,9 @@ def _OrderIndices(ds, elem_order):
     print('\n Done!')
     return ds
 
-def cross_section_transport(section, mesh, data_path, years, mesh_diag, how='mean', add_extent=1, abg=[50, 15, -90], add_TS=False, chunks={'elem': 1e4}, use_great_circle=False, n_points=1000):
+
+def cross_section_transport(section, mesh, data_path, years, mesh_diag, how='mean', add_extent=1, abg=[50, 15, -90],
+                            add_TS=False, chunks={'elem': 1e4}, use_great_circle=False, n_points=1000):
     '''
     Inputs
     ------
@@ -1082,17 +1206,24 @@ def cross_section_transport(section, mesh, data_path, years, mesh_diag, how='mea
 
     elem_box_nods, elem_box_indices = _ReduceMeshElementNumber(section_waypoints, mesh, section, add_extent)
 
-    elem_box_nods, elem_box_indices, cell_intersections, line_section = _LinePolygonIntersections(mesh, section_waypoints, elem_box_nods, elem_box_indices)
+    elem_box_nods, elem_box_indices, cell_intersections, line_section = _LinePolygonIntersections(mesh,
+                                                                                                  section_waypoints,
+                                                                                                  elem_box_nods,
+                                                                                                  elem_box_indices)
 
-    intersected_edge, midpoints_edge, elem_centers, elem_box_indices, elem_box_nods, cell_intersections = _FindIntersectedEdges(mesh, elem_box_nods, elem_box_indices, line_section, cell_intersections)
+    intersected_edge, midpoints_edge, elem_centers, elem_box_indices, elem_box_nods, cell_intersections = _FindIntersectedEdges(
+        mesh, elem_box_nods, elem_box_indices, line_section, cell_intersections)
 
-    c_lon, c_lat, f_lon, f_lat, s_lon, s_lat, elem_order = _BringIntoAlongPathOrder(midpoints_edge, intersected_edge, elem_centers, section)
+    c_lon, c_lat, f_lon, f_lat, s_lon, s_lat, elem_order = _BringIntoAlongPathOrder(midpoints_edge, intersected_edge,
+                                                                                    elem_centers, section, files, mesh)
 
     effective_dx, effective_dy = _ComputeBrokenLineSegments(f_lat, f_lon, s_lat, s_lon, c_lat, c_lon, section)
 
     vertical_cell_area_dx, vertical_cell_area_dy = _CreateVerticalGrid(effective_dx, effective_dy, mesh_diag)
 
-    ds = _UnrotateLoadVelocity(how, files, elem_box_indices, elem_box_nods, vertical_cell_area_dx, vertical_cell_area_dy, c_lon, c_lat, effective_dx, effective_dy, elem_order, chunks, mesh, abg)
+    ds = _UnrotateLoadVelocity(how, files, elem_box_indices, elem_box_nods, vertical_cell_area_dx,
+                               vertical_cell_area_dy, c_lon, c_lat, effective_dx, effective_dy, elem_order, chunks,
+                               mesh, abg)
 
     ds = _TransportAcross(ds)
 
@@ -1101,4 +1232,4 @@ def cross_section_transport(section, mesh, data_path, years, mesh_diag, how='mea
 
     ds = _OrderIndices(ds, elem_order)
 
-    return  ds, section
+    return ds, section
