@@ -533,12 +533,12 @@ def get_data(
             paths.append(path)
     elif isinstance(years, int):
         if naming_convention == "fesom":
-            fname = "{}.{}.{}.nc".format(variable, runid, year)
+            fname = "{}.{}.{}.nc".format(variable, runid, years)
         elif naming_convention == "esm_tools":
             # FIXME(PG): Only for yearly restarts for now...
-            fname = f"{runid}.{year}.{variable}01.01.nc"
+            fname = f"{runid}.{years}.{variable}01.01.nc"
         elif naming_convention == "custom":
-            fname = naming_template.format(variable, runid, year)
+            fname = naming_template.format(variable, runid, years)
         else:
             raise ValueError(
                 "You must have fesom, esm_tools, or custom as naming_convention!"
