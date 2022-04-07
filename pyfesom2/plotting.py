@@ -260,6 +260,7 @@ def get_vector_forplot(
     lonreg2=None,
     latreg2=None,
     no_pi_mask=False,
+    sea_ice=False
 ):
     if len(u.shape) > 1:
         raise ValueError(
@@ -269,9 +270,13 @@ def get_vector_forplot(
         raise ValueError(
             "You are trying to use 2D variable. Only 1D variables on elements can be used."
         )
-
-    u_nodes = tonodes(u, mesh)
-    v_nodes = tonodes(v, mesh)
+    
+    if not sea_ice:
+        u_nodes = tonodes(u, mesh)
+        v_nodes = tonodes(v, mesh)
+    else:
+        u_nodes = u
+        v_nodes = v
 
     left, right, down, up = box
 
