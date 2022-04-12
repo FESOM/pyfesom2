@@ -208,7 +208,9 @@ def test_xmoc_data():
     data_path = os.path.join(my_data_folder, "pi-results")
     mesh = load_mesh(mesh_path, usepickle=False, usejoblib=False)
 
+
     # xarray as input
+    # FIXME(PG): same as below??
     data = get_data(data_path, "w", [1948], mesh, how="mean", compute=False)
     lats, moc = xmoc_data(mesh, data)
     assert moc.mean() == pytest.approx(2.5417427238839436)
@@ -218,6 +220,14 @@ def test_xmoc_data():
     # numpy as input
     data = get_data(data_path, "w", [1948], mesh, how="mean", compute=True)
     lats, moc = xmoc_data(mesh, data)
+    assert moc.mean() == pytest.approx(2.5417427238839436)
+    assert moc.max() == pytest.approx(26.160841524062885)
+    assert moc.min() == pytest.approx(-35.76228176634966)
+
+    # Dask backend, numpy as input
+    data = get_data(data_path, "w", [1948], mesh, how="mean", compute=True)
+    lats, moc = xmoc_data(mesh, data, use_dask=True)
+    moc = moc.compute()
     assert moc.mean() == pytest.approx(2.5417427238839436)
     assert moc.max() == pytest.approx(26.160841524062885)
     assert moc.min() == pytest.approx(-35.76228176634966)
