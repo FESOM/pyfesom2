@@ -10,6 +10,7 @@ import os
 import numpy as np
 import xarray as xr
 from pandas.plotting import register_matplotlib_converters
+import dask.array as da
 
 from .load_mesh_data import ind_for_depth
 from .ut import compute_face_coords, get_mask
@@ -369,6 +370,7 @@ def xmoc_data(
     face_x=None,
     face_y=None,
     returnXArray=False,
+    use_dask=False,
 ):
     """ Compute moc for selected region.
 
@@ -397,6 +399,8 @@ def xmoc_data(
         y coordinates of centers of elements, size elem2d. If None, will be computed.
     returnXArray : bool
         Whether or not to return an XArray
+    use_dask : bool
+        Whether or not to use dask for parallelization
 
     Returns:
     --------
@@ -433,35 +437,58 @@ def xmoc_data(
         mask = mask
 
     nlats = nlats
-    lats = np.linspace(-90, 90, nlats)
-    dlat = lats[1] - lats[0]
-    # allocate moc array
-    moc = np.zeros([mesh.nlev, nlats])
-    pos = ((face_y - lats[0]) / dlat).astype("int")
+    if not use_dask:
+        lats = np.linspace(-90, 90, nlats)
+        dlat = lats[1] - lats[0]
+        # allocate moc array
+        moc = np.zeros([mesh.nlev, nlats])
+        pos = ((face_y - lats[0]) / dlat).astype("int")
+    else:
+        lats = da.linspace(-90, 90, nlats)
+        dlat = lats[1] - lats[0]
+        # allocate moc array
+        moc = da.zeros([mesh.nlev, nlats])
+        pos = ((face_y - lats[0]) / dlat).astype("int")
 
     if isinstance(data, xr.DataArray):
         w = data[:, :].values * mask[:, None]
     else:
         w = data[:, :] * mask[:, None]
 
-    elem_mean = np.sum(w[mesh.elem.T, :], axis=0) / 3.0 * 1.0e-6
-    elem_mean_weigh = elem_mean * el_area.values[:, None]
+    if not use_dask:
+        elem_mean = np.sum(w[mesh.elem.T, :], axis=0) / 3.0 * 1.0e-6
+        elem_mean_weigh = elem_mean * el_area.values[:, None]
+    else:
+        elem_mean = da.sum(w[mesh.elem.T, :], axis=0) / 3.0 * 1.0e-6
+        elem_mean_weigh = elem_mean * el_area.values[:, None]
     for i in range(0, mesh.nlev):
         not_calc = np.where(i >= nlevels)[0]
         elem_mean_weigh[not_calc, i] = np.nan
 
-    for k in range(pos.min(), pos.max() + 1):
-        moc[:, k] = np.nansum(elem_mean_weigh[pos[:] == k, :], axis=0)
+    if not use_dask:
+        for k in range(pos.min(), pos.max() + 1):
+            moc[:, k] = np.nansum(elem_mean_weigh[pos[:] == k, :], axis=0)
 
-    i, j = np.where(moc.T == 0)
-    moc_cumsum = np.ma.cumsum(moc[:, ::-1], axis=1)
-    moc_proper_order = moc_cumsum[:, ::-1].T * -1
-    if return_masked:
-        moc_proper_order[i, j] = 0
-        moc_masked = np.ma.masked_equal(moc_proper_order, 0)
-        moc_final = moc_masked
+        moc_cumsum = np.ma.cumsum(moc[:, ::-1], axis=1)
+        moc_proper_order = moc_cumsum[:, ::-1].T * -1
+        if return_masked:
+            i, j = np.where(moc.T == 0)
+            moc_proper_order[i, j] = 0
+            moc_masked = np.ma.masked_equal(moc_proper_order, 0)
+            moc_final = moc_masked
+        else:
+            moc_final = moc_proper_order
     else:
-        moc_final = moc_proper_order
+        for k in range(pos.min(), pos.max() + 1):
+            moc[:, k] = da.nansum(elem_mean_weigh[pos[:] == k, :], axis=0)
+
+        moc_cumsum = da.cumsum(moc[:, ::-1], axis=1)
+        moc_proper_order = moc_cumsum[:, ::-1].T * -1
+        if return_masked:
+            moc_final = da.ma.masked_where(moc.T == 0, moc_proper_order)
+        else:
+            moc_final = moc_proper_order
+
     if returnXArray:
         return xr.DataArray(data=moc_final, coords=[("latitude", lats), ("depth", mesh.zlev),])
     return lats, moc_final
