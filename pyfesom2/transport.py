@@ -918,8 +918,12 @@ def _UnrotateLoadVelocity(how, files, elem_box_indices, elem_box_nods, vertical_
     # UNROTATE
     lon_elem_center = np.mean(mesh.x2[ds.elem_nods], axis=1)
     lat_elem_center = np.mean(mesh.y2[ds.elem_nods], axis=1)
-    u, v = vec_rotate_r2g(abg[0], abg[1], abg[2], lon_elem_center[np.newaxis, :, np.newaxis],
+    try:
+        u, v = vec_rotate_r2g(abg[0], abg[1], abg[2], lon_elem_center[np.newaxis, :, np.newaxis],
                              lat_elem_center[np.newaxis, :, np.newaxis], ds.u_rot.values, ds.v_rot.values, flag=1)
+    except:
+        u, v = vec_rotate_r2g(abg[0], abg[1], abg[2], lon_elem_center[np.newaxis, :, np.newaxis],
+                             lat_elem_center[np.newaxis, :, np.newaxis], ds.u_rot.values.swapaxes(1,2), ds.v_rot.values.swapaxes(1,2), flag=1)
 
     ds['u'] = (('time', 'elem', 'nz1'), u)
     ds['v'] = (('time', 'elem', 'nz1'), v)
