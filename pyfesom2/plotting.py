@@ -260,7 +260,8 @@ def get_vector_forplot(
     lonreg2=None,
     latreg2=None,
     no_pi_mask=False,
-    sea_ice=False
+    sea_ice=False,
+    autorotate=False
 ):
     if len(u.shape) > 1:
         raise ValueError(
@@ -287,9 +288,12 @@ def get_vector_forplot(
         latreg = np.linspace(down, up, latNumber)
         lonreg2, latreg2 = np.meshgrid(lonreg, latreg)
 
-    u_rot, v_rot = vec_rotate_r2g(
-        50, 15, -90, mesh.x2, mesh.y2, u_nodes, v_nodes, flag=1
-    )
+    if not autorotate:
+        u_rot, v_rot = vec_rotate_r2g(
+            50, 15, -90, mesh.x2, mesh.y2, u_nodes, v_nodes, flag=1
+        )
+    else:
+        u_rot, v_rot = u_nodes, v_nodes
 
     u_int = interpolate_for_plot(
         [u_rot],
