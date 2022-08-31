@@ -22,7 +22,7 @@ from .ut import scalar_r2g
 
 
 def load_mesh(path, abg=[0, 0, 0], usepickle=True, usejoblib=False, protocol=4):
-    """ Loads FESOM mesh
+    """Loads FESOM mesh
 
     Parameters
     ----------
@@ -62,7 +62,9 @@ def load_mesh(path, abg=[0, 0, 0], usepickle=True, usejoblib=False, protocol=4):
             print(pickle_file)
         else:
             pickle_file = "/dev/null"
-            print("pickle file not found in any default location, a try will be made to create it...")
+            print(
+                "pickle file not found in any default location, a try will be made to create it..."
+            )
 
     if usejoblib:
         if os.path.isfile(os.path.join(path, "joblib_mesh_py3_fesom2")):
@@ -73,7 +75,9 @@ def load_mesh(path, abg=[0, 0, 0], usepickle=True, usejoblib=False, protocol=4):
             print(joblib_file)
         else:
             joblib_file = "/dev/null"  # Use a string here, the check below needs it
-            print("joblib file not found in any default location, a try will be made to create it...")
+            print(
+                "joblib file not found in any default location, a try will be made to create it..."
+            )
 
     if usepickle and (os.path.isfile(pickle_file)):
         print("The usepickle == True)")
@@ -91,7 +95,7 @@ def load_mesh(path, abg=[0, 0, 0], usepickle=True, usejoblib=False, protocol=4):
 
         mesh = fesom_mesh(path=path, abg=abg)
 
-        try: # to save in the mesh first...
+        try:  # to save in the mesh first...
             pickle_file = os.path.join(path, "pickle_mesh_py3_fesom2")
             print("The mesh will be saved to {}".format(pickle_file))
             logging.info("Use pickle to save the mesh information")
@@ -100,7 +104,7 @@ def load_mesh(path, abg=[0, 0, 0], usepickle=True, usejoblib=False, protocol=4):
             pickle.dump(mesh, outfile, protocol=protocol)
             outfile.close()
         except PermissionError:
-            try: # to save in the cache next...
+            try:  # to save in the cache next...
                 pickle_file = os.path.join(CACHE_DIR, "pickle_mesh_py3_fesom2")
                 print("The mesh will be saved to {}".format(pickle_file))
                 logging.info("Use pickle to save the mesh information")
@@ -108,7 +112,7 @@ def load_mesh(path, abg=[0, 0, 0], usepickle=True, usejoblib=False, protocol=4):
                 outfile = open(pickle_file, "wb")
                 pickle.dump(mesh, outfile, protocol=protocol)
                 outfile.close()
-            except PermissionError: # couldn't save in either location...
+            except PermissionError:  # couldn't save in either location...
                 print("Something went wrong with saving the pickle, sorry...")
         return mesh
 
@@ -130,7 +134,7 @@ def load_mesh(path, abg=[0, 0, 0], usepickle=True, usejoblib=False, protocol=4):
 
         mesh = fesom_mesh(path=path, abg=abg)
 
-        try: # to save in the mesh first...
+        try:  # to save in the mesh first...
             joblib_file = os.path.join(path, "joblib_mesh_py3_fesom2")
             print("The mesh will be saved to {}".format(joblib_file))
             logging.info("Use joblib to save the mesh information")
@@ -139,7 +143,7 @@ def load_mesh(path, abg=[0, 0, 0], usepickle=True, usejoblib=False, protocol=4):
             joblib.dump(mesh, outfile, protocol=protocol)
             outfile.close()
         except PermissionError:
-            try: # to save in the cache next...
+            try:  # to save in the cache next...
                 joblib_file = os.path.join(CACHE_DIR, "joblib_mesh_py3_fesom2")
                 print("The mesh will be saved to {}".format(joblib_file))
                 logging.info("Use joblib to save the mesh information")
@@ -147,13 +151,13 @@ def load_mesh(path, abg=[0, 0, 0], usepickle=True, usejoblib=False, protocol=4):
                 outfile = open(joblib_file, "wb")
                 joblib.dump(mesh, outfile, protocol=protocol)
                 outfile.close()
-            except PermissionError: # couldn't save in either location...
+            except PermissionError:  # couldn't save in either location...
                 print("Something went wrong with saving the joblib, sorry...")
         return mesh
 
 
 class fesom_mesh(object):
-    """ Creates instance of the FESOM mesh.
+    """Creates instance of the FESOM mesh.
     This class creates instance that contain information
     about FESOM mesh. At present the class works with
     ASCII representation of the FESOM grid, but should be extended
@@ -391,7 +395,7 @@ def select_slices(dataset, variable, mesh, records, depth, continuous=False):
     -------
     data: xarray.DataArray
         data selected over time and depth.
-     """
+    """
 
     if depth != None:
         dind = ind_for_depth(depth, mesh)
@@ -419,17 +423,18 @@ def select_slices(dataset, variable, mesh, records, depth, continuous=False):
     else:
         raise ValueError("Records should be ether -1 or instance of a list or a slice.")
 
+        # this just can't work and probably never worked :)
     if ("nz1" in dataset.dims) and (depth != None):
-        if (continuous == True) and len(data.dims == 3) and (dind.step == None):
+        if (continuous == True) and (len(data.dims) == 3) and (dind.step == None):
             data = data[:, :, dind]
-        elif (continuous == True) and len(data.dims == 2) and (dind.step == None):
+        elif (continuous == True) and (len(data.dims) == 2) and (dind.step == None):
             data = data[:, dind]
         elif continuous == False:
             data = data.isel(nz1=dind)
     elif ("nz" in dataset.dims) and (depth != None):
-        if (continuous == True) and len(data.dims == 3) and (dind.step == None):
+        if (continuous == True) and (len(data.dims) == 3) and (dind.step == None):
             data = data[:, :, dind]
-        elif (continuous == True) and len(data.dims == 2) and (dind.step == None):
+        elif (continuous == True) and (len(data.dims) == 2) and (dind.step == None):
             data = data[:, dind]
         elif continuous == False:
             data = data.isel(nz=dind)
@@ -448,8 +453,11 @@ def get_data(
     ncfile=None,
     compute=True,
     continuous=False,
-    silent = False,
-    **kwargs
+    silent=False,
+    transpose=True,
+    naming_convention="fesom",
+    naming_template=None,
+    **kwargs,
 ):
     """
     Get the data at some depth level, agregated if needed.
@@ -482,6 +490,16 @@ def get_data(
         Some dummy data have to be provided for result_path and years
     compute: bool
         Do the actual computations or not. Default True.
+    trnspose: bool
+        Transpose to the old FESOM2.1 format with [time, nod2, nz1] dimension order.
+    runid: str
+        For esm-tools naming convention, use the experiment id name (e.g. test, PI-CTRL, LGM, ...)
+    naming_convention : str
+        The naming convention to be used. Can either be "fesom" for classic
+        infrastructure, "esm-tools" for esm-tools infrastructure, or "custom",
+        in which case a template string must be provided.
+    naming_template : None or str
+        Required if a customized naming convention is to be used. Replaced variables will be (in order) variable, runid, year.
     **kwargs: dict
        you can add aditional arguments to pass to the xarray.open_mfdataset (for example slice sizes)
 
@@ -500,16 +518,36 @@ def get_data(
     elif isinstance(years, (list, np.ndarray, range)):
         paths = []
         for year in years:
-            fname = "{}.{}.{}.nc".format(variable, runid, year)
+            if naming_convention == "fesom":
+                fname = "{}.{}.{}.nc".format(variable, runid, year)
+            elif naming_convention == "esm_tools":
+                # FIXME(PG): Only for yearly restarts for now...
+                fname = f"{runid}.{year}.{variable}01.01.nc"
+            elif naming_convention == "custom":
+                fname = naming_template.format(variable, runid, year)
+            else:
+                raise ValueError(
+                    "You must have fesom, esm_tools, or custom as naming_convention!"
+                )
             path = os.path.join(result_path, fname)
             paths.append(path)
     elif isinstance(years, int):
-        fname = "{}.{}.{}.nc".format(variable, runid, years)
+        if naming_convention == "fesom":
+            fname = "{}.{}.{}.nc".format(variable, runid, years)
+        elif naming_convention == "esm_tools":
+            # FIXME(PG): Only for yearly restarts for now...
+            fname = f"{runid}.{years}.{variable}01.01.nc"
+        elif naming_convention == "custom":
+            fname = naming_template.format(variable, runid, years)
+        else:
+            raise ValueError(
+                "You must have fesom, esm_tools, or custom as naming_convention!"
+            )
         paths = os.path.join(result_path, fname)
     else:
         raise ValueError("year can be integer, list or one dimentional numpy array")
 
-    if depth != None:
+    if depth is not None:
         dind = ind_for_depth(depth, mesh)
         if not silent:
             print("Model depth: {}".format(abs(mesh.zlev[dind])))
@@ -538,6 +576,67 @@ def get_data(
         data = data
     else:
         pass
+
+    #     print(data)
+    print(data.dims)
+    print("nz1" in data.dims)
+    print(len(data.dims) == 3)
+    print(data.dims != ("time", "nod2", "nz1"))
+
+    if transpose:
+        if len(data.dims) == 3:
+            if (
+                ("nz1" in data.dims)
+                and ("nod2" in data.dims)
+                and (data.dims != ("time", "nod2", "nz1"))
+            ):
+                data = data.transpose("time", "nod2", "nz1")
+            elif (
+                ("nz" in data.dims)
+                and ("nod2" in data.dims)
+                and (data.dims != ("time", "nod2", "nz"))
+            ):
+                data = data.transpose("time", "nod2", "nz")
+
+            elif (
+                ("nz1" in data.dims)
+                and ("elem" in data.dims)
+                and (data.dims != ("time", "elem", "nz1"))
+            ):
+                data = data.transpose("time", "elem", "nz1")
+            elif (
+                ("nz" in data.dims)
+                and ("elem" in data.dims)
+                and (data.dims != ("time", "elem", "nz"))
+            ):
+                data = data.transpose("time", "elem", "nz")
+
+        elif len(data.dims) == 2:
+            if (
+                ("nz1" in data.dims)
+                and ("nod2" in data.dims)
+                and (data.dims != ("nod2", "nz1"))
+            ):
+                data = data.transpose("nod2", "nz1")
+            elif (
+                ("nz" in data.dims)
+                and ("nod2" in data.dims)
+                and (data.dims != ("nod2", "nz"))
+            ):
+                data = data.transpose("nod2", "nz")
+
+            if (
+                ("nz1" in data.dims)
+                and ("elem" in data.dims)
+                and (data.dims != ("elem", "nz1"))
+            ):
+                data = data.transpose("elem", "nz1")
+            elif (
+                ("nz" in data.dims)
+                and ("elem" in data.dims)
+                and (data.dims != ("elem", "nz"))
+            ):
+                data = data.transpose("elem", "nz")
 
     if compute:
         data = data.compute()

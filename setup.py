@@ -29,6 +29,9 @@ requirements = [
     "seawater",
     "shapely",
     "xarray",
+    "pyproj",
+    "pymap3d",
+    "tqdm"
 ]
 
 setup_requirements = ["pytest-runner"]
