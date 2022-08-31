@@ -16,6 +16,7 @@ import xarray as xr
 from numba import jit
 from scipy.interpolate import CloughTocher2DInterpolator, LinearNDInterpolator
 from scipy.spatial import cKDTree
+import scipy 
 
 
 def lon_lat_to_cartesian(lon, lat, R=6371000):
@@ -61,7 +62,10 @@ def create_indexes_and_distances(mesh, lons, lats, k=1, n_jobs=2):
     xt, yt, zt = lon_lat_to_cartesian(lons.flatten(), lats.flatten())
 
     tree = cKDTree(list(zip(xs, ys, zs)))
-    distances, inds = tree.query(list(zip(xt, yt, zt)), k=k, n_jobs=n_jobs)
+    if float(scipy.__version__[:3])>=1.6:
+        distances, inds = tree.query(list(zip(xt, yt, zt)), k=k, workers=n_jobs)
+    else:
+        distances, inds = tree.query(list(zip(xt, yt, zt)), k=k, n_jobs=n_jobs)
 
     return distances, inds
 
