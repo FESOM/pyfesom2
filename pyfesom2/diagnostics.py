@@ -241,9 +241,9 @@ def hovm_data(data, mesh, meshdiag=None, runid="fesom", mask=None):
     else:
         nod_area = diag.nod_area[:-1,:]
         nod_area = nod_area.rename({"nz": "nz1"})
-        nod_area = nod_area.assign_coords({'nz1':data.nz1.values})
+        nod_area = nod_area.assign_coords({'nz1': diag.nz[:-1].values})
         
-    print(nod_area)
+    # print(nod_area)
     nod_area.load()
     if mask is not None:
         nod_area = nod_area[:, mask]
@@ -333,7 +333,15 @@ def volmean_data(data, mesh, uplow=None, meshdiag=None, runid="fesom", mask=None
         data = add_timedim(data)
 
     diag = get_meshdiag(mesh, meshdiag, runid)
-    nod_area = diag.rename_dims({"nl": "nz1", "nod_n": "nod2"}).nod_area
+    # nod_area = diag.rename_dims({"nl": "nz1", "nod_n": "nod2"}).nod_area
+
+    if 'nod_n' in diag.dims:
+        nod_area = diag.rename_dims({"nl": "nz1", "nod_n": "nod2"}).nod_area
+    else:
+        nod_area = diag.nod_area
+        nod_area = nod_area.rename({"nz": "nz1"})
+        nod_area = nod_area.assign_coords({'nz1': diag.nz.values})
+
     nod_area.load()
     #     nod_area = nod_area.where(nod_area != 0)
     delta_z = np.abs(np.diff(mesh.zlev))
