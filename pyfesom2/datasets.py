@@ -100,6 +100,8 @@ class RemoteZarrDataset:
             store = fsspec.get_mapper(self.path_url)
             self._ds = xr.open_zarr(store, group=self.group, consolidated=self.is_consolidated)
             self._ds.attrs.update(self.dset_attrs)
+            if 'nelem' in self._ds.dims: # temp fix till remote datasets are fixed for not having nelems
+                self._ds = self._ds.swap_dims({'nelem':'elem'})                  
         return self._ds
 
     def load(self):
