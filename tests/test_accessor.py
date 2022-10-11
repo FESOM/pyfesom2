@@ -33,7 +33,7 @@ def random_spatial_dataset(request):
     tris = Triangulation(lons, lats)
     dataset = xr.Dataset(coords={'lon'  : ('nod2', lons),
                                  'lat'  : ('nod2', lats),
-                                 'faces': (('nelem', 'three'), tris.triangles)})
+                                 'faces': (('elem', 'three'), tris.triangles)})
     dataset['dummy_2d_var'] = ('nod2', np.random.uniform(0., 1., spatial_size))
 
     yield dataset
@@ -75,7 +75,7 @@ def five_point_dataset():
                       [4, 0, 3]])  # no of faces = 2*nodes - 2*boundary nodes -2
     dataset = xr.Dataset(coords={'lon'  : ('nod2', lons),
                                  'lat'  : ('nod2', lats),
-                                 'faces': (('nelem', 'three'), faces)}
+                                 'faces': (('elem', 'three'), faces)}
                          )
     dataset['dummy_2d_var'] = ('nod2', np.random.uniform(0., 1., len(lons)))
     yield dataset
