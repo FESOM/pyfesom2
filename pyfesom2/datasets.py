@@ -143,12 +143,11 @@ def fesom_mesh_to_xr(path: str, alpha: int = 0, beta: int = 0, gamma: int = 0) -
 
     """
     mesh = load_mesh(path, abg=[alpha, beta, gamma])
-    ncyclic_inds = get_no_cyclic(mesh, mesh.elem)
-    triangles = mesh.elem[ncyclic_inds]
+    triangles = mesh.elem
     nz_values = np.absolute(mesh.zlev)
     coords_dataset = xr.Dataset(coords={'lon'  : ('nod2', mesh.x2),
                                         'lat'  : ('nod2', mesh.y2),
-                                        'faces': (('nelem', 'three'), triangles.astype('uint32')),
+                                        'faces': (('elem', 'three'), triangles.astype('uint32')),
                                         'nz'   : nz_values,
                                         'nz1'  : (nz_values[:-1] + nz_values[1:]) / 2.0})
 
@@ -237,12 +236,12 @@ def fesom_like(spatial_size: int, spatial_extent: Tuple[float, float, float, flo
     --------
     >>> fesom_like(100)
     <xarray.Dataset>
-    Dimensions:    (nelem: 184, nod2: 100, three: 3)
+    Dimensions:    (elem: 184, nod2: 100, three: 3)
     Coordinates:
         lon        (nod2) float64 4.858 -11.65 -69.51 40.91 ... 170.7 -101.2 108.0
         lat        (nod2) float64 -28.72 -13.71 13.67 -76.21 ... -12.08 10.64 -22.7
-        faces      (nelem, three) int32 62 47 63 49 47 62 74 ... 46 36 56 56 57 46
-    Dimensions without coordinates: nelem, nod2, three
+        faces      (elem, three) int32 62 47 63 49 47 62 74 ... 46 36 56 56 57 46
+    Dimensions without coordinates: elem, nod2, three
     Data variables:
         fesom_var  (nod2) float64 dask.array<chunksize=(100,), meta=np.ndarray>
 
@@ -250,13 +249,13 @@ def fesom_like(spatial_size: int, spatial_extent: Tuple[float, float, float, flo
 
     >>> fesom_like(100, times=10)
     <xarray.Dataset>
-    Dimensions:    (nelem: 186, nod2: 100, three: 3, time: 10)
+    Dimensions:    (elem: 186, nod2: 100, three: 3, time: 10)
     Coordinates:
       * time       (time) datetime64[ns] 2010-01-31 2010-02-28 ... 2010-10-31
         lon        (nod2) float64 -98.46 1.187 -27.48 93.83 ... 110.6 -108.8 -83.98
         lat        (nod2) float64 59.19 47.07 -70.14 -41.33 ... -47.75 25.72 11.9
-        faces      (nelem, three) int32 67 21 14 12 43 45 91 ... 48 48 97 38 38 4 48
-    Dimensions without coordinates: nelem, nod2, three
+        faces      (elem, three) int32 67 21 14 12 43 45 91 ... 48 48 97 38 38 4 48
+    Dimensions without coordinates: elem, nod2, three
     Data variables:
         fesom_var  (time, nod2) float64 dask.array<chunksize=(10, 100), meta=np.ndarray>
 
@@ -301,11 +300,11 @@ def fesom_like(spatial_size: int, spatial_extent: Tuple[float, float, float, flo
     dataset = xr.Dataset(coords={**other_dims,
                                  'lon'  : ('nod2', lons),
                                  'lat'  : ('nod2', lats),
-                                 'faces': (('nelem', 'three'), tri_arr),
+                                 'faces': (('elem', 'three'), tri_arr),
                                  })
 
     if random_function is not None:
-        dims_sizes = [(dim, len(dataset[dim])) for dim in dataset.dims if dim not in ['three', 'nelem']]
+        dims_sizes = [(dim, len(dataset[dim])) for dim in dataset.dims if dim not in ['three', 'elem']]
         # Sort order of dims in data variable by size.
         # Technically use OrderedDict but dict preserves order mostly.
         dims_sizes_dict = dict(sorted(dims_sizes, key=lambda kv: kv[1]))
