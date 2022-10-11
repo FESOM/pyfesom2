@@ -45,7 +45,7 @@ stable (also dependency wise) implementation for selecting multiple points for m
 A peculiarity of unstructured grid selection, specifically region selection, is necessity to retain face information
 (containing triangulation information) for underlying grid without which data subsets have limited utility, especially
 for spatial plotting. The `faces` coordinate variable contains indices of nodes that define grid faces (triangulation)
-and these values are dimensioned (nelem, three) independently to a dataset's dimensions, they are hence not
+and these values are dimensioned (elem, three) independently to a dataset's dimensions, they are hence not
 automatically selected by lon, lat or nod2 indexers. Returning a valid face information on region selection would mean
 re-evaluating the index values in faces variable based on new indices of nod2 that represent selected lon and lat.
 Such a requirement to additionally return re-indexed faces is unlike regular selection in rectilinear grids.
@@ -206,8 +206,8 @@ def select_bbox(xr_obj: Union[xr.DataArray, xr.Dataset],
     cut_faces = np.asarray(cut_faces)
     uniq, inv_index = np.unique(cut_faces.ravel(), return_inverse=True)
     new_faces = inv_index.reshape(cut_faces.shape)
-    ret = ret.isel(nod2=uniq, nelem=cut_indices)
-    ret['faces'] = (('nelem', 'three'), new_faces)
+    ret = ret.isel(nod2=uniq, elem=cut_indices)
+    ret['faces'] = (('elem', 'three'), new_faces)
     return ret
 
 
@@ -248,7 +248,7 @@ def select_region(xr_obj: Union[xr.DataArray, xr.Dataset], region: Region,
     if isinstance(xr_obj, xr.Dataset):
         lats, lons = xr_obj.lat, xr_obj.lon
         faces = np.asarray(xr_obj.faces)
-        nelem = np.asarray(xr_obj.nelem)
+        elem = np.asarray(xr_obj.elem)
         ret = xr_obj
     elif isinstance(xr_obj, xr.DataArray):
         if coords_dataset is None:
@@ -257,7 +257,7 @@ def select_region(xr_obj: Union[xr.DataArray, xr.Dataset], region: Region,
         coords_dataset = coords_dataset[['lon', 'lat', 'faces']] # in case it is not just get needed coords and dims
         lats, lons = coords_dataset.lat, coords_dataset.lon
         faces = np.asarray(coords_dataset.faces)
-        nelem = np.asarray(coords_dataset.nelem)
+        elem = np.asarray(coords_dataset.elem)
         ret = xr.merge([xr_obj, coords_dataset])
 
     # buffer is necessry to facilitte floating point comparisions
@@ -274,10 +274,10 @@ def select_region(xr_obj: Union[xr.DataArray, xr.Dataset], region: Region,
     face_mask = np.all(selection, axis=1)
     cut_faces = faces[face_mask]
     cut_faces = np.asarray(cut_faces)
-    cut_indices = nelem[face_mask]
+    cut_indices = elem[face_mask]
     uniq, inv_index = np.unique(cut_faces.ravel(), return_inverse=True)
     new_faces = inv_index.reshape(cut_faces.shape)
-    ret = ret.isel(nod2=uniq, nelem=cut_indices)
+    ret = ret.isel(nod2=uniq, elem=cut_indices)
 
     if 'faces' in ret.coords:
         ret = ret.drop_vars('faces')
@@ -286,7 +286,7 @@ def select_region(xr_obj: Union[xr.DataArray, xr.Dataset], region: Region,
         warnings.warn("No found points for the region are contained in dataset's triangulation (faces), "
                       "returning object without faces.")
         return ret  # no faces in coords
-    ret['faces'] = (('nelem', 'three'), new_faces)
+    ret['faces'] = (('elem', 'three'), new_faces)
     return ret
 
 
