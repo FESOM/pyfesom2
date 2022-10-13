@@ -9,11 +9,12 @@ from pyfesom2.datasets import open_dataset
 @pytest.fixture(scope='function')
 def local_dataset(request):
     import os.path
-    cur_dir = os.path.dirname(__file__) # __file__ may be simpler and better for multi os then request.node.path  
+    cur_dir = os.path.dirname(request.node.path) # __file__ may be simpler and better for multi os then request.node.path  
     data_path = os.path.join(cur_dir, "data", "pi-results", "temp.fesom.*.nc")
     mesh_path = os.path.join(cur_dir, "data", "pi-grid")
     da = open_dataset(data_path, mesh_path=mesh_path)
-    yield da
+    #yield da
+    return da
 
 
 # use scope=function if we want to change grid size dynamically for each test case,
