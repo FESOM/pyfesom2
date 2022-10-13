@@ -17,6 +17,8 @@ dependencies:
   - jupyter
   - ipython
   - pytest
+  - pytest-env
+  - pytest-xdist 
   - cmocean
   - zarr>=2.8.3
   - fsspec==2021.06.1
