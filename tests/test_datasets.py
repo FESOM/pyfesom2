@@ -20,7 +20,7 @@ def cmip6_grid(request):
 @pytest.fixture
 def local_dataset(request):
     import os.path
-    cur_dir = os.path.dirname(request.fspath)
+    cur_dir = os.path.dirname(__file__)
     data_path = os.path.join(cur_dir, "data", "pi-results", "*.nc")
     mesh_path = os.path.join(cur_dir, "data", "pi-grid")
     da = datasets.open_dataset(data_path, mesh_path=mesh_path)
