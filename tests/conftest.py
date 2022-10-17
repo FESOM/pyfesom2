@@ -8,6 +8,6 @@ def local_dataset(request):
     data_path = os.path.join(cur_dir, "data", "pi-results", "*.nc")
     mesh_path = os.path.join(cur_dir, "data", "pi-grid")
     da = open_dataset(data_path, mesh_path=mesh_path)
+    da.load()
+    da.close() 
     yield da
-    da.close()
-
