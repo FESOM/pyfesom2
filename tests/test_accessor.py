@@ -14,6 +14,7 @@ def local_dataset(request):
     mesh_path = os.path.join(cur_dir, "data", "pi-grid")
     da = open_dataset(data_path, mesh_path=mesh_path)
     yield da
+    da.close()
 
 
 # use scope=function if we want to change grid size dynamically for each test case,
