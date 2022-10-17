@@ -6,15 +6,15 @@ from pyfesom2.datasets import open_dataset
 
 
 # TODO: push this to test config conftest.py so that it is available globally
-@pytest.fixture(scope='module', autouse=True)
-def local_dataset(request):
-    import os.path
-    cur_dir = os.path.dirname(request.fspath)
-    data_path = os.path.join(cur_dir, "data", "pi-results", "temp.fesom.*.nc")
-    mesh_path = os.path.join(cur_dir, "data", "pi-grid")
-    da = open_dataset(data_path, mesh_path=mesh_path)
-    yield da
-    da.close()
+#@pytest.fixture(scope='module', autouse=True)
+#def local_dataset(request):
+#    import os.path
+#    cur_dir = os.path.dirname(request.fspath)
+#    data_path = os.path.join(cur_dir, "data", "pi-results", "temp.fesom.*.nc")
+#    mesh_path = os.path.join(cur_dir, "data", "pi-grid")
+#    da = open_dataset(data_path, mesh_path=mesh_path)
+#    yield da
+#    da.close()
 
 
 # use scope=function if we want to change grid size dynamically for each test case,
