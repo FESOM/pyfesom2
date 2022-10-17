@@ -25,6 +25,7 @@ def local_dataset(request):
     mesh_path = os.path.join(cur_dir, "data", "pi-grid")
     da = datasets.open_dataset(data_path, mesh_path=mesh_path)
     yield da
+    da.close()
 
 def check_dataset(dataset):
     assert isinstance(dataset, xr.Dataset)
