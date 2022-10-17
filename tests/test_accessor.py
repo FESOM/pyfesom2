@@ -6,7 +6,7 @@ from pyfesom2.datasets import open_dataset
 
 
 # TODO: push this to test config conftest.py so that it is available globally
-@pytest.fixture(scope='module')
+@pytest.fixture(scope='session', autouse=True)
 def local_dataset(request):
     import os.path
     cur_dir = os.path.dirname(request.fspath)
