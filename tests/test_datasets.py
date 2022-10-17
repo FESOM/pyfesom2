@@ -17,7 +17,7 @@ def cmip6_grid(request):
     yield da
 
 
-@pytest.fixture
+@pytest.fixture(scope="module", autouse=True)
 def local_dataset(request):
     import os.path
     cur_dir = os.path.dirname(request.fspath)
