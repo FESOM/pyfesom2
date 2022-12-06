@@ -53,10 +53,14 @@ def random_nd_dataset(random_spatial_dataset):
 
 
 # merged dataset fixture using just 2 for now, in future add remote too
-@pytest.fixture(params=["local_dataset", "random_spatial_dataset"], scope='module', autouse=True)
-def dataset(local_dataset, random_spatial_dataset, request):
-    yield request.getfixturevalue(request.param)
+#@pytest.fixture(params=["local_dataset", "random_spatial_dataset"], scope='module', autouse=True)
+#def dataset(local_dataset, random_spatial_dataset, request):
+#    yield request.getfixturevalue(request.param)
 
+#TODO enable above to be compatible for CI/gh-actions
+@pytest.fixture(params=["random_spatial_dataset"], scope='module', autouse=True)
+def dataset(random_spatial_dataset, request):
+    yield request.getfixturevalue(request.param)
 
 @pytest.fixture(scope='module')
 def five_point_dataset():
