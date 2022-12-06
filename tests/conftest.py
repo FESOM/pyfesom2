@@ -1,7 +1,8 @@
 import pytest
 from pyfesom2.datasets import open_dataset
 
-@pytest.fixture(scope="session", autouse=True)
+#TODO: scope should be session and autouse=True
+@pytest.fixture(scope="function", autouse=False)
 def local_dataset(request):
     import os.path
     cur_dir = os.path.dirname(__file__)#request.fspath)
