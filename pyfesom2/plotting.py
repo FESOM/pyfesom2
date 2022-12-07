@@ -652,7 +652,7 @@ def plot_transect_map(lonlat, mesh, view="w", stock_img=False, size=30):
     ax.scatter(
         mesh.x2[nodes], mesh.y2[nodes], s=size, c="r", transform=ccrs.PlateCarree()
     )
-    if stock_img == True:
+    if stock_img:
         ax.stock_img()
     ax.coastlines(resolution="50m")
     return ax
