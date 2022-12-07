@@ -634,13 +634,13 @@ def plot_transect_map(lonlat, mesh, view="w", stock_img=False):
 
     if view == "w":
         ax = plt.subplot(111, projection=ccrs.Mercator(central_longitude=0))
-        ax.set_extent([180, -180, -80, 90], crs=ccrs.PlateCarree())
+        ax.set_global()
     elif view == "np":
         ax = plt.subplot(111, projection=ccrs.NorthPolarStereo(central_longitude=0))
-        ax.set_extent([180, -180, 60, 90], crs=ccrs.PlateCarree())
+        ax.set_extent([-180, 180, 60, 90], crs=ccrs.PlateCarree())
     elif view == "sp":
         ax = plt.subplot(111, projection=ccrs.SouthPolarStereo(central_longitude=0))
-        ax.set_extent([180, -180, -90, -50], crs=ccrs.PlateCarree())
+        ax.set_extent([-180, 180, -90, -50], crs=ccrs.PlateCarree())
     else:
         raise ValueError(
             'The "{}" is not recognized as valid view option.'.format(view)
