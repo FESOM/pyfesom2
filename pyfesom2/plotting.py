@@ -607,7 +607,7 @@ def plot_vector(
     return ax
 
 
-def plot_transect_map(lonlat, mesh, view="w", stock_img=False):
+def plot_transect_map(lonlat, mesh, view="w", stock_img=False, size=30):
     """Plot map of the transect.
 
     Parameters
@@ -623,6 +623,8 @@ def plot_transect_map(lonlat, mesh, view="w", stock_img=False):
         sp - South Polar Stereo
     stock_imd: bool
         Show stock backgroung image. Usually makes things slower.
+    size: float
+        Size of the points on the map.
 
     Returns
     -------
@@ -646,9 +648,9 @@ def plot_transect_map(lonlat, mesh, view="w", stock_img=False):
             'The "{}" is not recognized as valid view option.'.format(view)
         )
 
-    ax.scatter(lonlat[0, :], lonlat[1, :], s=30, c="b", transform=ccrs.PlateCarree())
+    ax.scatter(lonlat[0, :], lonlat[1, :], s=size, c="b", transform=ccrs.PlateCarree())
     ax.scatter(
-        mesh.x2[nodes], mesh.y2[nodes], s=30, c="r", transform=ccrs.PlateCarree()
+        mesh.x2[nodes], mesh.y2[nodes], s=size, c="r", transform=ccrs.PlateCarree()
     )
     if stock_img == True:
         ax.stock_img()
