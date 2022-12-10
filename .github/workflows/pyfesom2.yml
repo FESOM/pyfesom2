@@ -11,7 +11,7 @@ concurrency:
 
 jobs:
   setup:
-    name: setup-env-${{matrix.os}}-python-${{matrix.python-version}}
+    name: ${{matrix.os}}-python-${{matrix.python-version}}
     runs-on: ${{ matrix.os }} #, macos-latest, windows-latest]
     strategy:
       #max-parallel: 1
