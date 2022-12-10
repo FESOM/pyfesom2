@@ -1,18 +1,17 @@
+# original version by @suvarchal
 name: pyfesom2 extended test
 
 # Controls when the action will run. Triggers the workflow on push or pull request.
 
 on:
   # Trigger the workflow on push or pull request,
-  # but only for the master branch
+  # but only for the main branch
   push:
     branches:
-      # - master
-      - new_workflow
+      - main
   pull_request:
     branches:
-      # - master
-      - new_workflow
+      - main
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -26,8 +25,8 @@ jobs:
       #max-parallel: 1
       fail-fast: false
       matrix:
-        os: ["ubuntu-latest"]
-        python-version: ["3.9"]
+        os: ["ubuntu-latest", "macos-latest", "windows-latest"]
+        python-version: ["3.8", "3.9", "3.10"]
     defaults:
       run:
         shell: bash -l {0}
@@ -35,7 +34,7 @@ jobs:
     steps:
     - uses: actions/checkout@v3
       with:
-        path: new_workflow
+        path: main
 
 
     - name: Checkout pyfesom2 
@@ -48,7 +47,7 @@ jobs:
     - name: install conda environment
       uses: mamba-org/provision-with-micromamba@main #/v12
       with:
-        environment-file: new_workflow/ci/requirements-py37.yml
+        environment-file: main/ci/requirements-py37.yml
         environment-name: pyfesom2
         cache-env: true
         cache-env-key: "${{runner.os}}-${{runner.arch}}-py${{env.PYTHON_VERSION}}-${{env.TODAY}}-${{hashFiles(env.CONDA_ENV_FILE)}}"
@@ -74,33 +73,3 @@ jobs:
       working-directory: pyfesom2
       run: |
             pytest
-
-# jobs:
-#   basic_tests:
-#     name: Ex1 (${{ matrix.python-version }}, ${{ matrix.os }})
-#     runs-on: ${{ matrix.os }}
-#     strategy:
-#       fail-fast: false
-#       matrix:
-#         os: ["ubuntu-latest", "macos-latest", "windows-latest"]
-#         python-version: ["3.8", "3.9"]
-#     steps:
-#       - uses: actions/checkout@v2
-#       - uses: conda-incubator/setup-miniconda@v2
-#         with:
-#           auto-update-conda: true
-#           activate-environment: pyfesom2
-#           environment-file: ci/requirements-py37.yml
-#           python-version: ${{ matrix.python-version }}
-#           channels: conda-forge
-#           auto-activate-base: false
-#           show-channel-urls: true
-#           use-only-tar-bz2: true
-#           allow-softlinks: true
-#       - name: Install
-#         shell: bash -l {0}
-#         run: pip install -e .
-#       - name: Test
-#         shell: bash -l {0}
-#         run: pytest
-
