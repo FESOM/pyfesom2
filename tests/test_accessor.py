@@ -6,14 +6,15 @@ from pyfesom2.datasets import open_dataset
 
 
 # TODO: push this to test config conftest.py so that it is available globally
-@pytest.fixture(scope='module')
-def local_dataset(request):
-    import os.path
-    cur_dir = os.path.dirname(request.fspath)
-    data_path = os.path.join(cur_dir, "data", "pi-results", "temp.fesom.*.nc")
-    mesh_path = os.path.join(cur_dir, "data", "pi-grid")
-    da = open_dataset(data_path, mesh_path=mesh_path)
-    yield da
+#@pytest.fixture(scope='module', autouse=True)
+#def local_dataset(request):
+#    import os.path
+#    cur_dir = os.path.dirname(request.fspath)
+#    data_path = os.path.join(cur_dir, "data", "pi-results", "temp.fesom.*.nc")
+#    mesh_path = os.path.join(cur_dir, "data", "pi-grid")
+#    da = open_dataset(data_path, mesh_path=mesh_path)
+#    yield da
+#    da.close()
 
 
 # use scope=function if we want to change grid size dynamically for each test case,
@@ -52,10 +53,14 @@ def random_nd_dataset(random_spatial_dataset):
 
 
 # merged dataset fixture using just 2 for now, in future add remote too
-@pytest.fixture(params=["local_dataset", "random_spatial_dataset"])
-def dataset(local_dataset, random_spatial_dataset, request):
-    yield request.getfixturevalue(request.param)
+#@pytest.fixture(params=["local_dataset", "random_spatial_dataset"], scope='module', autouse=True)
+#def dataset(local_dataset, random_spatial_dataset, request):
+#    yield request.getfixturevalue(request.param)
 
+#TODO enable above to be compatible for CI/gh-actions
+@pytest.fixture(params=["random_spatial_dataset"], scope='module', autouse=True)
+def dataset(random_spatial_dataset, request):
+    yield request.getfixturevalue(request.param)
 
 @pytest.fixture(scope='module')
 def five_point_dataset():

@@ -17,15 +17,6 @@ def cmip6_grid(request):
     yield da
 
 
-@pytest.fixture
-def local_dataset(request):
-    import os.path
-    cur_dir = os.path.dirname(request.fspath)
-    data_path = os.path.join(cur_dir, "data", "pi-results", "*.nc")
-    mesh_path = os.path.join(cur_dir, "data", "pi-grid")
-    da = datasets.open_dataset(data_path, mesh_path=mesh_path)
-    yield da
-
 def check_dataset(dataset):
     assert isinstance(dataset, xr.Dataset)
     assert "nod2" in dataset.dims
@@ -38,8 +29,9 @@ def test_remote_dataset(remote_dataset):
     assert "Dataset URL" in remote_dataset.attrs
 
 
-def test_local_dataset(local_dataset):
-    check_dataset(local_dataset)
+#@pytest.mark.xfail(reason="Local dataset issues")
+#def test_local_dataset(local_dataset):
+#    check_dataset(local_dataset)
 
 
 @pytest.mark.xfail(reason="Remote dataset issues")

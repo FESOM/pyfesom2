@@ -288,7 +288,7 @@ def _ReduceMeshElementNumber(section_waypoints, mesh, section, add_extent):
     elem_box_nods = elem_no_nan[no_cyclic_elem2]
 
     # create an array containing the indices of the elements that belong to the region
-    elem_box_indices = np.arange(mesh.e2d)[no_nan_triangles]
+    elem_box_indices = np.arange(mesh.e2d)[no_nan_triangles][no_cyclic_elem2]
 
     # Compute the distance of each section coodinate to the center of each element to further reduce the amount of polygons needed
     # in case of meridional or zonal section the chosen box is already small enough to be loaded and no further elements have to be removed
@@ -918,8 +918,12 @@ def _UnrotateLoadVelocity(how, files, elem_box_indices, elem_box_nods, vertical_
     # UNROTATE
     lon_elem_center = np.mean(mesh.x2[ds.elem_nods], axis=1)
     lat_elem_center = np.mean(mesh.y2[ds.elem_nods], axis=1)
-    u, v = vec_rotate_r2g(abg[0], abg[1], abg[2], lon_elem_center[np.newaxis, :, np.newaxis],
+    try:
+        u, v = vec_rotate_r2g(abg[0], abg[1], abg[2], lon_elem_center[np.newaxis, :, np.newaxis],
                              lat_elem_center[np.newaxis, :, np.newaxis], ds.u_rot.values, ds.v_rot.values, flag=1)
+    except:
+        u, v = vec_rotate_r2g(abg[0], abg[1], abg[2], lon_elem_center[np.newaxis, :, np.newaxis],
+                             lat_elem_center[np.newaxis, :, np.newaxis], ds.u_rot.values.swapaxes(1,2), ds.v_rot.values.swapaxes(1,2), flag=1)
 
     ds['u'] = (('time', 'elem', 'nz1'), u)
     ds['v'] = (('time', 'elem', 'nz1'), v)

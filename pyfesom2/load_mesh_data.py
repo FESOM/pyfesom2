@@ -577,12 +577,6 @@ def get_data(
     else:
         pass
 
-    #     print(data)
-    print(data.dims)
-    print("nz1" in data.dims)
-    print(len(data.dims) == 3)
-    print(data.dims != ("time", "nod2", "nz1"))
-
     if transpose:
         if len(data.dims) == 3:
             if (

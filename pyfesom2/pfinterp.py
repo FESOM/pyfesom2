@@ -115,11 +115,7 @@ def get_data_forint(result_path, variable, years, mesh, depth, timestep):
         if data_forint.shape[0] == mesh.e2d:
             data_forint = tonodes(
                 data_forint.astype("float32"),
-                mesh.n2d,
-                mesh.voltri,
-                mesh.elem,
-                mesh.e2d,
-                mesh.lump2,
+                mesh
             )
 
     else:
@@ -155,19 +151,11 @@ def get_data_forint(result_path, variable, years, mesh, depth, timestep):
 
             u_nodes = tonodes(
                 data_u_int.astype("float32"),
-                mesh.n2d,
-                mesh.voltri,
-                mesh.elem,
-                mesh.e2d,
-                mesh.lump2,
+                mesh
             )
             v_nodes = tonodes(
                 data_v_int.astype("float32"),
-                mesh.n2d,
-                mesh.voltri,
-                mesh.elem,
-                mesh.e2d,
-                mesh.lump2,
+                mesh
             )
         else:
             u_nodes = data_u_int.astype("float32")

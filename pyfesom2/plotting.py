@@ -607,7 +607,7 @@ def plot_vector(
     return ax
 
 
-def plot_transect_map(lonlat, mesh, view="w", stock_img=False):
+def plot_transect_map(lonlat, mesh, view="w", stock_img=False, size=30):
     """Plot map of the transect.
 
     Parameters
@@ -623,6 +623,8 @@ def plot_transect_map(lonlat, mesh, view="w", stock_img=False):
         sp - South Polar Stereo
     stock_imd: bool
         Show stock backgroung image. Usually makes things slower.
+    size: float
+        Size of the points on the map.
 
     Returns
     -------
@@ -634,23 +636,23 @@ def plot_transect_map(lonlat, mesh, view="w", stock_img=False):
 
     if view == "w":
         ax = plt.subplot(111, projection=ccrs.Mercator(central_longitude=0))
-        ax.set_extent([180, -180, -80, 90], crs=ccrs.PlateCarree())
+        ax.set_global()
     elif view == "np":
         ax = plt.subplot(111, projection=ccrs.NorthPolarStereo(central_longitude=0))
-        ax.set_extent([180, -180, 60, 90], crs=ccrs.PlateCarree())
+        ax.set_extent([-180, 180, 60, 90], crs=ccrs.PlateCarree())
     elif view == "sp":
         ax = plt.subplot(111, projection=ccrs.SouthPolarStereo(central_longitude=0))
-        ax.set_extent([180, -180, -90, -50], crs=ccrs.PlateCarree())
+        ax.set_extent([-180, 180, -90, -50], crs=ccrs.PlateCarree())
     else:
         raise ValueError(
             'The "{}" is not recognized as valid view option.'.format(view)
         )
 
-    ax.scatter(lonlat[0, :], lonlat[1, :], s=30, c="b", transform=ccrs.PlateCarree())
+    ax.scatter(lonlat[0, :], lonlat[1, :], s=size, c="b", transform=ccrs.PlateCarree())
     ax.scatter(
-        mesh.x2[nodes], mesh.y2[nodes], s=30, c="r", transform=ccrs.PlateCarree()
+        mesh.x2[nodes], mesh.y2[nodes], s=size, c="r", transform=ccrs.PlateCarree()
     )
-    if stock_img == True:
+    if stock_img:
         ax.stock_img()
     ax.coastlines(resolution="50m")
     return ax
