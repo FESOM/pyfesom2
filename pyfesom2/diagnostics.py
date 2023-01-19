@@ -7,10 +7,10 @@
 
 import os
 
+import dask.array as da
 import numpy as np
 import xarray as xr
 from pandas.plotting import register_matplotlib_converters
-import dask.array as da
 
 from .load_mesh_data import ind_for_depth
 from .ut import compute_face_coords, get_mask
@@ -24,7 +24,7 @@ def add_timedim(data, date="1970-01-01"):
         if "time" in data.dims:
             raise ValueError(
                 "You trying to add time dimension to the DataArray that already have it. \
-The reason migh be that you trying to use 2d variable (e.g. `a_ice`) \
+The reason might be that you trying to use 2d variable (e.g. `a_ice`) \
 in a function that accepts only 3d variables (e.g. `hovm_data`)"
             )
         timestamp = [np.array(np.datetime64(date, "ns"))]
@@ -35,8 +35,8 @@ in a function that accepts only 3d variables (e.g. `hovm_data`)"
         return data
 
 
-def ice_ext(data, mesh, hemisphere="N", threshhold=0.15, attrs={}):
-    """ Compute sea ice extent.
+def ice_ext(data, mesh, hemisphere="N", threshold=0.15, attrs={}):
+    """Compute sea ice extent.
 
     Parameters
     ----------
@@ -48,7 +48,7 @@ def ice_ext(data, mesh, hemisphere="N", threshhold=0.15, attrs={}):
         FESOM2 mesh object.
     hemisphere: str
         can be ether 'N' or 'S'
-    threshhold: float
+    threshold: float
         default is 0.15
     attrs: dict
         dictionary of attributes that will be put in the resulting
@@ -71,8 +71,8 @@ def ice_ext(data, mesh, hemisphere="N", threshhold=0.15, attrs={}):
         hemis_mask = mesh.y2 < 0
 
     if isinstance(data, xr.DataArray):
-        data = data.where(data < threshhold, 1)
-        data = data.where(data > threshhold)
+        data = data.where(data < threshold, 1)
+        data = data.where(data > threshold)
 
         ext = (data[:, hemis_mask] * mesh.lump2[hemis_mask]).sum(axis=1)
         da = xr.DataArray(
@@ -90,7 +90,7 @@ def ice_ext(data, mesh, hemisphere="N", threshhold=0.15, attrs={}):
 
 
 def ice_vol(data, mesh, hemisphere="N", attrs={}):
-    """ Compute sea ice volume.
+    """Compute sea ice volume.
 
     Parameters
     ----------
@@ -134,14 +134,14 @@ def ice_vol(data, mesh, hemisphere="N", attrs={}):
 
 
 def ice_area(data, mesh, hemisphere="N", attrs={}):
-    """ Compute sea ice volume.
+    """Compute sea ice volume.
 
     Parameters
     ----------
     data: xarray.DataArray, numpy.array
         Input data, that can be ether xarray data, or just numpy array,
         with values of `a_ice`.
-        Input shouls be 2d (time, nodes)
+        Input should be 2d (time, nodes)
     mesh: mesh object
         FESOM2 mesh object.
     hemisphere: str
@@ -237,13 +237,13 @@ def hovm_data(data, mesh, meshdiag=None, runid="fesom", mask=None):
         data = add_timedim(data)
 
     diag = get_meshdiag(mesh, meshdiag, runid)
-    if 'nod_n' in diag.dims:
-        nod_area = diag.rename_dims({"nl": "nz1", "nod_n": "nod2"}).nod_area[:-1,:]
+    if "nod_n" in diag.dims:
+        nod_area = diag.rename_dims({"nl": "nz1", "nod_n": "nod2"}).nod_area[:-1, :]
     else:
-        nod_area = diag.nod_area[:-1,:]
+        nod_area = diag.nod_area[:-1, :]
         nod_area = nod_area.rename({"nz": "nz1"})
-        nod_area = nod_area.assign_coords({'nz1': diag.nz[:-1].values})
-        
+        nod_area = nod_area.assign_coords({"nz1": diag.nz[:-1].values})
+
     # print(nod_area)
     nod_area.load()
     if mask is not None:
@@ -263,7 +263,7 @@ def hovm_data(data, mesh, meshdiag=None, runid="fesom", mask=None):
 
 
 def select_depths(uplow, mesh):
-    """ Select indexes of depths between upper and lower bound.
+    """Select indexes of depths between upper and lower bound.
 
     Parameters
     ----------
@@ -336,12 +336,12 @@ def volmean_data(data, mesh, uplow=None, meshdiag=None, runid="fesom", mask=None
     diag = get_meshdiag(mesh, meshdiag, runid)
     # nod_area = diag.rename_dims({"nl": "nz1", "nod_n": "nod2"}).nod_area
 
-    if 'nod_n' in diag.dims:
+    if "nod_n" in diag.dims:
         nod_area = diag.rename_dims({"nl": "nz1", "nod_n": "nod2"}).nod_area
     else:
         nod_area = diag.nod_area
         nod_area = nod_area.rename({"nz": "nz1"})
-        nod_area = nod_area.assign_coords({'nz1': diag.nz.values})
+        nod_area = nod_area.assign_coords({"nz1": diag.nz.values})
 
     nod_area.load()
     #     nod_area = nod_area.where(nod_area != 0)
@@ -380,7 +380,7 @@ def xmoc_data(
     returnXArray=False,
     use_dask=False,
 ):
-    """ Compute moc for selected region.
+    """Compute moc for selected region.
 
     Parameters:
     -----------
@@ -498,5 +498,11 @@ def xmoc_data(
             moc_final = moc_proper_order
 
     if returnXArray:
-        return xr.DataArray(data=moc_final, coords=[("latitude", lats), ("depth", mesh.zlev),])
+        return xr.DataArray(
+            data=moc_final,
+            coords=[
+                ("latitude", lats),
+                ("depth", mesh.zlev),
+            ],
+        )
     return lats, moc_final
