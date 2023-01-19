@@ -1,5 +1,6 @@
 FROM mambaorg/micromamba
-COPY --chown=$MAMBA_USER:$MAMBA_USER . /tmp
+COPY --chown=$MAMBA_USER:$MAMBA_USER . /app
+WORKDIR /app
 # Yeah, this next one is dumb. But it seems to be a requirement either in
 # Docker or in Mamba, Paul can't tell which but this "does the trick":
 RUN sed -i 's/name: pyfesom2/name: base/g' ./ci/requirements-py37.yml
