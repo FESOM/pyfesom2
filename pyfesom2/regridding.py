@@ -16,7 +16,7 @@ import xarray as xr
 from numba import jit
 from scipy.interpolate import CloughTocher2DInterpolator, LinearNDInterpolator
 from scipy.spatial import cKDTree
-import scipy 
+import scipy
 
 
 def lon_lat_to_cartesian(lon, lat, R=6371000):
@@ -62,7 +62,13 @@ def create_indexes_and_distances(mesh, lons, lats, k=1, n_jobs=2):
     xt, yt, zt = lon_lat_to_cartesian(lons.flatten(), lats.flatten())
 
     tree = cKDTree(list(zip(xs, ys, zs)))
-    if float(scipy.__version__[:3])>=1.6:
+
+    border_version = "1.6.0"
+    current_version = scipy.__version__
+    v1_parts = list(map(int, border_version.split(".")))
+    v2_parts = list(map(int, current_version.split(".")))
+
+    if v2_parts > v1_parts:
         distances, inds = tree.query(list(zip(xt, yt, zt)), k=k, workers=n_jobs)
     else:
         distances, inds = tree.query(list(zip(xt, yt, zt)), k=k, n_jobs=n_jobs)
@@ -268,7 +274,7 @@ def fesom2regular(
 
         distances_ma = np.ma.masked_greater(distances, radius_of_influence)
 
-        w = 1.0 / distances_ma ** 2
+        w = 1.0 / distances_ma**2
         data_interpolated = np.ma.sum(w * data[inds], axis=1) / np.ma.sum(w, axis=1)
         data_interpolated.shape = lons.shape
         data_interpolated = np.ma.masked_invalid(data_interpolated)
@@ -376,7 +382,11 @@ def fesom2clim(
         climatology.z[iz],
     )
     out_data = fesom2regular(
-        data, mesh, xx, yy, radius_of_influence=radius_of_influence,
+        data,
+        mesh,
+        xx,
+        yy,
+        radius_of_influence=radius_of_influence,
     )
     out_data[np.isnan(climatology.T[iz, :, :])] = np.nan
     return iz, xx, yy, out_data
@@ -663,7 +673,7 @@ def tonodes(component, mesh):
     nopython=True,
 )
 def tonodes_jit(component, n2d, voltri, elem, e2d, lump2):
-    """ Function to interpolate from elements to nodes.
+    """Function to interpolate from elements to nodes.
     Made fast with numba.
     """
 
