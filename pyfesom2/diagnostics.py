@@ -242,6 +242,7 @@ def hovm_data(data, mesh, meshdiag=None, runid="fesom", mask=None):
         nod_area = diag.nod_area[:-1,:]
         nod_area = nod_area.rename({"nz": "nz1"})
         nod_area = nod_area.assign_coords({'nz1': diag.nz[:-1].values})
+        #nod_area = nod_area.assign_coords({'nz1':data.nz1.values})
         
     # print(nod_area)
     nod_area.load()

@@ -14,6 +14,7 @@ import matplotlib.pylab as plt
 import numpy as np
 import pkg_resources
 import shapely
+from pyproj import Proj
 from cmocean import cm as cmo
 import seawater as sw
 
@@ -541,13 +542,55 @@ def mask_from_file(filename, name, mesh):
             boolean vector of the shape of 2D data.
 
     """
+    WWF_Arctic = ["Arctic Ocean -- Atlantic Basin",
+                 "Arctic Ocean -- Pacific Basin",
+                 "Baffin Bay -- Canadian Shelf",
+                 "Beaufort Sea - continental coast and shelf",
+                 "Beaufort-Amundsen-Viscount Melville-Queen Maud",
+                 "Chukchi Sea",
+                 "Baffin Bay",
+                 "East Greenland Shelf",
+                 "East Siberian Sea",
+                 "Eastern Bering Sea",
+                 "Fram Strait",
+                 "High Arctic Archipelago",
+                 "Hudson Complex",
+                 "Iceland Shelf",
+                 "Kara Sea",
+                 "Labrador Sea Basin",
+                 "Lancaster Sound",
+                 "Laptev Sea",
+                 "North Greenland",
+                 "North and East Barents Sea",
+                 "Northern Grand Banks - Southern Labrador",
+                 "Northern Labrador",
+                 "Northern Norway and Finnmark",
+                 "Norwegian Sea",
+                 "West Greenland Shelf",
+                 "Western Bering Sea",
+                 "White Sea"]
+    
     with open(filename) as f:
         features = json.load(f)["features"]
+    MASK = np.ma.make_mask(np.ones(len(mesh.x2)) == 0, shrink=False)
     for feature in features:
         if feature["properties"]["name"] == name:
             geom = shapely.geometry.shape(feature["geometry"])
-            mask = shapely.vectorized.contains(geom, mesh.x2, mesh.y2)
-    return mask
+            if name in WWF_Arctic:
+                nys = Proj(init='EPSG:9001')
+                x = np.zeros(np.shape(mesh.x2))
+                y = np.zeros(np.shape(mesh.x2))
+                for i in np.arange(0,len(mesh.x2)):
+                    p = shapely.geometry.Point(mesh.x2[i], mesh.y2[i])
+                    p_proj = nys(p.x, p.y)
+                    x[i] = p_proj[0]
+                    y[i] = p_proj[1]
+                mask = shapely.vectorized.contains(geom, x, y)
+                mask[mesh.y2<45] = False
+            else:
+                mask = shapely.vectorized.contains(geom, mesh.x2, mesh.y2)
+            MASK = np.logical_or(MASK, mask)
+    return MASK
 
 
 def get_mask(mesh, region):
