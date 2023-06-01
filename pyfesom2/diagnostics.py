@@ -261,6 +261,65 @@ def hovm_data(data, mesh, meshdiag=None, runid="fesom", mask=None):
     return hdg_variable
 
 
+def hovm_elem_data(data, mesh, meshdiag=None, runid="fesom", mask=None):
+    """Calculate data for hovmoller diagram.
+
+    Use 3d velocity variable (on elements) to calculate weighted
+     mean value for each vertical layer for every time step.
+
+     Parameters
+     ----------
+     data: xarray.DataArray, numpy.array
+        Input data, that can be ether xarray data, or just numpy array,
+        with values of 3d tracer variable (on nodes).
+        Input should be 3d (time, nodes, levels(nz1))
+        The 2D input (to calculate value for only one time step)
+        in form of (nodes, levels(nz1)) is possible, but not recomended :)
+    mesh: mesh object
+        FESOM2 mesh object.
+    meshdiag: str
+        path to *mesh.diag.nc file, that is created during fesom cold start.
+    runid: str
+        name of the run. Usually just `fesom`.
+    mask: array of bool
+        array of boolian values of the same shape as 2D variable.
+        True where data are selected.
+
+    Returns
+    -------
+    time series: xarray.DataArray
+        time series of area weighted vertical profiles of scalar values.
+    """
+
+    if len(data.shape) == 2:
+        data = add_timedim(data)
+
+    diag = get_meshdiag(mesh, meshdiag, runid)
+    if 'nod_n' in diag.dims:
+        nod_area = diag.rename_dims({"nl": "nz1", "nod_n": "nod2"}).nod_area[:,:]
+    else:
+        nod_area = diag.nod_area[:,:]
+        nod_area = nod_area.rename({"nz": "nz1"})
+        nod_area = nod_area.assign_coords({'nz1':data.nz1.values})
+        
+    #print(np.shape(nod_area))
+    nod_area.load()
+    if mask is not None:
+        nod_area = nod_area[:, mask]
+        data = data[:, mask, :]
+
+    if isinstance(data, xr.DataArray):
+        nod_area = nod_area.where(nod_area != 0)
+        hdg_total = (data * nod_area.T).sum(dim="nod2")
+        hdg_variable = hdg_total / (nod_area.T).sum(axis=0)
+        hdg_variable = hdg_variable.compute()
+    else:
+        hdg_total = (data * nod_area.T.data).sum(axis=1)
+        hdg_variable = hdg_total / (nod_area.T).sum(axis=0).data
+
+    return hdg_variable
+
+
 def select_depths(uplow, mesh):
     """ Select indexes of depths between upper and lower bound.
 
@@ -364,6 +423,138 @@ def volmean_data(data, mesh, uplow=None, meshdiag=None, runid="fesom", mask=None
 
     return total_t / total_v
 
+def volsum_data(data, mesh, uplow=None, meshdiag=None, runid="fesom", mask=None):
+    """Calculate volume weighted sum over the range of depths.
+
+    Parameters
+     ----------
+     data: xarray.DataArray, numpy.array
+        Input data, that can be ether xarray data, or just numpy array,
+        with values of 3d tracer variable (on nodes).
+        Input should be 3d (time, nodes, levels(nz1))
+        The 2D input (to calculate value for only one time step)
+        in form of (nodes, levels(nz1)) is possible, but not recomended :)
+    mesh: mesh object
+        FESOM2 mesh object.
+    uplow: list
+        if None, all depths will be selected
+        if e.g. [2000, 'depth'] all from model depth closest to 200 down to depth will be selected
+        if e.g. [0, 700] all between 0 and closest depth to 700 will be selected.
+        if e.g. [500, 500] only model level closest to 500 will be selected.
+    meshdiag: str
+        path to *mesh.diag.nc file, that is created during fesom cold start.
+    runid: str
+        name of the run. Usually just `fesom`.
+    mask: array of bool
+        array of boolian values of the same shape as 2D variable.
+        True where data are selected.
+
+    Returns
+    -------
+    time series: xarray.DataArray
+        time series (or one point) of volume weighted scalar.
+    """
+    if len(data.shape) == 2:
+        data = add_timedim(data)
+
+    diag = get_meshdiag(mesh, meshdiag, runid)
+    nod_area = diag.rename_dims({"nl": "nz1", "nod_n": "nod2"}).nod_area
+    nod_area.load()
+    #     nod_area = nod_area.where(nod_area != 0)
+    delta_z = np.abs(np.diff(mesh.zlev))
+
+    indexes = select_depths(uplow, mesh)
+
+    total_t = 0.0
+    # we calculate layer by layer
+    if mask is not None:
+        nod_area = nod_area[:, mask]
+        data = data[:, mask, :]
+
+    for i in indexes:
+        nod_area_at_level = np.ma.masked_equal(nod_area[i, :].data, 0)
+        aux = (data[:, :, i] * nod_area_at_level[:]).sum(axis=1)
+        if not np.ma.is_masked(nod_area_at_level[:].sum()):
+            total_t = total_t + aux * delta_z[i]
+
+    return total_t
+
+def areasum_data(data, mesh, mask="Global Ocean"):
+    """Calculate area weighted sum at surface.
+
+    Parameters
+     ----------
+     data: xarray.DataArray, numpy.array
+        Input data, that can be ether xarray data, or just numpy array,
+        with values of 2d tracer variable (on nodes) in form of (nodes, levels(nz1))
+    mesh: mesh object
+        FESOM2 mesh object.
+    mask: array of bool
+        array of boolian values of the same shape as 2D variable.
+        True where data are selected.
+
+    Returns
+    -------
+    time series: xarray.DataArray
+        time series (or one point) of volume weighted scalar.
+    """
+
+    meshdiag = get_meshdiag(mesh)
+    nod_area = np.ma.masked_equal(meshdiag.nod_area.values, 0)
+    
+    # can provide mask or mask name
+    if isinstance(mask, str):
+        mask = get_mask(mesh, mask)
+    elif mask is None:
+        mask = get_mask(mesh, "Global Ocean")
+    else:
+        mask = mask
+
+    if np.ndim(data) == 1:
+        data_by_area = np.nansum((np.ma.masked_equal(data[mask],1) * nod_area[0,mask].T))
+    else:
+        data_by_area = np.nansum((np.ma.masked_equal(data[:,mask],1) * nod_area[0,mask].T), axis=1)
+        
+
+    return data_by_area
+
+def areamean_data(data, mesh, mask="Global Ocean"):
+    """Calculate area weighted mean at surface.
+
+    Parameters
+     ----------
+     data: xarray.DataArray, numpy.array
+        Input data, that can be ether xarray data, or just numpy array,
+        with values of 2d tracer variable (on nodes) in form of (nodes, levels(nz1))
+    mesh: mesh object
+        FESOM2 mesh object.
+    mask: array of bool
+        array of boolian values of the same shape as 2D variable.
+        True where data are selected.
+
+    Returns
+    -------
+    time series: xarray.DataArray
+        time series (or one point) of volume weighted scalar.
+    """
+
+    meshdiag = get_meshdiag(mesh)
+    nod_area = np.ma.masked_equal(meshdiag.nod_area.values, 0)
+    
+    # can provide mask or mask name
+    if isinstance(mask, str):
+        mask = get_mask(mesh, mask)
+    elif mask is None:
+        mask = get_mask(mesh, "Global Ocean")
+    else:
+        mask = mask
+        
+    if np.ndim(data) == 1:
+        data_by_area = np.nansum((np.ma.masked_equal(data[mask],1) * nod_area[0,mask].T)) / np.nansum(nod_area[0,:].T[mask])
+    else:
+        data_by_area = np.nansum((np.ma.masked_equal(data[:,mask],1) * nod_area[0,mask].T), axis=1) / np.nansum(nod_area[0,mask].T)
+
+    return data_by_area
 
 def xmoc_data(
     mesh,

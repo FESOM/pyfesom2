@@ -1,0 +1,18 @@
+{
+"type": "FeatureCollection",
+"crs": { "type": "name", "properties": { "name": "urn:ogc:def:crs:OGC:1.3:CRS84" } },
+"features": [
+{ "type": "Feature", "properties": { "name": "MZ Western Fram Strait" }, "geometry": { "type": "Polygon", "coordinates": [ [ [ -20.0, 76.0 ], [ -20.0, 82.0 ], [ 0.0, 82.0 ], [ 0.0, 76.0 ], [ -20.0, 76.0 ] ] ] } },
+{ "type": "Feature", "properties": { "name": "MZ Eastern Fram Strait" }, "geometry": { "type": "Polygon", "coordinates": [ [ [ 0.0, 76.0 ], [ 0.0, 82.0 ], [ 20.0, 82.0 ], [ 20.0, 76.0 ], [ 0.0, 76.0 ] ] ] } },
+{ "type": "Feature", "properties": { "name": "MZ Barents Sea" }, "geometry": { "type": "Polygon", "coordinates": [ [ [ 20.0, 66.0 ], [ 20.0, 82.0 ], [ 60.0, 82.0 ], [ 60.0, 66.0 ], [ 20.0, 66.0 ] ] ] } },
+{ "type": "Feature", "properties": { "name": "MZ Kara Sea" }, "geometry": { "type": "Polygon", "coordinates": [ [ [ 60.0, 66.0 ], [ 60.0, 82.0 ], [ 100.0, 82.0 ], [ 100.0, 66.0 ], [ 60.0, 66.0 ] ] ] } },
+{ "type": "Feature", "properties": { "name": "MZ Laptev Sea" }, "geometry": { "type": "Polygon", "coordinates": [ [ [ 100.0, 66.0 ], [ 100.0, 78.0 ], [ 140.0, 78.0 ], [ 140.0, 66.0 ], [ 100.0, 66.0 ] ] ] } },
+{ "type": "Feature", "properties": { "name": "MZ East-Siberian Sea" }, "geometry": { "type": "Polygon", "coordinates": [ [ [ 140.0, 66.0 ], [ 140.0, 78.0 ], [ 180.0, 78.0 ], [ 180.0, 66.0 ], [ 140.0, 66.0 ] ] ] } },
+{ "type": "Feature", "properties": { "name": "MZ Chukchi Sea" }, "geometry": { "type": "Polygon", "coordinates": [ [ [ -160.0, 66.0 ], [ -160.0, 75.0 ], [ -180.0, 75.0 ], [ -180.0, 66.0 ], [ -160.0, 66.0 ] ] ] } },
+{ "type": "Feature", "properties": { "name": "MZ Southern Beaufort Sea" }, "geometry": { "type": "Polygon", "coordinates": [ [ [ -120.0, 66.0 ], [ -160.0, 66.0 ], [ -160.0, 72.0 ], [ -120.0, 72.0 ], [ -120.0, 66.0 ] ] ] } },
+{ "type": "Feature", "properties": { "name": "MZ Canadian Archipelago" }, "geometry": { "type": "Polygon", "coordinates": [ [ [ -60.0, 83.0 ], [ -60.0, 77.0 ], [ -70.0, 77.0 ], [ -70.0, 66.0 ], [ -130.0, 66.0 ], [ -130.0, 80.0 ], [ -110.0, 80.0 ], [ -110.0, 83.0 ], [ -60.0, 83.0 ] ] ] } },
+{ "type": "Feature", "properties": { "name": "MZ Baffin Bay" }, "geometry": { "type": "Polygon", "coordinates": [ [ [ -50.0, 66.0 ], [ -50.0, 77.0 ], [ -70.0, 77.0 ], [ -70.0, 66.0 ], [ -50.0, 66.0 ] ] ] } },
+{ "type": "Feature", "properties": { "name": "MZ Eurasian Basin" }, "geometry": { "type": "Polygon", "coordinates": [ [ [ -60.0, 82.0 ], [ -60.0, 90.0 ], [ 140.0, 90.0 ], [ 140.0, 78.0 ], [ 100.0, 78.0 ], [ 100.0, 82.0 ], [ -60.0, 82.0 ] ] ] } },
+{ "type": "Feature", "properties": { "name": "MZ Amerasian Basin" }, "geometry": { "type": "Polygon", "coordinates": [ [ [ 180.0, 90.0 ], [ 180.0, 78.0 ], [ 140.0, 78.0 ], [ 140.0, 90.0 ], [ 180.0, 90.0 ], [ -60.0, 90.0 ], [ -60.0, 83.0 ], [ -110.0, 83.0 ], [ -110.0, 80.0 ], [ -130.0, 80.0 ], [ -130.0, 72.0 ], [ -160.0, 72.0 ], [ -160.0, 75.0 ], [ -180.0, 75.0 ], [ -180.0, 90.0 ], [ -60.0, 90.0 ], [ 180.0, 90.0 ] ] ] } }
+]
+}

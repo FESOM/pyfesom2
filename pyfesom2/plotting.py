@@ -18,6 +18,7 @@ import xarray as xr
 from cmocean import cm as cmo
 from matplotlib import cm, ticker
 from matplotlib.colors import LinearSegmentedColormap
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 from netCDF4 import Dataset, MFDataset, num2date
 
 from .load_mesh_data import ind_for_depth
@@ -36,6 +37,37 @@ except ImportError:
 sfmt = ticker.ScalarFormatter(useMathText=True)
 sfmt.set_powerlimits((-3, 4))
 
+def get_proj(mapproj):
+    """ get cartopy projection.
+
+    Parameters
+    ----------
+    mapproj: str
+        name of the projection:
+            merc: Mercator
+            pc: PlateCarree (default)
+            np: NorthPolarStereo
+            sp: SouthPolarStereo
+            rob: Robinson
+
+    Returns
+    -------
+    projection
+
+    """
+    if mapproj == "merc":
+        projection=ccrs.Mercator()
+    elif mapproj == "pc":
+        projection=ccrs.PlateCarree()
+    elif mapproj == "np":
+        projection=ccrs.NorthPolarStereo()
+    elif mapproj == "sp":
+        projection=ccrs.SouthPolarStereo()
+    elif mapproj == "rob":
+        projection=ccrs.Robinson()
+    else:
+        raise ValueError(f"Projection {mapproj} is not supported.")
+    return projection
 
 def create_proj_figure(mapproj, rowscol, figsize):
     """ Create figure and axis with cartopy projection.
@@ -334,6 +366,7 @@ def plot(
     mesh,
     data,
     cmap=None,
+    cmap_extension='both',
     influence=80000,
     box=[-180, 180, -89, 90],
     res=[360, 180],
@@ -353,6 +386,7 @@ def plot(
     lonreg=None,
     latreg=None,
     no_pi_mask=False,
+    title_size = 20,
 ):
     """
     Plots interpolated 2d field on the map.
@@ -487,7 +521,7 @@ def plot(
                 levels=data_levels,
                 transform=ccrs.PlateCarree(),
                 cmap=colormap,
-                extend="both",
+                extend=cmap_extension,
             )
         elif ptype == "pcm":
             mmin = data_levels[0]
@@ -504,14 +538,14 @@ def plot(
             )
         else:
             raise ValueError("Inknown plot type {}".format(ptype))
-
+            
+        ax[ind].add_feature(cfeature.LAND, zorder=1, edgecolor='none', facecolor='gray')
         # ax.coastlines(resolution = '50m',lw=0.5)
-        ax[ind].add_feature(
-            cfeature.GSHHSFeature(levels=[1], scale="low", facecolor="lightgray")
-        )
+        #ax[ind].add_feature(cfeature.GSHHSFeature(levels=[1], scale="low", facecolor="lightgray"))
+        
         if titles:
             titles = titles.copy()
-            ax[ind].set_title(titles.pop(0), size=20)
+            ax[ind].set_title(titles.pop(0), size=title_size)
 
     for delind in range(ind + 1, len(ax)):
         fig.delaxes(ax[delind])
@@ -528,6 +562,321 @@ def plot(
         pass
 
     return ax
+
+def subplot(
+    mesh,
+    fig,
+    ax,
+    data,
+    cmap=None,
+    cmap_extension='both',
+    influence=80000,
+    box=[-180, 180, -89, 90],
+    res=[360, 180],
+    interp="nn",
+    mapproj="pc",
+    levels=None,
+    ptype="cf",
+    units=None,
+    rowscol=(1, 1),
+    titles=None,
+    distances_path=None,
+    inds_path=None,
+    qhull_path=None,
+    basepath=None,
+    interpolated_data=None,
+    lonreg = None,
+    latreg = None,
+    toogle_colorbar = False,
+    set_labelsize = 14,
+    title_size = 20,
+):
+    """
+    SubPlots interpolated 2d field on the map on a given axis.
+
+    Parameters
+    ----------
+    mesh: mesh object
+        FESOM2 mesh object
+    data: np.array or list of np.arrays
+        FESOM 2 data on nodes (for u,v,u_ice and v_ice one have to first interpolate from elements to nodes).
+        Can be ether one np.ndarray or list of np.ndarrays.
+    ax: axis matplotlib object
+    cmap: str
+        Name of the colormap from cmocean package or from the standard matplotlib set.
+        By default `Spectral_r` will be used.
+    influence: float
+        Radius of influence for interpolation, in meters.
+    box: list
+        Map boundaries in -180 180 -90 90 format that will be used for interpolation (default [-180 180 -89 90]).
+    res: list
+        Number of points along each axis that will be used for interpolation (for lon and lat),
+        default [360, 180].
+    interp: str
+        Interpolation method. Options are 'nn' (nearest neighbor), 'idist' (inverce distance), "linear" and "cubic".
+    mapproj: str
+        Map projection. Options are Mercator (merc), Plate Carree (pc),
+        North Polar Stereo (np), South Polar Stereo (sp),  Robinson (rob)
+    levels: list
+        Levels for contour plot in format (min, max, numberOfLevels). List with more than
+        3 values will be interpreted as just a list of individual level values.
+        If not provided min/max values from data will be used with 40 levels.
+    ptype: str
+        Plot type. Options are contourf (\'cf\') and pcolormesh (\'pcm\')
+    units: str
+        Units for color bar.
+    figsize: tuple
+        figure size in inches
+    rowscol: tuple
+        number of rows and columns.
+    titles: str or list
+        Title of the plot (if string) or subplots (if list of strings)
+    distances_path : string
+        Path to the file with distances. If not provided and dumpfile=True, it will be created.
+    inds_path : string
+        Path to the file with inds. If not provided and dumpfile=True, it will be created.
+    qhull_path : str
+         Path to the file with qhull (needed for linear and cubic interpolations). 
+         If not provided and dumpfile=True, it will be created.
+    interpolated_data: np.array
+         data interpolated to regular grid (you also have to provide lonreg and latreg).
+         If provided, data will be plotted directly, without interpolation.
+    lonreg: np.array
+         1D array of longitudes. Used in combination with `interpolated_data`, 
+         when you need to plot interpolated data directly.
+    latreg: np.array
+         1D array of latitudes. Used in combination with `interpolated_data`, 
+         when you need to plot interpolated data directly.     
+    basepath: str
+        path where to store additional interpolation files. If None (default),
+        the path of the mesh will be used.
+    toogle_colorbar: bool
+        toogle colorbar for each subplot call. default: None, allowing one colorbar for multiple subplots manually.
+    set_labelsize: tuple
+        colorbar label size. default = 14.
+    """
+    
+    if not isinstance(data, list):
+        data = [data]
+    if titles:
+        if not isinstance(titles, list):
+            titles = [titles]
+        if len(titles) != len(data):
+            raise ValueError(
+                "The number of titles do not match the number of data fields, please adjust titles (or put to None)"
+            )
+
+    if (rowscol[0] * rowscol[1]) < len(data):
+        raise ValueError(
+            "Number of rows*columns is smaller than number of data fields, please adjust rowscol."
+        )
+
+    colormap = get_cmap(cmap=cmap)
+
+    radius_of_influence = influence
+
+    left, right, down, up = box
+    lonNumber, latNumber = res
+
+    if lonreg is None:
+        lonreg = np.linspace(left, right, lonNumber)
+        latreg = np.linspace(down, up, latNumber)
+        
+    lonreg2, latreg2 = np.meshgrid(lonreg, latreg)
+
+    if interpolated_data is None:
+        interpolated = interpolate_for_plot(
+            data,
+            mesh,
+            lonreg2,
+            latreg2,
+            interp=interp,
+            distances_path=distances_path,
+            inds_path=inds_path,
+            radius_of_influence=radius_of_influence,
+            basepath=basepath,
+            qhull_path=qhull_path,
+        )
+    else:
+        interpolated = [interpolated_data]
+
+    m2 = mask_ne(lonreg2, latreg2)
+
+    for i in range(len(interpolated)):
+        interpolated[i] = np.ma.masked_where(m2, interpolated[i])
+        interpolated[i] = np.ma.masked_equal(interpolated[i], 0)
+
+    if isinstance(ax, np.ndarray):
+        ax = ax.flatten()
+    else:
+        ax = [ax]
+
+    for ind, data_int in enumerate(interpolated):
+        ax[ind].set_extent([left, right, down, up], crs=ccrs.PlateCarree())
+
+        data_levels = get_plot_levels(levels, data_int, lev_to_data=False)
+
+        if ptype == "cf":
+            data_int_cyc, lon_cyc = add_cyclic_point(data_int, coord=lonreg)
+            image = ax[ind].contourf(
+                lon_cyc,
+                latreg,
+                data_int_cyc,
+                levels=data_levels,
+                transform=ccrs.PlateCarree(),
+                cmap=colormap,
+                extend=cmap_extension,
+            )
+            
+        elif ptype == "pcm":
+            mmin = data_levels[0]
+            mmax = data_levels[-1]
+            data_int_cyc, lon_cyc = add_cyclic_point(data_int, coord=lonreg)
+            image = ax[ind].pcolormesh(
+                lon_cyc,
+                latreg,
+                data_int_cyc,
+                vmin=mmin,
+                vmax=mmax,
+                transform=ccrs.PlateCarree(),
+                cmap=colormap,
+            )
+        else:
+            raise ValueError("Inknown plot type {}".format(ptype))
+        
+        if toogle_colorbar:
+            if set_labelsize:
+                
+                #divider = make_axes_locatable(ax)
+                #cax = divider.append_axes("bottom", size="5%", pad=0.05)
+                im_ratio = data_int_cyc.shape[0]/data_int_cyc.shape[1]
+                cb = fig.colorbar(image, orientation="horizontal", ax=ax, fraction=0.046*im_ratio, pad=0.01, format=sfmt)
+
+                cb.ax.tick_params(labelsize=set_labelsize)
+
+                if units:
+                    cb.set_label(units, size=set_labelsize)
+                else:
+                    pass     
+            else:   
+                cb = fig.colorbar(image, orientation="horizontal", ax=ax, fraction=0.046, pad=0.04, format=sfmt)
+
+                cb.ax.tick_params(labelsize=12)
+
+                if units:
+                    cb.set_label(units, size=12)
+                else:
+                    pass
+         
+        #ax[ind].coastlines(resolution = '50m',lw=0.5)
+        #ax[ind].add_feature(cfeature.GSHHSFeature(levels=[2], scale="low", facecolor="lightgray"))
+        #LAND = cfeature.NaturalEarthFeature(category='physical',name='coastline',scale='110m')
+        ax[ind].add_feature(cfeature.LAND, zorder=1, edgecolor='none', facecolor='gray')
+        
+        if titles:
+            titles = titles.copy()
+            ax[ind].set_title(titles.pop(0), size=title_size)
+
+    return image
+
+def subhatch(
+    mesh,
+    fig,
+    ax,
+    data,
+    hatches='///////',
+    colors = 'none',
+    influence=80000,
+    box=[-180, 180, -89, 90],
+    res=[360, 180],
+    interp="nn",
+    mapproj="pc",
+    levels=None,
+    ptype="cf",
+    units=None,
+    rowscol=(1, 1),
+    distances_path=None,
+    inds_path=None,
+    qhull_path=None,
+    basepath=None,
+    interpolated_data=None,
+    lonreg = None,
+    latreg = None,
+):
+    """
+    Sub hatches interpolated 2d field on the map on a given axis. 
+    Hatches areas are the negative values of the array.
+    """
+    
+    if not isinstance(data, list):
+        data = [data]
+
+    if (rowscol[0] * rowscol[1]) < len(data):
+        raise ValueError(
+            "Number of rows*columns is smaller than number of data fields, please adjust rowscol."
+        )
+
+    radius_of_influence = influence
+
+    left, right, down, up = box
+    lonNumber, latNumber = res
+
+    if lonreg is None:
+        lonreg = np.linspace(left, right, lonNumber)
+        latreg = np.linspace(down, up, latNumber)
+        
+    lonreg2, latreg2 = np.meshgrid(lonreg, latreg)
+
+    if interpolated_data is None:
+        interpolated = interpolate_for_plot(
+            data,
+            mesh,
+            lonreg2,
+            latreg2,
+            interp=interp,
+            distances_path=distances_path,
+            inds_path=inds_path,
+            radius_of_influence=radius_of_influence,
+            basepath=basepath,
+            qhull_path=qhull_path,
+        )
+    else:
+        interpolated = [interpolated_data]
+
+    m2 = mask_ne(lonreg2, latreg2)
+
+    for i in range(len(interpolated)):
+        interpolated[i] = np.ma.masked_where(m2, interpolated[i])
+        interpolated[i] = np.ma.masked_equal(interpolated[i], 0)
+
+    if isinstance(ax, np.ndarray):
+        ax = ax.flatten()
+    else:
+        ax = [ax]
+
+    for ind, data_int in enumerate(interpolated):
+        ax[ind].set_extent([left, right, down, up], crs=ccrs.PlateCarree())
+
+        data_levels = get_plot_levels(levels, data_int, lev_to_data=False)
+
+        if ptype == "cf":
+            data_int_cyc, lon_cyc = add_cyclic_point(data_int, coord=lonreg)
+            image = ax[ind].contourf(
+                lon_cyc,
+                latreg,
+                data_int_cyc > 0,
+                levels=data_levels,
+                transform=ccrs.PlateCarree(),
+                hatches=hatches,
+                colors=colors
+            )
+            
+        elif ptype == "pcm":
+            print('not supported, choose cf')
+        else:
+            raise ValueError("Inknown plot type {}".format(ptype))
+
+    return image
 
 
 def plot_vector(

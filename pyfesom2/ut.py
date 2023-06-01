@@ -15,6 +15,7 @@ import numpy as np
 import pkg_resources
 import shapely
 from cmocean import cm as cmo
+import seawater as sw
 
 try:
     import cartopy.feature as cfeature
@@ -581,6 +582,89 @@ def get_mask(mesh, region):
             Arctic Ocean regions:
                 "Amerasian basin"
                 "Eurasian basin"
+            Reccap_Arctic:
+                "ARC1"  : Central Arctic
+                "ARC2"  : Pacific Arctic
+                "ARC3"  : Alantic Arctic
+                "ARC4"  : Southern Barents Sea - 100% Atlantic
+            Reccap_Atlantic:
+                "ATL1"  : NA SPSS
+                "ATL2"  : NA STSS
+                "ATL3"  : STPS
+                "ATL4"  : AEQU
+                "ATL5"  : SA STPS
+                "ATL6"  : MED
+            Reccap_Coast:
+                "COAST"
+                "NOCOAST"
+            Reccap_Indian:
+                "IND1"  : Arabian Sea
+                "IND2"  : Bengal Bay
+                "IND3"  : Equatorial
+                "IND4"  : Southern
+            Reccap_Open:
+                "LAND" 
+                "RE-ATL": Atlantic
+                "RE-PAC": Pacific
+                "RE-IND": Indian
+                "RE-ARC": Arctic
+                "RE-SO" : Southern
+            Reccap_Pacific:
+                "PAC1"  : NP SPSS
+                "PAC2"  : NP STSS
+                "PAC3"  : NP STPS
+                "PAC4"  : PEQU-W
+                "PAC5"  : PEQU-E
+                "PAC6"  : SP STPS
+            Reccap_Seamask:
+                "SEAMASK"
+                "LAND"
+            Reccap_Southern:
+                "SO1"   : SO STSS
+                "SO2"   : SO SPSS
+                "SO3"   : SO ICE
+            WWF_Arctic:
+                "Arctic Ocean -- Atlantic Basin
+                "Arctic Ocean -- Pacific Basin
+                "Baffin Bay -- Canadian Shelf
+                "Beaufort Sea - continental coast and shelf
+                "Beaufort-Amundsen-Viscount Melville-Queen Maud
+                "Chukchi Sea
+                "Baffin Bay
+                "East Greenland Shelf
+                "East Siberian Sea
+                "Eastern Bering Sea
+                "Fram Strait
+                "High Arctic Archipelago
+                "Hudson Complex
+                "Iceland Shelf
+                "Kara Sea
+                "Labrador Sea Basin
+                "Lancaster Sound
+                "Laptev Sea
+                "North Greenland
+                "North and East Barents Sea
+                "Northern Grand Banks - Southern Labrador
+                "Northern Labrador
+                "Northern Norway and Finnmark
+                "Norwegian Sea
+                "West Greenland Shelf
+                "Western Bering Sea
+                "White Sea
+            MZ_Arctic = "MZ Western Fram Strait"
+                 "MZ Eastern Fram Strait"
+                 "MZ Barents Sea"
+                 "MZ Kara Sea"
+                 "MZ Laptev Sea",
+                 "MZ East-Siberian Sea"
+                 "MZ Chukchi Sea"
+                 "MZ Southern Beaufort Sea"
+                 "MZ Canadian Archipelago"
+                 "MZ Baffin Bay"
+                 "MZ Eurasian Basin"
+                 "MZ Amerasian Basin"
+                
+            For RECCAP definitions, see https://reccap2-ocean.github.io/regions/
     Returns:
     --------
         mask: numpy array
@@ -600,6 +684,54 @@ def get_mask(mesh, region):
         "Global Ocean 65N to 65S",
         "Global Ocean 15S to 15N",
     ]
+    customBasins = ["Southern_Ocean_50S"]
+    Reccap_Arctic = ["ARC1","ARC2","ARC3","ARC4"]
+    Reccap_Atlantic = ["ATL1","ATL2","ATL3","ATL4","ATL5","ATL6"]
+    Reccap_Pacific = ["PAC1","PAC2","PAC3","PAC4","PAC5","PAC6"]
+    Reccap_Open = ["LAND","RE-ATL","RE-PAC","RE-IND","RE-ARC","RE-SO"]
+    Reccap_Coast = ["COAST","NOCOAST"]
+    Reccap_Seamask = ["SEAMASK","LAND"]
+    Reccap_Southern = ["SO1","SO2","SO3"]
+    Reccap_Indian = ["IND1","IND2","IND3","IND4"]
+    WWF_Arctic = ["Arctic Ocean -- Atlantic Basin",
+                 "Arctic Ocean -- Pacific Basin",
+                 "Baffin Bay -- Canadian Shelf",
+                 "Beaufort Sea - continental coast and shelf",
+                 "Beaufort-Amundsen-Viscount Melville-Queen Maud",
+                 "Chukchi Sea",
+                 "Baffin Bay",
+                 "East Greenland Shelf",
+                 "East Siberian Sea",
+                 "Eastern Bering Sea",
+                 "Fram Strait",
+                 "High Arctic Archipelago",
+                 "Hudson Complex",
+                 "Iceland Shelf",
+                 "Kara Sea",
+                 "Labrador Sea Basin",
+                 "Lancaster Sound",
+                 "Laptev Sea",
+                 "North Greenland",
+                 "North and East Barents Sea",
+                 "Northern Grand Banks - Southern Labrador",
+                 "Northern Labrador",
+                 "Northern Norway and Finnmark",
+                 "Norwegian Sea",
+                 "West Greenland Shelf",
+                 "Western Bering Sea",
+                 "White Sea"]
+    MZ_Arctic = ["MZ Western Fram Strait",
+                 "MZ Eastern Fram Strait",
+                 "MZ Barents Sea",
+                 "MZ Kara Sea",
+                 "MZ Laptev Sea",
+                 "MZ East-Siberian Sea",
+                 "MZ Chukchi Sea",
+                 "MZ Southern Beaufort Sea",
+                 "MZ Canadian Archipelago",
+                 "MZ Baffin Bay",
+                 "MZ Eurasian Basin",
+                 "MZ Amerasian Basin"]
 
     if region == "Amerasian basin":
         ind_AB1 = np.where((mesh.x2 >= -100) & (mesh.x2 < -80) & (mesh.y2 >= 80))
@@ -613,6 +745,10 @@ def get_mask(mesh, region):
         ind_EB2 = np.where((mesh.x2 > 100) & (mesh.x2 < 140) & (mesh.y2 > 66))
 
         mask = np.hstack((ind_EB1[0], ind_EB2[0]))
+        
+    elif region == "Southern_Ocean_50S":
+         ind = np.where((mesh.y2 < -50))
+         mask = ind[0]
 
     elif region in MOCBasins:
         filename = pkg_resources.resource_filename(
@@ -629,6 +765,66 @@ def get_mask(mesh, region):
     elif region in oceanBasins:
         filename = pkg_resources.resource_filename(
             __name__, "geojson/oceanBasins.geojson"
+        )
+        mask = mask_from_file(filename, region, mesh)
+        
+    elif region in Reccap_Arctic:
+        filename = pkg_resources.resource_filename(
+            __name__, "geojson/Reccap_Arctic.geojson"
+        )
+        mask = mask_from_file(filename, region, mesh)
+        
+    elif region in Reccap_Atlantic:
+        filename = pkg_resources.resource_filename(
+            __name__, "geojson/Reccap_Atlantic.geojson"
+        )
+        mask = mask_from_file(filename, region, mesh)
+        
+    elif region in Reccap_Pacific:
+        filename = pkg_resources.resource_filename(
+            __name__, "geojson/Reccap_Pacific.geojson"
+        )
+        mask = mask_from_file(filename, region, mesh)
+        
+    elif region in Reccap_Indian:
+        filename = pkg_resources.resource_filename(
+            __name__, "geojson/Reccap_Indian.geojson"
+        )
+        mask = mask_from_file(filename, region, mesh)
+        
+    elif region in Reccap_Southern:
+        filename = pkg_resources.resource_filename(
+            __name__, "geojson/Reccap_Southern.geojson"
+        )
+        mask = mask_from_file(filename, region, mesh)
+        
+    elif region in Reccap_Coast:
+        filename = pkg_resources.resource_filename(
+            __name__, "geojson/Reccap_Coast.geojson"
+        )
+        mask = mask_from_file(filename, region, mesh)
+        
+    elif region in Reccap_Open:
+        filename = pkg_resources.resource_filename(
+            __name__, "geojson/Reccap_Open.geojson"
+        )
+        mask = mask_from_file(filename, region, mesh)
+        
+    elif region in Reccap_Seamask:
+        filename = pkg_resources.resource_filename(
+            __name__, "geojson/Reccap_Seamask.geojson"
+        )
+        mask = mask_from_file(filename, region, mesh)
+        
+    elif region in WWF_Arctic:
+        filename = pkg_resources.resource_filename(
+            __name__, "geojson/WWF_Arctic.geojson"
+        )
+        mask = mask_from_file(filename, region, mesh)
+    
+    elif region in MZ_Arctic:
+        filename = pkg_resources.resource_filename(
+            __name__, "geojson/MZeising_ArcticSeas.geojson"
         )
         mask = mask_from_file(filename, region, mesh)
 
@@ -798,3 +994,20 @@ def get_no_cyclic(mesh, elem_no_nan):
     d = mesh.x2[elem_no_nan].max(axis=1) - mesh.x2[elem_no_nan].min(axis=1)
     no_cyclic_elem = np.argwhere(d < 100)
     return no_cyclic_elem.ravel()
+
+def get_regulargrid_area(xi,yi):
+    """ Compute area from regular lat/lon vectors"""
+    Aarea = np.zeros((len(xi)-1,len(yi)-1))
+    #print(Aarea.shape)
+
+    #calculate area
+    for i in range(0,len(xi)-1): #laenge pruefen!
+        for j in range(0,len(yi)-1): #laenge pruefen!
+            #sw_dist aus matlab umsetzen
+            dist1 = sw.dist([yi[j],yi[j+1]],[xi[i],xi[i]])
+            dist2 = sw.dist([yi[j],yi[j]],[xi[i],xi[i+1]])
+            Aarea[i,j] = float(dist1[0]) * float(dist2[0]) *1000 *1000 #m2
+            #flachen ueberall gleich gross?
+    
+    #Aarea = Aarea.transpose()
+    return Aarea
