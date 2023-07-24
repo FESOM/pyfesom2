@@ -46,6 +46,15 @@ Install pyfesom2
     cd pyfesom2
     pip install -e .
 
+Troubleshooting
+---------------
+There is a bug in cartopy, that lead to strange looking figures - giving you instead of land fill a river network:
+![image](https://github.com/FESOM/pyfesom2/assets/3407313/d159c3bb-2ec3-4369-8eb6-ba9c905591cc)
+
+To fix it one should download GSHHS files by hand, from [here](https://swift.dkrz.de/v1/dkrz_c719fbc3-98ea-446c-8e01-356dac22ed90/cartopy/shapefiles.tar) and untar them into `~.local/share/cartopy/shapefiles/` directory. As a result your plotting scripts should produce something like this:
+
+![image](https://github.com/FESOM/pyfesom2/assets/3407313/4565c334-2d63-4560-b357-dd7af4d34a64)
+
 
 Usage of tools
 --------------
