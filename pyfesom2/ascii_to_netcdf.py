@@ -12,9 +12,8 @@
 #
 # Simple example usage:
 # griddir='/work/ab0246/a270092/input/fesom2/core2/'
-# grid = read_fesom_grid(griddir=griddir)
-# writeCDO(grid, ofile=griddir+'mesh.nc',overwrite=True)
-
+# grid = read_fesom_ascii_grid(griddir=griddir)
+# write_mesh_to_netcdf(grid, ofile=griddir+'mesh.nc',overwrite=True)
 
 
 import numpy as np
@@ -27,7 +26,7 @@ import configparser
 from datetime import datetime
 from netCDF4 import Dataset
 
-def read_fesom_grid(griddir, rot=False, rot_invert=False, rot_abg=None, threeD=True, remove_empty_lev=False, read_boundary=True,
+def read_fesom_ascii_grid(griddir, rot=False, rot_invert=False, rot_abg=None, threeD=True, remove_empty_lev=False, read_boundary=True,
                     reorder_ccw=True, maxmaxneigh=12, findneighbours_maxiter=10, repeatlastpoint=True, onlybaryc=False,
                     omitcoastnds=False, calcpolyareas=True, Rearth=6371000, basicreadonly=False, fesom2=True, verbose=True):
 
@@ -259,7 +258,7 @@ def read_fesom_grid(griddir, rot=False, rot_invert=False, rot_abg=None, threeD=T
         N = int(lines[0])
         data = np.array([line.strip().split() for line in lines[1:]], dtype=float)
         lon_orig, lat_orig, coast = data[:, 1], data[:, 2], data[:, 3]
-        coast = coast[:] % 2
+        coast = coast[:] % 2 #Exclude info about where mesh is stiched together from coastal array.
         return N, lon_orig, lat_orig, coast
 
 
@@ -645,7 +644,7 @@ def read_fesom_grid(griddir, rot=False, rot_invert=False, rot_abg=None, threeD=T
 #                            Write to NetCDF4                                #
 ##############################################################################
 
-def writeCDO(grid, ofile="~/sl.grid.CDO.nc", netcdf=True, netcdf_prec="double",
+def write_mesh_to_netcdf(grid, ofile="~/sl.grid.CDO.nc", netcdf=True, netcdf_prec="double",
              ascii_digits=np.inf, overwrite=False, verbose=True,
              cell_area=True, node_node_links=True, triag_nodes=True,
              coast=True, depth=True, ofile_ZAXIS=None, fesom2velocities=False,
@@ -848,8 +847,6 @@ def writeCDO(grid, ofile="~/sl.grid.CDO.nc", netcdf=True, netcdf_prec="double",
                     depth_lev_var = ncfile.createVariable(depth_lev_name, "i4", (ncells_dim_name,))
                 else:
                     depth_lev_var = ncfile.createVariable(depth_lev_name, "i4", (ntriags_dim_name,))
-                print(grid["depth"])
-                print(depth_var)
                 _ncvar_put(depth_var, grid["depth"])
                 _ncvar_put(depth_bnds_var, grid["depth.bounds"])
                 _ncvar_put(depth_lev_var, grid["depth.lev"])
