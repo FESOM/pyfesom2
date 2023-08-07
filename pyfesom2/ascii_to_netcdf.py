@@ -935,8 +935,3 @@ def write_mesh_to_netcdf(grid, ofile="~/sl.grid.CDO.nc", netcdf=True, netcdf_pre
         res = writeZAXIS(grid, ofile=ofile_ZAXIS, overwrite=overwrite, verbose=verbose)
 
 
-
-griddir='/work/ab0246/a270092/input/fesom2/PI_ICEv2/'
-#griddir='/work/ab0246/a270092/input/fesom2/pi_mesh/'
-grid = read_fesom_ascii_grid(griddir=griddir)
-write_mesh_to_netcdf(grid, ofile=griddir+'mesh.nc',overwrite=True)
