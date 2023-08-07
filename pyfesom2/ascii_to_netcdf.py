@@ -28,7 +28,10 @@ from netCDF4 import Dataset
 import dask
 from dask.delayed import delayed
 from dask.diagnostics import ProgressBar
+from dask.distributed import Client
 
+if __name__ == '__main__':
+    dask.config.set(scheduler='threads')  # overwrite default with threaded scheduler
 
 def read_fesom_ascii_grid(griddir, rot=False, rot_invert=False, rot_abg=None, threeD=True, remove_empty_lev=False, read_boundary=True,
                     reorder_ccw=True, maxmaxneigh=12, findneighbours_maxiter=10, repeatlastpoint=True, onlybaryc=False,
@@ -558,7 +561,7 @@ def read_fesom_ascii_grid(griddir, rot=False, rot_invert=False, rot_abg=None, th
         start_time = time.time()
         print("generate 'stamp polygons' around each node ...")
     maxneighs = neighnodes.shape[1]
-    maxNstamp = 2 * maxneighs
+    maxNstamp = 2 * maxneighs+1
     stampmat_lon = np.full((N, maxNstamp), np.nan)
     stampmat_lat = np.full((N, maxNstamp), np.nan)
     Nstamp = np.full(N, np.nan)
@@ -572,33 +575,56 @@ def read_fesom_ascii_grid(griddir, rot=False, rot_invert=False, rot_abg=None, th
     #########
     #########
 
-    def stamp_polygon(N, maxneighs, maxNstamp, lat, lon, z, Nneighs, Nstamp, stampmat_lon, stampmat_lat, coast, omitcoastnds, onlybaryc):
-        for i in range(N):
-            Nstamp_i = 0
-            for j in range(maxneighs):
-                nn = neighnodes[i, j]
-                if np.isnan(nn):
-                    break
-                if not onlybaryc or (coast[i] and (j == 0 or j == Nneighs[i] - 1)):
-                    # compute median of central node and neighbor node
-                    nn_index = int(nn) - 1  # Subtract 1 to correct the index
-                    lon_ij, lat_ij = barycenter([lon[i], lon[nn_index]], [lat[i], lat[nn_index]], [z[i], z[nn_index]])
-                    stampmat_lon[i, Nstamp_i] = lon_ij
-                    stampmat_lat[i, Nstamp_i] = lat_ij
-                    Nstamp_i += 1
-                ne = neighelems[i, j]
-                if np.isnan(ne):
-                    break
-                stampmat_lon[i, Nstamp_i] = baryc_lon[int(ne)]
-                stampmat_lat[i, Nstamp_i] = baryc_lat[int(ne)]
+    def stamp_polygon(i, maxneighs, maxNstamp, lat, lon, z, Nneighs, Nstamp, stampmat_lon, stampmat_lat, coast, omitcoastnds, onlybaryc):
+        Nstamp_i = 0
+        for j in range(maxneighs):
+            nn = neighnodes[i, j]
+            if np.isnan(nn):
+                break
+            if not onlybaryc or (coast[i] and (j == 0 or j == Nneighs[i] - 1)):
+                # compute median of central node and neighbor node
+                nn_index = int(nn) - 1  # Subtract 1 to correct the index
+                lon_ij, lat_ij = barycenter([lon[i], lon[nn_index]], [lat[i], lat[nn_index]], [z[i], z[nn_index]])
+                stampmat_lon[i, Nstamp_i] = lon_ij
+                stampmat_lat[i, Nstamp_i] = lat_ij
                 Nstamp_i += 1
-            if coast[i] and not omitcoastnds:
-                stampmat_lon[i, Nstamp_i] = lon[i]
-                stampmat_lat[i, Nstamp_i] = lat[i]
-                Nstamp_i += 1
-            Nstamp[i] = Nstamp_i
-        return stampmat_lon, stampmat_lat
-    stampmat_lon, stampmat_lat = stamp_polygon(N, maxneighs, maxNstamp, lat, lon, z, Nneighs, Nstamp, stampmat_lon, stampmat_lat, coast, omitcoastnds, onlybaryc)
+            ne = neighelems[i, j]
+            if np.isnan(ne):
+                break
+            stampmat_lon[i, Nstamp_i] = baryc_lon[int(ne)]
+            stampmat_lat[i, Nstamp_i] = baryc_lat[int(ne)]
+            Nstamp_i += 1
+        if coast[i] and not omitcoastnds:
+            stampmat_lon[i, Nstamp_i] = lon[i]
+            stampmat_lat[i, Nstamp_i] = lat[i]
+            Nstamp_i += 1
+        Nstamp[i] = Nstamp_i
+        return Nstamp_i, stampmat_lon[i, Nstamp_i], stampmat_lat[i, Nstamp_i]
+
+
+    # Wrap the function with dask.delayed
+    Nstamp = np.zeros(N)  # Assuming 'Nstamp' needs to be initialized
+    temp = []
+    delayed_stamp_polygon = []
+    results = []
+    for i in range(N):
+        delayed_stamp_polygon = dask.delayed(stamp_polygon)(i, maxneighs, maxNstamp, lat, lon, z, Nneighs, Nstamp, stampmat_lon, stampmat_lat, coast, omitcoastnds, onlybaryc)
+        temp.append(delayed_stamp_polygon)
+
+    # Execute the computations and store the results in separate lists
+    #with ProgressBar():
+    from concurrent.futures import ThreadPoolExecutor
+    with dask.config.set(pool=ThreadPoolExecutor(1)):
+        results = dask.compute(temp)
+    breakpoint()
+    # Extract 'stampmat_lon' and 'stampmat_lat' from the results
+    stampmat_lon = np.zeros((N, maxNstamp))  # Assuming 'maxNstamp' is defined somewhere
+    stampmat_lat = np.zeros((N, maxNstamp))  # Assuming 'maxNstamp' is defined somewhere
+    for i, (Nstamp_i, lon_i, lat_i) in enumerate(results):
+        Nstamp[i] = Nstamp_i
+        stampmat_lon[i, :Nstamp_i] = lon_i
+        stampmat_lat[i, :Nstamp_i] = lat_i
+
     ##########
     ##########
     ##########
@@ -908,6 +934,9 @@ def write_mesh_to_netcdf(grid, ofile="~/sl.grid.CDO.nc", netcdf=True, netcdf_pre
         # You should provide its implementation.
         res = writeZAXIS(grid, ofile=ofile_ZAXIS, overwrite=overwrite, verbose=verbose)
 
-griddir='/work/ab0246/a270092/input/fesom2/pi_mesh/'
+
+
+griddir='/work/ab0246/a270092/input/fesom2/PI_ICEv2/'
+#griddir='/work/ab0246/a270092/input/fesom2/pi_mesh/'
 grid = read_fesom_ascii_grid(griddir=griddir)
 write_mesh_to_netcdf(grid, ofile=griddir+'mesh.nc',overwrite=True)
