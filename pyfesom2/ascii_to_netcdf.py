@@ -888,14 +888,19 @@ def write_mesh_to_netcdf(grid, ofile="~/sl.grid.CDO.nc", netcdf=True, netcdf_pre
                     cav_nod_lev_name = "cav_nod_lev"
                     cav_elem_lev_name = "cav_elem_lev"
                     cav_nod_mask_name = "cav_nod_mask"
-                    cav_nod_depth = ncfile.createVariable(cav_nod_depth_name, netcdf_prec, (ncells_dim_name,))
-                    cav_nod_lev = ncfile.createVariable(cav_nod_lev_name, netcdf_prec, (ncells_dim_name,))
-                    cav_elem_lev = ncfile.createVariable(cav_elem_lev_name, netcdf_prec, (ntriags_dim_name,))
-                    cav_nod_mask = ncfile.createVariable(cav_nod_mask_name, netcdf_prec, (ncells_dim_name,))
+                    cav_nod_depth = ncfile.createVariable(cav_nod_depth_name, netcdf_prec, (ncells_dim_name,), fill_value=-1)
+                    cav_nod_lev = ncfile.createVariable(cav_nod_lev_name, netcdf_prec, (ncells_dim_name,), fill_value=-1)
+                    cav_elem_lev = ncfile.createVariable(cav_elem_lev_name, netcdf_prec, (ntriags_dim_name,), fill_value=-1)
+                    cav_nod_mask = ncfile.createVariable(cav_nod_mask_name, netcdf_prec, (ncells_dim_name,), fill_value=-1)
                     _ncvar_put(cav_nod_depth, grid["cav_nod_depth"])
                     _ncvar_put(cav_nod_lev, grid["cav_nod_lev"])
                     _ncvar_put(cav_elem_lev, grid["cav_elem_lev"])
                     _ncvar_put(cav_nod_mask, grid["cav_nod_mask"])
+                    _ncatt_put(ncfile, cav_nod_depth_name, "long_name", "ceiling top depth of cavity on nodes (0.0=no cavity)")
+                    _ncatt_put(ncfile, cav_nod_lev_name, "long_name", "top layer of cavity on nodes")
+                    _ncatt_put(ncfile, cav_elem_lev_name, "long_name", "top layer of cavity on element")
+                    _ncatt_put(ncfile, cav_nod_mask_name, "long_name", "binary mask where ocean topped by atmophere = 1, ocean topped by ice shelf = 0")
+                    _ncatt_put(ncfile, cav_nod_depth_name, "unit", "m")
                     _ncatt_put(ncfile, cav_nod_depth_name, "grid_type", "unstructured")
                     _ncatt_put(ncfile, cav_nod_lev_name, "grid_type", "unstructured")
                     _ncatt_put(ncfile, cav_elem_lev_name, "grid_type", "unstructured")
@@ -904,7 +909,6 @@ def write_mesh_to_netcdf(grid, ofile="~/sl.grid.CDO.nc", netcdf=True, netcdf_pre
                     _ncatt_put(ncfile, cav_nod_lev_name, "coordinates", f"{lat_var_name} {lon_var_name}")
                     _ncatt_put(ncfile, cav_elem_lev_name, "coordinates", f"{lat_var_name} {lon_var_name}")
                     _ncatt_put(ncfile, cav_nod_mask_name, "coordinates", f"{lat_var_name} {lon_var_name}")
-
 
             ncfile.Conventions = 'CF-1.4'
 
