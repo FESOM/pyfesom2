@@ -28,7 +28,7 @@ from netCDF4 import Dataset
 
 def read_fesom_ascii_grid(griddir, rot=False, rot_invert=False, rot_abg=None, threeD=True, remove_empty_lev=False, read_boundary=True,
                     reorder_ccw=True, maxmaxneigh=12, findneighbours_maxiter=10, repeatlastpoint=True, onlybaryc=False,
-                    omitcoastnds=False, calcpolyareas=True, Rearth=6371000, basicreadonly=False, fesom2=True, verbose=True):
+                    omitcoastnds=False, calcpolyareas=True, Rearth=6371000, basicreadonly=False, fesom2=True, cavity=False, verbose=True):
 
 
     def convert_elements(arr):
@@ -261,6 +261,23 @@ def read_fesom_ascii_grid(griddir, rot=False, rot_invert=False, rot_abg=None, th
         coast = coast[:] % 2 #Exclude info about where mesh is stiched together from coastal array.
         return N, lon_orig, lat_orig, coast
 
+    def read_cav_nod_depth(file_path):
+        with open(file_path, 'r') as file:
+            lines = file.readlines()
+        cav_nod_depth = np.array([float(line.strip()) for line in lines]) - 1
+        return cav_nod_depth
+
+    def read_cav_nod_lev(file_path):
+        with open(file_path, 'r') as file:
+            lines = file.readlines()
+        cav_nod_lev = np.array([int(line.strip()) for line in lines]) - 1
+        return cav_nod_lev
+
+    def read_cav_elem_lev(file_path):
+        with open(file_path, 'r') as file:
+            lines = file.readlines()
+        cav_elem_lev = np.array([int(line.strip()) for line in lines]) - 1
+        return cav_elem_lev
 
     def find_neighbors(elem, maxmaxneigh=12, reverse=True, verbose=False, max_iter=10):
         if np.any(np.isnan(elem)):
@@ -470,6 +487,11 @@ def read_fesom_ascii_grid(griddir, rot=False, rot_invert=False, rot_abg=None, th
                 depth_bounds = depth_bounds[:Nlev + 1]
                 depth = depth[:Nlev]
             N3D = np.sum(depth_lev)
+            if cavity:
+                cav_nod_depth = read_cav_nod_depth(os.path.join(griddir, "cavity_depth@node.out"))
+                cav_nod_lev = read_cav_nod_lev(os.path.join(griddir, "cavity_nlvls.out"))
+                cav_elem_lev = read_cav_elem_lev(os.path.join(griddir, "cavity_elvls.out"))
+                cav_nod_mask = (cav_nod_lev != 1)
         else:
             aux3d_mat = np.genfromtxt(os.path.join(griddir, "aux3d.out"), skip_header=1, dtype=int, missing_values="-999", usemask=True)
             depth_lev = np.repeat(Nlev, N)
@@ -630,14 +652,22 @@ def read_fesom_ascii_grid(griddir, rot=False, rot_invert=False, rot_abg=None, th
             end_time = time.time()
             print(f"... execution Time:", round(end_time - start_time, 2), "seconds")
 
-
-    return {
-        'N': N, 'Nelem': Ne, 'Nlev': Nlev, 'N3D': N3D, 'lon': lon, 'lat': lat, 'elem': elem, 'elemcoast': elemcoast, 'coast': coast,
-        'neighnodes': neighnodes, 'neighelems': neighelems, 'stamppoly.lon': stampmat_lon, 'stamppoly.lat': stampmat_lat,
-        'baryc.lon': baryc_lon, 'baryc.lat': baryc_lat, 'cellareas': cellareas, 'elemareas': elemareas,
-        'depth': depth, 'depth.bounds': depth_bounds, 'depth.lev': depth_lev, 'elemdepth.lev': elemdepth_lev, 'boundary': boundary
-    }
-    
+    if cavity:
+        return {
+            'N': N, 'Nelem': Ne, 'Nlev': Nlev, 'N3D': N3D, 'lon': lon, 'lat': lat, 'elem': elem, 'elemcoast': elemcoast, 'coast': coast,
+            'neighnodes': neighnodes, 'neighelems': neighelems, 'stamppoly.lon': stampmat_lon, 'stamppoly.lat': stampmat_lat,
+            'baryc.lon': baryc_lon, 'baryc.lat': baryc_lat, 'cellareas': cellareas, 'elemareas': elemareas,
+            'depth': depth, 'depth.bounds': depth_bounds, 'depth.lev': depth_lev, 'elemdepth.lev': elemdepth_lev, 'boundary': boundary,
+            'cav_nod_depth': cav_nod_depth, 'cav_nod_lev': cav_nod_lev, 'cav_elem_lev': cav_elem_lev, 'cav_nod_mask': cav_nod_mask
+        }
+    else:
+        return {
+            'N': N, 'Nelem': Ne, 'Nlev': Nlev, 'N3D': N3D, 'lon': lon, 'lat': lat, 'elem': elem, 'elemcoast': elemcoast, 'coast': coast,
+            'neighnodes': neighnodes, 'neighelems': neighelems, 'stamppoly.lon': stampmat_lon, 'stamppoly.lat': stampmat_lat,
+            'baryc.lon': baryc_lon, 'baryc.lat': baryc_lat, 'cellareas': cellareas, 'elemareas': elemareas,
+            'depth': depth, 'depth.bounds': depth_bounds, 'depth.lev': depth_lev, 'elemdepth.lev': elemdepth_lev, 'boundary': boundary
+        }
+        
 
 
 ##############################################################################
@@ -648,13 +678,13 @@ def write_mesh_to_netcdf(grid, ofile="~/sl.grid.CDO.nc", netcdf=True, netcdf_pre
              ascii_digits=np.inf, overwrite=False, verbose=True,
              cell_area=True, node_node_links=True, triag_nodes=True,
              coast=True, depth=True, ofile_ZAXIS=None, fesom2velocities=False,
-             conventions="original"):
+             conventions="original", cavity=False):
     
     fun_call = f"writeCDO(grid, ofile='{ofile}', netcdf={netcdf}, netcdf_prec='{netcdf_prec}', " \
         f"ascii_digits={ascii_digits}, overwrite={overwrite}, verbose={verbose}, " \
         f"cell_area={cell_area}, node_node_links={node_node_links}, triag_nodes={triag_nodes}, " \
         f"coast={coast}, depth={depth}, ofile_ZAXIS={ofile_ZAXIS}, fesom2velocities={fesom2velocities}, " \
-        f"conventions='{conventions}')"
+        f"conventions='{conventions}', cavity={cavity})"
 
     def _ncvar_put(var, vals):
         var[:] = vals
@@ -853,6 +883,24 @@ def write_mesh_to_netcdf(grid, ofile="~/sl.grid.CDO.nc", netcdf=True, netcdf_pre
                 _ncatt_put(ncfile, depth_lev_name, "grid_type", "unstructured")
                 _ncatt_put(ncfile, depth_lev_name, "coordinates", f"{lat_var_name} {lon_var_name}")
 
+                if cavity:
+                    cav_nod_depth_name = "cav_nod_depth"
+                    cav_nod_lev_name = "cav_nod_lev"
+                    cav_elem_lev_name = "cav_elem_lev"
+                    cav_nod_mask_name = "cav_nod_mask"
+                    cav_nod_depth = ncfile.createVariable("cav_nod_depth", netcdf_prec, (ncells_dim_name,))
+                    cav_nod_lev = ncfile.createVariable("cav_nod_lev", netcdf_prec, (ncells_dim_name,))
+                    cav_elem_lev = ncfile.createVariable("cav_elem_lev", netcdf_prec, (ntriags_dim_name,))
+                    cav_nod_mask = ncfile.createVariable("cav_nod_mask", netcdf_prec, (ncells_dim_name,))
+                    _ncvar_put(cav_nod_depth, grid["cav_nod_depth"])
+                    _ncvar_put(cav_nod_lev, grid["cav_nod_lev"])
+                    _ncvar_put(cav_elem_lev, grid["cav_elem_lev"])
+                    _ncvar_put(cav_nod_mask, grid["cav_nod_mask"])
+                    _ncatt_put(ncfile, cav_nod_depth, "grid_type", "unstructured")
+                    _ncatt_put(ncfile, cav_nod_lev, "grid_type", "unstructured")
+                    _ncatt_put(ncfile, cav_elem_lev, "grid_type", "unstructured")
+                    _ncatt_put(ncfile, cav_nod_mask, "grid_type", "unstructured")
+
             ncfile.Conventions = 'CF-1.4'
 
             # Create a configparser object and read the setup.cfg file
@@ -882,5 +930,4 @@ def write_mesh_to_netcdf(grid, ofile="~/sl.grid.CDO.nc", netcdf=True, netcdf_pre
         # Assuming you have the corresponding writeZAXIS function.
         # You should provide its implementation.
         res = writeZAXIS(grid, ofile=ofile_ZAXIS, overwrite=overwrite, verbose=verbose)
-
 
