@@ -460,8 +460,8 @@ def read_fesom_ascii_grid(griddir, rot=False, rot_invert=False, rot_abg=None, th
                 depth_lev = read_nlvls_out(os.path.join(griddir, "nlvls.out"))
             else:
                 mesh_diag_fl = netCDF4.Dataset(os.path.join(griddir, "fesom.mesh.diag.nc"))
-                depth_lev = mesh_diag_fl.variables["nlevels_nod2D"][:] - 1
-                elemdepth_lev = mesh_diag_fl.variables["nlevels"][:] - 1
+                depth_lev = mesh_diag_fl.variables["nlevels_nod2D"][:] - 2
+                elemdepth_lev = mesh_diag_fl.variables["nlevels"][:] - 2
                 mesh_diag_fl.close()
             if remove_empty_lev and np.max(depth_lev) < Nlev:
                 if verbose:
@@ -760,9 +760,9 @@ def write_mesh_to_netcdf(grid, ofile="~/sl.grid.CDO.nc", netcdf=True, netcdf_pre
             if not fesom2velocities:
                 vertices_dim = ncfile.createDimension(vertices_dim_name, maxNstamp)
                 lon_var = ncfile.createVariable(lon_var_name, netcdf_prec, (ncells_dim_name,))
-                lon_bnds_var = ncfile.createVariable(lon_bnds_var_name, netcdf_prec, (vertices_dim_name, ncells_dim_name))
+                lon_bnds_var = ncfile.createVariable(lon_bnds_var_name, netcdf_prec, (ncells_dim_name, vertices_dim_name))
                 lat_var = ncfile.createVariable(lat_var_name, netcdf_prec, (ncells_dim_name,))
-                lat_bnds_var = ncfile.createVariable(lat_bnds_var_name, netcdf_prec, (vertices_dim_name, ncells_dim_name))
+                lat_bnds_var = ncfile.createVariable(lat_bnds_var_name, netcdf_prec, (ncells_dim_name, vertices_dim_name))
             else:
                 ntriags_dim = ncfile.createDimension(ntriags_dim_name, M)
                 Three_dim = ncfile.createDimension(Three_dim_name, 3)
@@ -772,19 +772,23 @@ def write_mesh_to_netcdf(grid, ofile="~/sl.grid.CDO.nc", netcdf=True, netcdf_pre
                 lat_bnds_var = ncfile.createVariable(lat_bnds_var_name, netcdf_prec, (Three_dim_name, ntriags_dim_name))
 
             _ncvar_put(lon_var, grid["lon"])
-            _ncvar_put(lon_bnds_var, grid["stamppoly.lon"].T)
+            _ncvar_put(lon_bnds_var, grid["stamppoly.lon"])
             _ncvar_put(lat_var, grid["lat"])
-            _ncvar_put(lat_bnds_var, grid["stamppoly.lat"].T)
+            _ncvar_put(lat_bnds_var, grid["stamppoly.lat"])
 
+            _ncatt_put(ncfile, lon_var_name, "units", "degrees_east")
             _ncatt_put(ncfile, lon_var_name, "standard_name", "longitude")
             _ncatt_put(ncfile, lon_var_name, "bounds", lon_bnds_var_name)
 
+            _ncatt_put(ncfile, lon_bnds_var_name, "units", "degrees_east")
             _ncatt_put(ncfile, lon_bnds_var_name, "standard_name", "longitude_bounds")
             _ncatt_put(ncfile, lon_bnds_var_name, "centers", lon_var_name)
 
+            _ncatt_put(ncfile, lat_var_name, "units", "degrees_north")
             _ncatt_put(ncfile, lat_var_name, "standard_name", "latitude")
             _ncatt_put(ncfile, lat_var_name, "bounds", lat_bnds_var_name)
 
+            _ncatt_put(ncfile, lat_bnds_var_name, "units", "degrees_north")
             _ncatt_put(ncfile, lat_bnds_var_name, "standard_name", "latitude_bounds")
             _ncatt_put(ncfile, lat_bnds_var_name, "centers", lat_var_name)
 
@@ -795,61 +799,71 @@ def write_mesh_to_netcdf(grid, ofile="~/sl.grid.CDO.nc", netcdf=True, netcdf_pre
             if cell_area:
                 cellareas_var_name = "cell_area"
                 if not fesom2velocities:
-                    cellareas_var = ncfile.createVariable(cellareas_var_name, netcdf_prec, (ncells_dim_name,))
+                    cellareas_var = ncfile.createVariable(cellareas_var_name, netcdf_prec, (ncells_dim_name,), fill_value=-1)
                     _ncvar_put(cellareas_var, grid["cellareas"])
                 else:
-                    cellareas_var = ncfile.createVariable(cellareas_var_name, netcdf_prec, (ntriags_dim_name,))
+                    cellareas_var = ncfile.createVariable(cellareas_var_name, netcdf_prec, (ntriags_dim_name,), fill_value=-1)
                     _ncvar_put(cellareas_var, grid["elemareas"])
+                _ncatt_put(ncfile, cellareas_var_name, "units", "m2")
+                _ncatt_put(ncfile, cellareas_var_name, "long_name", "area of grid cell")
                 _ncatt_put(ncfile, cellareas_var_name, "grid_type", "unstructured")
                 _ncatt_put(ncfile, cellareas_var_name, "coordinates", f"{lat_var_name} {lon_var_name}")
 
             if node_node_links:
                 nlinks_max_dim = ncfile.createDimension("nlinks_max", grid["neighnodes"].shape[1])
-                node_node_links_var = ncfile.createVariable("node_node_links", "i4", ("nlinks_max", ncells_dim_name))
-                _ncvar_put(node_node_links_var, grid["neighnodes"].T)
+                node_node_links_var = ncfile.createVariable("node_node_links", "i4", (ncells_dim_name, "nlinks_max"), fill_value=-1)
+                _ncvar_put(node_node_links_var, grid["neighnodes"])
+                _ncatt_put(ncfile, "node_node_links", "long_name", "Indicates which other nodes neighbour each node.")
 
 
             if triag_nodes:
                 if not fesom2velocities:
-                    ntriags_dim = ncfile.createDimension("ntriags", len(grid["elem"]))
                     Three_dim = ncfile.createDimension("Three", 3)
+                    ntriags_dim = ncfile.createDimension("ntriags", len(grid["elem"]))
                 else:
-                    ntriags_dim = ncfile.createDimension("grid_size", len(grid["elem"]))
                     Three_dim = ncfile.createDimension("grid_corners", 3)
+                    ntriags_dim = ncfile.createDimension("grid_size", len(grid["elem"]))
 
-                triag_nodes_var = ncfile.createVariable("triag_nodes", "i4", ("Three", "ntriags" if not fesom2velocities else "grid_size"))
-                triag_nodes_var.setncatts({"units": "", "missval": -1, "longname": "Maps every triangular face to its three corner nodes.", "prec": "integer"})
+                triag_nodes_var = ncfile.createVariable("triag_nodes", "i4", ("ntriags", "Three" if not fesom2velocities else "grid_size"))
+                triag_nodes_var.setncatts({"longname": "Maps every triangular face to its three corner nodes."})
 
                 if not fesom2velocities:
-                    triag_nodes_var[:, :] = grid["elem"].T
+                    triag_nodes_var[:, :] = grid["elem"]
                 else:
-                    triag_nodes_var[:, :] = grid["elem"].T
+                    triag_nodes_var[:, :] = grid["elem"]
 
 
             if coast:
                 coast_var_name = "coast"
                 if not fesom2velocities:
-                    coast_var = ncfile.createVariable(coast_var_name, "i4", (ncells_dim_name,))
+                    coast_var = ncfile.createVariable(coast_var_name, "i4", (ncells_dim_name,), fill_value=-1)
                     _ncvar_put(coast_var, grid["coast"])
                 else:
-                    coast_var = ncfile.createVariable(coast_var_name, "i4", (ntriags_dim_name,))
+                    coast_var = ncfile.createVariable(coast_var_name, "i4", (ntriags_dim_name,), fill_value=-1)
                     _ncvar_put(coast_var, grid["elemcoast"])
+                _ncatt_put(ncfile, coast_var_name, "long_name", "Indicates coastal nodes: coast=1, internal=0")
                 _ncatt_put(ncfile, coast_var_name, "grid_type", "unstructured")
                 _ncatt_put(ncfile, coast_var_name, "coordinates", f"{lat_var_name} {lon_var_name}")
 
             if depth:
                 depth_lev_name = "depth_lev"
                 nlev_dim = ncfile.createDimension("nlev", Nlev)
-                depth_var = ncfile.createVariable("depth", netcdf_prec, ("nlev",))
+                depth_var = ncfile.createVariable("depth", netcdf_prec, ("nlev",), fill_value=-1)
                 depth_bnds_dim = ncfile.createDimension("nlev_bnds", Nlev + 1)
-                depth_bnds_var = ncfile.createVariable("depth_bnds", netcdf_prec, ("nlev_bnds",))
+                depth_bnds_var = ncfile.createVariable("depth_bnds", netcdf_prec, ("nlev_bnds",), fill_value=-1)
                 if not fesom2velocities:
-                    depth_lev_var = ncfile.createVariable(depth_lev_name, "i4", (ncells_dim_name,))
+                    depth_lev_var = ncfile.createVariable(depth_lev_name, "i4", (ncells_dim_name,), fill_value=-1)
                 else:
-                    depth_lev_var = ncfile.createVariable(depth_lev_name, "i4", (ntriags_dim_name,))
+                    depth_lev_var = ncfile.createVariable(depth_lev_name, "i4", (ntriags_dim_name,), fill_value=-1)
+
                 _ncvar_put(depth_var, grid["depth"])
+                _ncatt_put(ncfile, "depth", "long_name", "depth of model levels in metres (positive downwards)")
+
                 _ncvar_put(depth_bnds_var, grid["depth.bounds"])
+                _ncatt_put(ncfile, "depth_bnds", "long_name", "depth of model levels in metres (positive downwards)")
+
                 _ncvar_put(depth_lev_var, grid["depth.lev"])
+                _ncatt_put(ncfile, depth_lev_name, "long_name", "depth in terms of number of active levels beneath each ocean surface grid point")
                 _ncatt_put(ncfile, depth_lev_name, "grid_type", "unstructured")
                 _ncatt_put(ncfile, depth_lev_name, "coordinates", f"{lat_var_name} {lon_var_name}")
 
@@ -883,4 +897,7 @@ def write_mesh_to_netcdf(grid, ofile="~/sl.grid.CDO.nc", netcdf=True, netcdf_pre
         # You should provide its implementation.
         res = writeZAXIS(grid, ofile=ofile_ZAXIS, overwrite=overwrite, verbose=verbose)
 
+griddir='/work/ab0246/a270092/input/fesom2/pi_mesh/'
+grid = read_fesom_ascii_grid(griddir=griddir)
+write_mesh_to_netcdf(grid, ofile=griddir+'mesh.nc',overwrite=True)
 
