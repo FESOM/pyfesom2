@@ -888,18 +888,23 @@ def write_mesh_to_netcdf(grid, ofile="~/sl.grid.CDO.nc", netcdf=True, netcdf_pre
                     cav_nod_lev_name = "cav_nod_lev"
                     cav_elem_lev_name = "cav_elem_lev"
                     cav_nod_mask_name = "cav_nod_mask"
-                    cav_nod_depth = ncfile.createVariable("cav_nod_depth", netcdf_prec, (ncells_dim_name,))
-                    cav_nod_lev = ncfile.createVariable("cav_nod_lev", netcdf_prec, (ncells_dim_name,))
-                    cav_elem_lev = ncfile.createVariable("cav_elem_lev", netcdf_prec, (ntriags_dim_name,))
-                    cav_nod_mask = ncfile.createVariable("cav_nod_mask", netcdf_prec, (ncells_dim_name,))
+                    cav_nod_depth = ncfile.createVariable(cav_nod_depth_name, netcdf_prec, (ncells_dim_name,))
+                    cav_nod_lev = ncfile.createVariable(cav_nod_lev_name, netcdf_prec, (ncells_dim_name,))
+                    cav_elem_lev = ncfile.createVariable(cav_elem_lev_name, netcdf_prec, (ntriags_dim_name,))
+                    cav_nod_mask = ncfile.createVariable(cav_nod_mask_name, netcdf_prec, (ncells_dim_name,))
                     _ncvar_put(cav_nod_depth, grid["cav_nod_depth"])
                     _ncvar_put(cav_nod_lev, grid["cav_nod_lev"])
                     _ncvar_put(cav_elem_lev, grid["cav_elem_lev"])
                     _ncvar_put(cav_nod_mask, grid["cav_nod_mask"])
-                    _ncatt_put(ncfile, cav_nod_depth, "grid_type", "unstructured")
-                    _ncatt_put(ncfile, cav_nod_lev, "grid_type", "unstructured")
-                    _ncatt_put(ncfile, cav_elem_lev, "grid_type", "unstructured")
-                    _ncatt_put(ncfile, cav_nod_mask, "grid_type", "unstructured")
+                    _ncatt_put(ncfile, cav_nod_depth_name, "grid_type", "unstructured")
+                    _ncatt_put(ncfile, cav_nod_lev_name, "grid_type", "unstructured")
+                    _ncatt_put(ncfile, cav_elem_lev_name, "grid_type", "unstructured")
+                    _ncatt_put(ncfile, cav_nod_mask_name, "grid_type", "unstructured")
+                    _ncatt_put(ncfile, cav_nod_depth_name, "coordinates", f"{lat_var_name} {lon_var_name}")
+                    _ncatt_put(ncfile, cav_nod_lev_name, "coordinates", f"{lat_var_name} {lon_var_name}")
+                    _ncatt_put(ncfile, cav_elem_lev_name, "coordinates", f"{lat_var_name} {lon_var_name}")
+                    _ncatt_put(ncfile, cav_nod_mask_name, "coordinates", f"{lat_var_name} {lon_var_name}")
+
 
             ncfile.Conventions = 'CF-1.4'
 
