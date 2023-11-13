@@ -8,7 +8,6 @@ import os
 import numpy as np
 import xarray as xr
 
-from pyfesom2 import pyfesom2
 from pyfesom2 import load_mesh
 from pyfesom2 import get_data
 from pyfesom2 import ice_ext
