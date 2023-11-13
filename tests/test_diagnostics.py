@@ -3,29 +3,23 @@
 
 """Tests for `pyfesom2` package."""
 
-import pytest
 import os
+
 import numpy as np
+import pytest
 import xarray as xr
 
-from pyfesom2 import load_mesh
-from pyfesom2 import get_data
-from pyfesom2 import ice_ext
-from pyfesom2 import ice_vol
-from pyfesom2 import ice_area
-from pyfesom2 import get_meshdiag
-from pyfesom2 import hovm_data
-from pyfesom2 import select_depths
-from pyfesom2 import volmean_data
-from pyfesom2 import xmoc_data
+from pyfesom2 import (get_data, get_meshdiag, hovm_data, ice_area, ice_ext,
+                      ice_vol, load_mesh, select_depths, volmean_data,
+                      xmoc_data)
 
 THIS_DIR = os.path.dirname(os.path.abspath(__file__))
-my_data_folder = os.path.join(THIS_DIR, "data")
+MY_DATA_FOLDER = os.path.join(THIS_DIR, "data")
 
 
 def test_ice_integrals():
-    mesh_path = os.path.join(my_data_folder, "pi-grid")
-    data_path = os.path.join(my_data_folder, "pi-results")
+    mesh_path = os.path.join(MY_DATA_FOLDER, "pi-grid")
+    data_path = os.path.join(MY_DATA_FOLDER, "pi-results")
     mesh = load_mesh(mesh_path, usepickle=False, usejoblib=False)
 
     # default get_data (with how='mean') should work.
@@ -74,7 +68,7 @@ def test_ice_integrals():
 
 
 def test_get_meshdiag():
-    mesh_path = os.path.join(my_data_folder, "pi-grid")
+    mesh_path = os.path.join(MY_DATA_FOLDER, "pi-grid")
     mesh = load_mesh(mesh_path, usepickle=False, usejoblib=False)
     diag = get_meshdiag(mesh)
     assert isinstance(diag, xr.Dataset)
@@ -84,8 +78,8 @@ def test_get_meshdiag():
 
 
 def test_hovm_data():
-    mesh_path = os.path.join(my_data_folder, "pi-grid")
-    data_path = os.path.join(my_data_folder, "pi-results")
+    mesh_path = os.path.join(MY_DATA_FOLDER, "pi-grid")
+    data_path = os.path.join(MY_DATA_FOLDER, "pi-results")
     mesh = load_mesh(mesh_path, usepickle=False, usejoblib=False)
 
     # work on xarray
@@ -138,8 +132,8 @@ def test_hovm_data():
 
 
 def test_selec_depths():
-    mesh_path = os.path.join(my_data_folder, "pi-grid")
-    # data_path = os.path.join(my_data_folder, "pi-results")
+    mesh_path = os.path.join(MY_DATA_FOLDER, "pi-grid")
+    # data_path = os.path.join(MY_DATA_FOLDER, "pi-results")
     mesh = load_mesh(mesh_path, usepickle=False, usejoblib=False)
 
     assert select_depths(None, mesh) == range(0, 47)
@@ -151,9 +145,9 @@ def test_selec_depths():
 
 
 def test_volmean_data():
-    mesh_path = os.path.join(my_data_folder, "pi-grid")
-    data_path = os.path.join(my_data_folder, "pi-results")
-    mesh = load_mesh(mesh_path, usepickle=False, usejoblib=False)
+    mesh_path = os.path.join(MY_DATA_FOLDER, "pi-grid")
+    data_path = os.path.join(MY_DATA_FOLDER, "pi-results")
+    mesh = load_mesh(mesh_path, usepickle=False, usejoblib=t False)
 
     # xarray as input
     # time series
@@ -204,8 +198,8 @@ def test_volmean_data():
 
 
 def test_xmoc_data():
-    mesh_path = os.path.join(my_data_folder, "pi-grid")
-    data_path = os.path.join(my_data_folder, "pi-results")
+    mesh_path = os.path.join(MY_DATA_FOLDER, "pi-grid")
+    data_path = os.path.join(MY_DATA_FOLDER, "pi-results")
     mesh = load_mesh(mesh_path, usepickle=False, usejoblib=False)
 
     # xarray as input
