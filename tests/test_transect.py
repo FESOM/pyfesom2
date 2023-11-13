@@ -21,7 +21,6 @@ my_data_folder = os.path.join(THIS_DIR, "data")
 
 
 def test_get_transect():
-
     mesh_path = os.path.join(my_data_folder, "pi-grid")
     mesh = load_mesh(mesh_path, usepickle=False, usejoblib=False)
     data_path = os.path.join(my_data_folder, "pi-results")
@@ -43,7 +42,6 @@ def test_get_transect():
 
 
 def test_get_transect_uv():
-
     mesh_path = os.path.join(my_data_folder, "pi-grid")
     mesh = load_mesh(mesh_path, usepickle=False, usejoblib=False)
     data_path = os.path.join(my_data_folder, "pi-results")
@@ -77,4 +75,3 @@ def test_get_transect_uv():
     assert rot_u_90.min() == pytest.approx(-0.005997921765897762)
     assert rot_v_90.max() == pytest.approx(0.016885495243838144)
     assert rot_v_90.min() == pytest.approx(-0.013676035556593993)
-

@@ -88,7 +88,6 @@ def test_plot():
 
 
 def test_get_transect_uv():
-
     mesh_path = os.path.join(my_data_folder, "pi-grid")
     mesh = load_mesh(mesh_path, usepickle=False, usejoblib=False)
     data_path = os.path.join(my_data_folder, "pi-results")

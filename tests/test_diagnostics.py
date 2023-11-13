@@ -150,6 +150,7 @@ def test_selec_depths():
     assert select_depths([0, 0], mesh) == range(0, 1)
     assert select_depths([500, 500], mesh) == range(20, 21)
 
+
 def test_volmean_data():
     mesh_path = os.path.join(my_data_folder, "pi-grid")
     data_path = os.path.join(my_data_folder, "pi-results")

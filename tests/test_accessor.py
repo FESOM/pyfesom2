@@ -66,6 +66,7 @@ def random_nd_dataset(random_spatial_dataset):
 # def dataset(local_dataset, random_spatial_dataset, request):
 #    yield request.getfixturevalue(request.param)
 
+
 # TODO enable above to be compatible for CI/gh-actions
 @pytest.fixture(params=["random_spatial_dataset"], scope="module", autouse=True)
 def dataset(random_spatial_dataset, request):
@@ -106,6 +107,7 @@ def five_point_dataset():
 # def lcore_dataset(request):
 #     da = request.param.load()
 #     yield da
+
 
 # Test selection utils
 @pytest.mark.skip(reason="Still can't fix it on CI")

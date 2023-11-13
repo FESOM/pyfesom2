@@ -126,4 +126,3 @@ def test_tonodes3d():
     assert v_nodes.min() == pytest.approx(-0.30760535729567123)
     assert v_nodes.mean() == pytest.approx(0.0003354015441015618)
     assert v_nodes.max() == pytest.approx(0.2813401806588615)
-
