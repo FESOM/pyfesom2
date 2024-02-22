@@ -21,3 +21,4 @@ from .fesom2GeoFormat import *
 from .datasets import open_dataset
 from .accessor import FESOMDataArray as _FESOMDataArray
 from .transport import cross_section_transport
+from .ascii_to_netcdf import read_fesom_ascii_grid, write_mesh_to_netcdf
