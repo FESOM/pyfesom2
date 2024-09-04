@@ -68,7 +68,10 @@ def scalar_r2g(al, be, ga, rlon, rlat):
     rotate_matrix[2, 2] = np.cos(be)
 
     rotate_matrix = np.linalg.pinv(rotate_matrix)
-
+    if (np.ndim(rlat) == 0)&(np.ndim(rlon) == 0):
+        rlat = np.array([rlat])
+        rlon = np.array([rlon])
+    
     rlat = rlat * rad
     rlon = rlon * rad
 
@@ -145,6 +148,9 @@ def scalar_g2r(al, be, ga, lon, lat):
     rotate_matrix[2, 2] = np.cos(be)
     
     #rotate_matrix = np.linalg.pinv(rotate_matrix)
+    if (np.ndim(lat) == 0)&(np.ndim(lon) == 0):
+        lat = np.array([lat])
+        lon = np.array([lon])
     
     lat = lat * rad
     lon = lon * rad
