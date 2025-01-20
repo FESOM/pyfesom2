@@ -750,7 +750,7 @@ def _ComputeBrokenLineSegments(f_lat, f_lon, s_lat, s_lon, c_lat, c_lon, section
                                         lat=f_lat[ii],
                                         lon=f_lon[ii],
                                         h=0,
-                                     ell=pm.utils.Ellipsoid.from_name('wgs84')
+                                     ell=pm.Ellipsoid.from_name('wgs84')
                                    )
 
         first_segment_vector[ii,0], first_segment_vector[ii,1] = -dx, -dy # turn the vector to point towards the center, in the direction of the section
@@ -762,7 +762,7 @@ def _ComputeBrokenLineSegments(f_lat, f_lon, s_lat, s_lon, c_lat, c_lon, section
                                         lat=s_lat[ii],
                                         lon=s_lon[ii],
                                         h=0,
-                                     ell=pm.utils.Ellipsoid.from_name('wgs84')
+                                     ell=pm.Ellipsoid.from_name('wgs84')
                                    )
 
         second_segment_vector[ii,0], second_segment_vector[ii,1] = dx, dy
