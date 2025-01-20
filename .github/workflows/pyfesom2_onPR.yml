@@ -51,9 +51,7 @@ jobs:
           brew reinstall openssl
           ls -l /opt/homebrew/opt/openssl/lib/libcrypto.3.dylib
           sudo mkdir -p /usr/local/lib
-          sudo ln -s /opt/homebrew/opt/openssl/lib/libcrypto.3.dylib /usr/local/lib/ 
-          sudo mkdir -p /usr/lib
-          sudo ln -s /opt/homebrew/opt/openssl/lib/libcrypto.3.dylib /usr/lib/
+          sudo ln -vs /opt/homebrew/opt/openssl/lib/libcrypto.3.dylib /usr/local/lib/ 
 
     - name: install conda environment
       uses: mamba-org/setup-micromamba@v2
