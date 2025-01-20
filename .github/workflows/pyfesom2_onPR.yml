@@ -47,7 +47,10 @@ jobs:
     - name: Update SSL on MacOS
       if: contains(matrix.os, 'macos')
       run: |
-          brew install openssl
+          brew update
+          brew reinstall openssl
+          ls -l /opt/homebrew/opt/openssl/lib/libcrypto.3.dylib
+          ln -s /opt/homebrew/opt/openssl/lib/libcrypto.3.dylib /usr/local/lib/
 
     - name: install conda environment
       uses: mamba-org/setup-micromamba@v2
