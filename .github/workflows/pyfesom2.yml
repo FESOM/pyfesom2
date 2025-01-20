@@ -36,6 +36,11 @@ jobs:
         path: pyfesom2
         fetch-depth: 0
 
+    - name: Update SSL on MacOS
+      if: matrix.os == 'macos'
+      run: |
+          brew install openssl
+
     - name: install conda environment
       uses: mamba-org/setup-micromamba@v2
       with:
