@@ -27,7 +27,7 @@ from datetime import datetime
 from netCDF4 import Dataset
 
 def read_fesom_ascii_grid(griddir, rot=False, rot_invert=False, rot_abg=None, threeD=True, remove_empty_lev=False, read_boundary=True,
-                    reorder_ccw=True, maxmaxneigh=12, findneighbours_maxiter=10, repeatlastpoint=True, onlybaryc=False,
+                    reorder_ccw=True, maxmaxneigh=12, findneighbours_maxiter=15, repeatlastpoint=True, onlybaryc=False,
                     omitcoastnds=False, calcpolyareas=True, Rearth=6371000, basicreadonly=False, fesom2=True, cavity=False, verbose=True):
 
 
