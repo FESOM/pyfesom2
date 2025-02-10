@@ -13,3 +13,6 @@ CI workflow. The process is automated and only requires pushing a tagged version
       git push origin v1.0.0
 
 The CI workflow will automatically build and publish your package to both PyPI and Conda-Forge when a tagged version is pushed.
+
+.. note:: The ``ANACONDA_TOKEN`` secret is set on the GitHub organization settings by @pgierz, and expires 31-12-2026!
+
