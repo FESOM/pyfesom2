@@ -858,7 +858,7 @@ def _AddMetaData(ds, elem_box_indices, elem_box_nods, effective_dx, effective_dy
 
     return ds
 
-def _UnrotateLoadVelocity(how, files, elem_box_indices, elem_box_nods, vertical_cell_area_dx, vertical_cell_area_dy, c_lon, c_lat, effective_dx, effective_dy, elem_order, chunks, mesh, abg):
+def _UnrotateLoadVelocity(how, files, elem_box_indices, elem_box_nods, vertical_cell_area_dx, vertical_cell_area_dy, c_lon, c_lat, effective_dx, effective_dy, elem_order, chunks, mesh, abg, uvrotated):
     '''
     Load and unrotate the fesom velocity files. Additionally bring the mesh elements into the right order (according to the section)
 
@@ -890,6 +890,8 @@ def _UnrotateLoadVelocity(how, files, elem_box_indices, elem_box_nods, vertical_
         fesom.mesh
     abg (list)
         mesh rotation [50 15 -90]
+    uvrotated (boolean)
+        True: u, v are rotated; False: u, v are unrotated
 
     Returns
     -------
@@ -912,23 +914,25 @@ def _UnrotateLoadVelocity(how, files, elem_box_indices, elem_box_nods, vertical_
 
     ds = _AddMetaData(ds, elem_box_indices, elem_box_nods, effective_dx, effective_dy, vertical_cell_area_dx, vertical_cell_area_dy, c_lon, c_lat)
 
-    # rename u and v to u_rot, v_rot
-    ds = ds.rename({'u': 'u_rot'})
-    ds = ds.rename({'v': 'v_rot'})
-    # UNROTATE
-    lon_elem_center = np.mean(mesh.x2[ds.elem_nods], axis=1)
-    lat_elem_center = np.mean(mesh.y2[ds.elem_nods], axis=1)
-    try:
-        u, v = vec_rotate_r2g(abg[0], abg[1], abg[2], lon_elem_center[np.newaxis, :, np.newaxis],
-                             lat_elem_center[np.newaxis, :, np.newaxis], ds.u_rot.values, ds.v_rot.values, flag=1)
-    except:
-        u, v = vec_rotate_r2g(abg[0], abg[1], abg[2], lon_elem_center[np.newaxis, :, np.newaxis],
-                             lat_elem_center[np.newaxis, :, np.newaxis], ds.u_rot.values.swapaxes(1,2), ds.v_rot.values.swapaxes(1,2), flag=1)
-
-    ds['u'] = (('time', 'elem', 'nz1'), u)
-    ds['v'] = (('time', 'elem', 'nz1'), v)
-
-    ds = ds.drop_vars(['u_rot','v_rot'])
+    if uvrotated:                # only apply when u, v are in rotated coordinates
+        # rename u and v to u_rot, v_rot
+        ds = ds.rename({'u': 'u_rot'})
+        ds = ds.rename({'v': 'v_rot'})
+        
+        # UNROTATE
+        lon_elem_center = np.mean(mesh.x2[ds.elem_nods], axis=1)
+        lat_elem_center = np.mean(mesh.y2[ds.elem_nods], axis=1)
+        try:
+            u, v = vec_rotate_r2g(abg[0], abg[1], abg[2], lon_elem_center[np.newaxis, :, np.newaxis],
+                                 lat_elem_center[np.newaxis, :, np.newaxis], ds.u_rot.values, ds.v_rot.values, flag=1)
+        except:
+            u, v = vec_rotate_r2g(abg[0], abg[1], abg[2], lon_elem_center[np.newaxis, :, np.newaxis],
+                                 lat_elem_center[np.newaxis, :, np.newaxis], ds.u_rot.values.swapaxes(1,2), ds.v_rot.values.swapaxes(1,2), flag=1)
+    
+        ds['u'] = (('time', 'elem', 'nz1'), u)
+        ds['v'] = (('time', 'elem', 'nz1'), v)
+    
+        ds = ds.drop_vars(['u_rot','v_rot'])
 
     # bring u and v into the right order
     ds['u'] = ds.u.isel(elem=elem_order)
@@ -1040,7 +1044,7 @@ def _OrderIndices(ds, elem_order):
     print('\n Done!')
     return ds
 
-def cross_section_transport(section, mesh, data_path, years, mesh_diag, how='mean', add_extent=1, abg=[50, 15, -90], add_TS=False, chunks={'elem': 1e4}, use_great_circle=False, n_points=1000):
+def cross_section_transport(section, mesh, data_path, years, mesh_diag, how='mean', add_extent=1, abg=[50, 15, -90], add_TS=False, chunks={'elem': 1e4}, use_great_circle=False, n_points=1000, uvrotated=True):
     '''
     Inputs
     ------
@@ -1068,6 +1072,8 @@ def cross_section_transport(section, mesh, data_path, years, mesh_diag, how='mea
         chunks for parallelising the velocity data (default: chunks={'elem': 1e4})
     n_points (int)
         number of waypoints between start and end of section
+    uvrotated (bool)
+        True: u, v FESOM output is in rotated coordinates; False: u, v FESOM output is already unroated
 
     Returns
     -------
@@ -1096,7 +1102,7 @@ def cross_section_transport(section, mesh, data_path, years, mesh_diag, how='mea
 
     vertical_cell_area_dx, vertical_cell_area_dy = _CreateVerticalGrid(effective_dx, effective_dy, mesh_diag)
 
-    ds = _UnrotateLoadVelocity(how, files, elem_box_indices, elem_box_nods, vertical_cell_area_dx, vertical_cell_area_dy, c_lon, c_lat, effective_dx, effective_dy, elem_order, chunks, mesh, abg)
+    ds = _UnrotateLoadVelocity(how, files, elem_box_indices, elem_box_nods, vertical_cell_area_dx, vertical_cell_area_dy, c_lon, c_lat, effective_dx, effective_dy, elem_order, chunks, mesh, abg, uvrotated)
 
     ds = _TransportAcross(ds)
 
