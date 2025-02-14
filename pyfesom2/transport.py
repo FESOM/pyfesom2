@@ -1005,6 +1005,9 @@ def _AddTempSalt(section, ds, data_path, mesh, years, elem_order):
     # Open files
     ds_ts = xr.open_mfdataset(files, combine='by_coords', chunks={'nod2': 1e4})
 
+    # Adjust dimension order
+    ds_ts = ds_ts.transpose('time','nod2','nz1')
+    
     # Only load the nods that belong to elements that are part of the section
     # Flatten the triplets first
     ds_ts = ds_ts.isel(nod2=ds.elem_nods.values.flatten()).load()
@@ -1038,6 +1041,18 @@ def _OrderIndices(ds, elem_order):
     ds['elem_nods'] = ds.elem_nods.isel(elem=elem_order)
 
     print('\n Done!')
+    return ds
+
+def _MaskBathymetry(ds):
+    ''' Sets bathymetry values (gridcells where time mean transport is zero) to np.nan.
+
+    Inputs
+    ------
+    ds (xr.dataset)
+        dataset containing transport
+    '''
+
+    ds = ds.where(ds.transport_across.mean(dim='time') != 0, np.nan)
     return ds
 
 def cross_section_transport(section, mesh, data_path, years, mesh_diag, how='mean', add_extent=1, abg=[50, 15, -90], add_TS=False, chunks={'elem': 1e4}, use_great_circle=False, n_points=1000):
@@ -1104,5 +1119,7 @@ def cross_section_transport(section, mesh, data_path, years, mesh_diag, how='mea
         ds = _AddTempSalt(section, ds, data_path, mesh, years, elem_order)
 
     ds = _OrderIndices(ds, elem_order)
+
+    ds = _MaskBathymetry(ds)
 
     return  ds, section
