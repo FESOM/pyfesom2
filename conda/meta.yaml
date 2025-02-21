@@ -1,0 +1,70 @@
+{% set name = "pyfesom2" %}
+{% set version = "0.3.0" %}
+
+package:
+  name: {{ name|lower }}
+  version: {{ version }}
+
+source:
+    path: ..
+
+build:
+  number: 1
+  noarch: python
+  entry_points:
+    - pfplot=pyfesom2.pfplot:pfplot
+    - pfinterp=pyfesom2.pfinterp:pfinterp
+  script: {{ PYTHON }} -m pip install . -vv --no-deps --no-build-isolation; ls -lR {{ RECIPE_DIR }} {{ SRC_DIR }} {{ SP_DIR }}; cp -rv {{ SRC_DIR }}/pyfesom2/geojson {{ SP_DIR }}/pyfesom2; ls -lR {{ SP_DIR }}/pyfesom2
+  always_include_files:
+    - pyfesom2/geojson
+
+requirements:
+  host:
+    - python {{ python_min }}
+    - setuptools
+    - pip
+    - pytest-runner
+  run:
+    - cartopy
+    - cmocean
+    - dask
+    - ipython
+    - joblib
+    - jupyter
+    - matplotlib-base
+    - netcdf4
+    - numba
+    - numpy >=1.17
+    - pandas >=0.25
+    - pyresample
+    - pytest-runner
+    - python >={{ python_min }}
+    - scipy <=1.9.0
+    - seawater
+    - shapely
+    - xarray
+    - pymap3d
+    - pyproj
+    - tqdm
+
+test:
+  requires:
+    - python {{ python_min }}
+  imports:
+    - pyfesom2
+
+
+about:
+  home: https://github.com/FESOM/pyfesom2/
+  license: MIT
+  license_family: MIT
+  license_file: LICENSE
+  summary: FESOM2 tools
+  doc_url: https://pyfesom2.readthedocs.io/
+  dev_url: https://github.com/FESOM/pyfesom2/
+
+extra:
+  recipe-maintainers:
+    - suvarchal
+    - pgierz
+    - koldunovn
