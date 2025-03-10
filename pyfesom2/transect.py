@@ -41,28 +41,36 @@ def transect_get_distance(lonlat):
 #     profile = (mesh.n32-1)[nodes,:]
 #     return profile
 
-
 def transect_get_mask(nodes, mesh, lonlat, max_distance):
+    # This function needs to be updated to match the new data shape
     (az12, az21, point_dist) = g.inv(
         lonlat[0, :], lonlat[1, :], mesh.x2[nodes], mesh.y2[nodes]
     )
     mask = ~(point_dist < max_distance)
+    # Change the reshape to match [level, node] instead of [node, level]
     mask2d = np.repeat(mask, mesh.zlev.shape[0] - 1).reshape(
-        (len(nodes), mesh.zlev.shape[0] - 1)
+        (mesh.zlev.shape[0] - 1, len(nodes))  # Changed order here
     )
     return mask2d
 
 
 def transect_get_data(data3d, nodes, mask2d=None):
-    nlevels = data3d.shape[1]
-    transect_data = data3d[nodes, :]
+    # Updated to handle [level, node] shape
+    nlevels = data3d.shape[0]
+    # Indexing changed to extract data for specific nodes while keeping all levels
+    transect_data = data3d[:, nodes]
+    
     transect_data = np.ma.masked_where(transect_data == 0, transect_data)
+    
     if type(mask2d) is np.ndarray:
-        mask_nlev = mask2d.shape[1]
+        mask_nlev = mask2d.shape[0]  # This is now correct for [level, node]
         if nlevels > mask_nlev:
-            mask2d = np.hstack((mask2d, mask2d[:, -1:]))
+            # Update to stack vertically on the correct dimension
+            mask2d = np.vstack((mask2d, mask2d[-1:, :]))
         transect_data = np.ma.masked_where(mask2d, transect_data)
+    
     return transect_data
+
 
 def get_transect(data, mesh, lonlat, max_distance=1e6):
     """Create transect from 3D data and collection of points.
@@ -70,7 +78,7 @@ def get_transect(data, mesh, lonlat, max_distance=1e6):
     Parameters
     ----------
     data: np array, xarray
-        3D fesom data
+        3D fesom data with shape [level, node]
     mesh: mesh object
         FESOM2 mesh object
     lonlat: numpy array
@@ -84,8 +92,9 @@ def get_transect(data, mesh, lonlat, max_distance=1e6):
     dist: numpy array
         distances of each point from the first coordinates.
     transect_data: numpy array
-        2D array of shape (npoints, nlevels)
+        2D array of shape (nlevels, npoints)  # Updated shape description
     """
+    # No changes needed in function flow, just updated docstring
     nodes = transect_get_nodes(lonlat, mesh)
     dist = transect_get_distance(lonlat)
     mask2d = transect_get_mask(nodes, mesh, lonlat, max_distance)
@@ -119,20 +128,22 @@ def get_transect_uv(
     else:
         mask2d = None
 
-    u = udata3d[nodes, :]
-    v = vdata3d[nodes, :]
+    # Updated to use [level, node] indexing instead of [node, level]
+    u = udata3d[:, nodes]
+    v = vdata3d[:, nodes]
 
     rot_u = []
     rot_v = []
-    for i in range(u.shape[1]):
+    # Iterate through levels instead of nodes
+    for i in range(u.shape[0]):
         uu, vv = vec_rotate_r2g(
             abg[0],
             abg[1],
             abg[2],
             mesh.x2[nodes],
             mesh.y2[nodes],
-            u[:, i],
-            v[:, i],
+            u[i, :],  # Changed indexing
+            v[i, :],  # Changed indexing
             flag=1,
         )
         rot_u.append(uu)
@@ -148,22 +159,26 @@ def get_transect_uv(
         U = speed_rot * np.cos(np.deg2rad(myangle - direct))
         V = speed_rot * np.sin(np.deg2rad(myangle - direct))
 
-        U = np.ma.masked_where(u.T == 0, U)
-        V = np.ma.masked_where(v.T == 0, V)
+        # No need to transpose u and v since they already have the right orientation
+        U = np.ma.masked_where(u == 0, U)
+        V = np.ma.masked_where(v == 0, V)
         if type(mask2d) is np.ndarray:
-            U = np.ma.masked_where(mask2d.T, U)
-            V = np.ma.masked_where(mask2d.T, V)
+            U = np.ma.masked_where(mask2d, U)
+            V = np.ma.masked_where(mask2d, V)
         rot_u = U
         rot_v = V
     else:
-        rot_u = np.ma.masked_where(u.T == 0, rot_u)
-        rot_v = np.ma.masked_where(u.T == 0, rot_v)
+        # No need to transpose u since it already has the right orientation
+        rot_u = np.ma.masked_where(u == 0, rot_u)
+        rot_v = np.ma.masked_where(u == 0, rot_v)
         if type(mask2d) is np.ndarray:
-            rot_u = np.ma.masked_where(mask2d.T, rot_u)
-            rot_v = np.ma.masked_where(mask2d.T, rot_v)
-        return dist, rot_u.T, rot_v.T
+            rot_u = np.ma.masked_where(mask2d, rot_u)
+            rot_v = np.ma.masked_where(mask2d, rot_v)
+        # No need to transpose at the end as data is already in the right format
+        return dist, rot_u, rot_v
 
-    return dist, rot_u.T, rot_v.T
+    # No need to transpose at the end as data is already in the right format
+    return dist, rot_u, rot_v
 
 
 def calculate_initial_compass_bearing(pointA, pointB):

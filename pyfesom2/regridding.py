@@ -703,13 +703,13 @@ def tonodes3d(component, mesh):
     out_data: np.array
         2D data (nodes, levels) on nodes
     """
-    levels = component.shape[1]
-    out_data = np.zeros((mesh.n2d, levels))
+    levels = component.shape[0]
+    out_data = np.zeros((levels, mesh.n2d))
     for level in range(levels):
         if isinstance(component, xr.DataArray):
-            component_level = component[:, level].values.astype("float32")
+            component_level = component[level, :].values.astype("float32")
         else:
-            component_level = component[:, level].astype("float32")
+            component_level = component[level,:].astype("float32")
         onnodes = tonodes(component_level, mesh)
-        out_data[:, level] = onnodes
+        out_data[level, :] = onnodes
     return out_data
