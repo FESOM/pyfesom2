@@ -8,7 +8,7 @@
 
 __author__ = """FESOM team"""
 __email__ = "koldunovn@gmail.com"
-__version__ = "0.4.0"
+__version__ = "0.4.1"
 
 from .load_mesh_data import *
 from .plotting import *
