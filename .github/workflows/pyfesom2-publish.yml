@@ -20,7 +20,7 @@ jobs:
           if ${{ matrix.python-version == '3.12' }}; then pip install --upgrade setuptools; fi
       - name: Install package
         run: |
-          python -m install -e .
+          python -m pip -e .
       - name: Test with pytest
         run: |
           pytest
