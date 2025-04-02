@@ -26,6 +26,7 @@ Examples of tools are :ref:`pfplot` for quick visualization of FESOM data and :r
    library
    api
    contributing
+   publishing_to_sw_forges
    history
 
 Indices and tables
