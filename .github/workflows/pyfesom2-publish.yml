@@ -70,6 +70,10 @@ jobs:
         with:
           name: build-artifacts
           path: dist
+      - name: Debug information
+        run: |
+          echo "Current directory: $(pwd)"
+          echo "Contents of current directory: $(ls)"
       - name: conda-forge-publish
         uses: fcakyon/conda-publish-action@master
         with:
