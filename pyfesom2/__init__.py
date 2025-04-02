@@ -8,7 +8,7 @@
 
 __author__ = """FESOM team"""
 __email__ = "koldunovn@gmail.com"
-__version__ = "0.3.0"
+__version__ = "0.4.0"
 
 from .accessor import FESOMDataArray as _FESOMDataArray
 from .ascii_to_netcdf import read_fesom_ascii_grid, write_mesh_to_netcdf
