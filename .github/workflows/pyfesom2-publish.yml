@@ -38,6 +38,11 @@ jobs:
       - name: Build package
         run: |
           python setup.py sdist bdist_wheel
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: build-artifacts
+          path: dist/
   publish-pypi:
     name: Publish on PyPI
     runs-on: ubuntu-latest
@@ -46,6 +51,12 @@ jobs:
       name: pypi
       url: https://pypi.org/p/pyfesom2
     steps:
+      - uses: actions/checkout@v4
+      - name: Download build artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: build-artifacts
+          path: dist
       - name: pypi-publish
         uses: pypa/gh-action-pypi-publish@release/v1
   publish-conda-forge:
