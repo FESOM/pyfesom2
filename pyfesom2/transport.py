@@ -962,7 +962,7 @@ def _TransportAcross(ds):
 
     return ds
 
-def _AddTempSalt(section, ds, data_path, mesh, years, elem_order):
+def _AddTempSalt(section, ds, data_path, mesh, years, elem_order, chunks):
     '''
     _AddTempSalt.py
 
@@ -1006,7 +1006,7 @@ def _AddTempSalt(section, ds, data_path, mesh, years, elem_order):
         print('A lot of TS data (' + str(np.round(xr.open_dataset(files[0]).nbytes * 1e-9 * len(files), decimals=2)) + 'GB)... This will take some time...')
 
     # Open files
-    ds_ts = xr.open_mfdataset(files, combine='by_coords', chunks={'nod2': 1e4})
+    ds_ts = xr.open_mfdataset(files, combine='by_coords', chunks=chunks)
 
     # Adjust dimension order
     ds_ts = ds_ts.transpose('time','nod2','nz1')
@@ -1086,7 +1086,7 @@ def cross_section_transport(section, mesh, data_path, years, mesh_diag, how='mea
     add_TS (bool)
         add temperature and salinity to the section (default=False)
     chunks (dict)
-        chunks for parallelising the velocity data e.g., chunks={'elem': 1e4} (default: 'auto')
+        chunks for parallelising the velocity/TS data e.g., chunks={'elem': 1e4} (default: 'auto')
     n_points (int)
         number of waypoints between start and end of section
     uvrotated (bool)
@@ -1124,7 +1124,7 @@ def cross_section_transport(section, mesh, data_path, years, mesh_diag, how='mea
     ds = _TransportAcross(ds)
 
     if add_TS:
-        ds = _AddTempSalt(section, ds, data_path, mesh, years, elem_order)
+        ds = _AddTempSalt(section, ds, data_path, mesh, years, elem_order, chunks)
 
     ds = _OrderIndices(ds, elem_order)
 
