@@ -1061,7 +1061,7 @@ def _MaskBathymetry(ds, how):
         
     return ds
 
-def cross_section_transport(section, mesh, data_path, years, mesh_diag, how='mean', add_extent=1, abg=[50, 15, -90], add_TS=False, chunks={'elem': 1e4}, use_great_circle=False, n_points=1000, uvrotated=True):
+def cross_section_transport(section, mesh, data_path, years, mesh_diag, how='mean', add_extent=1, abg=[50, 15, -90], add_TS=False, chunks='auto', use_great_circle=False, n_points=1000, uvrotated=True):
     '''
     Inputs
     ------
@@ -1086,7 +1086,7 @@ def cross_section_transport(section, mesh, data_path, years, mesh_diag, how='mea
     add_TS (bool)
         add temperature and salinity to the section (default=False)
     chunks (dict)
-        chunks for parallelising the velocity data (default: chunks={'elem': 1e4})
+        chunks for parallelising the velocity data e.g., chunks={'elem': 1e4} (default: 'auto')
     n_points (int)
         number of waypoints between start and end of section
     uvrotated (bool)
