@@ -48,10 +48,16 @@ def write_fesom_oasis_files(mesh, output_dir=None, prefix='feom', overwrite=Fals
     areas_file = os.path.join(output_dir, 'areas.nc')
     masks_file = os.path.join(output_dir, 'masks.nc')
     
-    # Check if files exist and handle overwrite
-    for file_path in [grids_file, areas_file, masks_file]:
-        if os.path.exists(file_path) and not overwrite:
-            raise FileExistsError(f"File {file_path} already exists. Set overwrite=True to replace.")
+    # Check existing files and handle overwrite logic
+    grids_exists = os.path.exists(grids_file)
+    areas_exists = os.path.exists(areas_file)
+    masks_exists = os.path.exists(masks_file)
+
+    if (grids_exists or areas_exists or masks_exists) and not overwrite:
+        existing = [p for p, ex in zip([grids_file, areas_file, masks_file],
+                                       [grids_exists, areas_exists, masks_exists]) if ex]
+        raise FileExistsError(
+            f"Files already exist: {', '.join(existing)}. Set overwrite=True to update only the FESOM variables.")
     
     # Handle both mesh object and mesh dictionary formats
     is_dict = isinstance(mesh, dict)
@@ -84,6 +90,51 @@ def write_fesom_oasis_files(mesh, output_dir=None, prefix='feom', overwrite=Fals
     cla_var = f'{prefix}.cla'
     srf_var = f'{prefix}.srf'
     msk_var = f'{prefix}.msk'
+
+    # ------------------------------------------------------------------
+    # Helper functions for incremental updating of existing NetCDF files
+    # ------------------------------------------------------------------
+    def _ensure_dim(nc_obj, name, size):
+        """Create a dimension if it does not exist, otherwise ensure size matches."""
+        if name not in nc_obj.dimensions:
+            try:
+                nc_obj.createDimension(name, size)
+            except Exception as e:
+                # If creation fails but dimension now exists (race condition), verify size
+                if name in nc_obj.dimensions:
+                    pass  # Will be checked below
+                else:
+                    raise e  # Re-raise if dimension still doesn't exist
+        
+        # Verify dimension size if it exists
+        if name in nc_obj.dimensions:
+            # When dimension exists, size can be None for unlimited; otherwise compare
+            if (not nc_obj.dimensions[name].isunlimited()) and len(nc_obj.dimensions[name]) != size:
+                raise ValueError(
+                    f"Dimension {name} has size {len(nc_obj.dimensions[name])}, expected {size}")
+
+    def _get_or_create_var(nc_obj, name, dtype, dimensions):
+        """Return existing variable or create a new one with given signature."""
+        if name in nc_obj.variables:
+            var = nc_obj.variables[name]
+            if var.dimensions != tuple(dimensions):
+                raise ValueError(
+                    f"Variable {name} has dimensions {var.dimensions}, expected {dimensions}")
+            return var
+        try:
+            return nc_obj.createVariable(name, dtype, dimensions)
+        except Exception as e:
+            # Check if variable was created despite exception (race condition)
+            if name in nc_obj.variables:
+                var = nc_obj.variables[name]
+                if var.dimensions != tuple(dimensions):
+                    raise ValueError(
+                        f"Variable {name} has dimensions {var.dimensions}, expected {dimensions}")
+                return var
+            else:
+                # Re-raise if variable wasn't created
+                raise e
+
 
     # Calculate element areas if not already in mesh
     if is_dict and 'elemareas' in mesh:
@@ -198,18 +249,51 @@ def write_fesom_oasis_files(mesh, output_dir=None, prefix='feom', overwrite=Fals
                 corner_lons[j, i] = corners[idx][0]
                 corner_lats[j, i] = corners[idx][1]
 
-    # Create grids.nc file
-    with Dataset(grids_file, 'w', format='NETCDF4') as nc:
-        # Create dimensions
-        nc.createDimension(x_dim, n2d)
-        nc.createDimension(y_dim, 1)
-        nc.createDimension(crn_dim, max_corners)
+    # ------------------------------------------------------------------
+    # Write or update grids.nc
+    # ------------------------------------------------------------------
+    grid_mode = 'a' if grids_exists else 'w'
+    with Dataset(grids_file, grid_mode, format='NETCDF4') as nc:
+        _ensure_dim(nc, x_dim, n2d)
+        _ensure_dim(nc, y_dim, 1)
+        _ensure_dim(nc, crn_dim, max_corners)
+
+        lon = _get_or_create_var(nc, lon_var, 'f8', (y_dim, x_dim))
+        lat = _get_or_create_var(nc, lat_var, 'f8', (y_dim, x_dim))
+        clo = _get_or_create_var(nc, clo_var, 'f8', (crn_dim, y_dim, x_dim))
+        cla = _get_or_create_var(nc, cla_var, 'f8', (crn_dim, y_dim, x_dim))
+
+        # Write data
+        lon[:] = x2.reshape(1, -1)
+        lat[:] = y2.reshape(1, -1)
+        for j in range(max_corners):
+            clo[j, 0, :] = corner_lons[j, :]
+            cla[j, 0, :] = corner_lats[j, :]
+
+        # Set/update attributes
+        lon.units = 'degrees_east'
+        lon.standard_name = 'Longitude'
+        lon.valid_min = np.min(x2)
+        lon.valid_max = np.max(x2)
+
+        lat.units = 'degrees_north'
+        lat.standard_name = 'Latitude'
+        lat.valid_min = np.min(y2)
+        lat.valid_max = np.max(y2)
+
+        clo.valid_min = np.min(corner_lons)
+        clo.valid_max = np.max(corner_lons)
+
+        cla.valid_min = np.min(corner_lats)
+        cla.valid_max = np.max(corner_lats)
+
+        # Global attributes
+        nc.Conventions = 'CF-1.6'
+        nc.history = (getattr(nc, 'history', '') + '; ' if 'history' in nc.ncattrs() else '') + \
+                     f'Updated by pyfesom2 OASIS export module on {np.datetime64("now")}'
+        # Note: Dimensions are already created/verified by _ensure_dim above
         
-        # Create variables
-        lon = nc.createVariable(lon_var, 'f8', (y_dim, x_dim))
-        lat = nc.createVariable(lat_var, 'f8', (y_dim, x_dim))
-        clo = nc.createVariable(clo_var, 'f8', (crn_dim, y_dim, x_dim))
-        cla = nc.createVariable(cla_var, 'f8', (crn_dim, y_dim, x_dim))
+        # Note: Variables are already created/obtained by _get_or_create_var above
         
         # Set attributes
         lon.units = 'degrees_east'
@@ -240,16 +324,39 @@ def write_fesom_oasis_files(mesh, output_dir=None, prefix='feom', overwrite=Fals
         nc.Conventions = 'CF-1.6'
         nc.history = f'Created by pyfesom2 OASIS export module on {np.datetime64("now")}'
     
-    # Create areas.nc file
-    with Dataset(areas_file, 'w', format='NETCDF4') as nc:
-        # Create dimensions
-        nc.createDimension(x_dim, n2d)
-        nc.createDimension(y_dim, 1)
-        
-        # Create variables
-        lon = nc.createVariable(lon_var, 'f8', (y_dim, x_dim))
-        lat = nc.createVariable(lat_var, 'f8', (y_dim, x_dim))
-        srf = nc.createVariable(srf_var, 'f8', (y_dim, x_dim))
+    # ------------------------------------------------------------------
+    # Write or update areas.nc
+    # ------------------------------------------------------------------
+    area_mode = 'a' if areas_exists else 'w'
+    with Dataset(areas_file, area_mode, format='NETCDF4') as nc:
+        _ensure_dim(nc, x_dim, n2d)
+        _ensure_dim(nc, y_dim, 1)
+
+        lon = _get_or_create_var(nc, lon_var, 'f8', (y_dim, x_dim))
+        lat = _get_or_create_var(nc, lat_var, 'f8', (y_dim, x_dim))
+        srf = _get_or_create_var(nc, srf_var, 'f8', (y_dim, x_dim))
+
+        lon[:] = x2.reshape(1, -1)
+        lat[:] = y2.reshape(1, -1)
+        srf[:] = node_areas.reshape(1, -1)
+
+        lon.units = 'degrees_east'
+        lon.standard_name = 'Longitude'
+        lon.valid_min = np.min(x2)
+        lon.valid_max = np.max(x2)
+
+        lat.units = 'degrees_north'
+        lat.standard_name = 'Latitude'
+        lat.valid_min = np.min(y2)
+        lat.valid_max = np.max(y2)
+
+        srf.coordinates = f"{lat_var} {lon_var}"
+        srf.valid_min = np.min(node_areas)
+        srf.valid_max = np.max(node_areas)
+
+        nc.Conventions = 'CF-1.6'
+        nc.history = (getattr(nc, 'history', '') + '; ' if 'history' in nc.ncattrs() else '') + \
+                     f'Updated by pyfesom2 OASIS export module on {np.datetime64("now")}'
         
         # Set attributes
         lon.units = 'degrees_east'
@@ -275,16 +382,40 @@ def write_fesom_oasis_files(mesh, output_dir=None, prefix='feom', overwrite=Fals
         nc.Conventions = 'CF-1.6'
         nc.history = f'Created by pyfesom2 OASIS export module on {np.datetime64("now")}'
     
-    # Create masks.nc file
-    with Dataset(masks_file, 'w', format='NETCDF4') as nc:
-        # Create dimensions
-        nc.createDimension(x_dim, n2d)
-        nc.createDimension(y_dim, 1)
-        
-        # Create variables
-        lon = nc.createVariable(lon_var, 'f8', (y_dim, x_dim))
-        lat = nc.createVariable(lat_var, 'f8', (y_dim, x_dim))
-        msk = nc.createVariable(msk_var, 'i4', (y_dim, x_dim))
+    # ------------------------------------------------------------------
+    # Write or update masks.nc
+    # ------------------------------------------------------------------
+    mask_mode = 'a' if masks_exists else 'w'
+    with Dataset(masks_file, mask_mode, format='NETCDF4') as nc:
+        _ensure_dim(nc, x_dim, n2d)
+        _ensure_dim(nc, y_dim, 1)
+
+        lon = _get_or_create_var(nc, lon_var, 'f8', (y_dim, x_dim))
+        lat = _get_or_create_var(nc, lat_var, 'f8', (y_dim, x_dim))
+        msk = _get_or_create_var(nc, msk_var, 'i4', (y_dim, x_dim))
+
+        lon[:] = x2.reshape(1, -1)
+        lat[:] = y2.reshape(1, -1)
+        msk[:] = mask.reshape(1, -1)
+
+        lon.units = 'degrees_east'
+        lon.standard_name = 'Longitude'
+        lon.valid_min = np.min(x2)
+        lon.valid_max = np.max(x2)
+
+        lat.units = 'degrees_north'
+        lat.standard_name = 'Latitude'
+        lat.valid_min = np.min(y2)
+        lat.valid_max = np.max(y2)
+
+        msk.coordinates = f"{lat_var} {lon_var}"
+        msk.valid_min = 0
+        msk.valid_max = 1
+        msk.coherent_with_grid = "undefined"
+
+        nc.Conventions = 'CF-1.6'
+        nc.history = (getattr(nc, 'history', '') + '; ' if 'history' in nc.ncattrs() else '') + \
+                     f'Updated by pyfesom2 OASIS export module on {np.datetime64("now")}'
         
         # Set attributes
         lon.units = 'degrees_east'
