@@ -1,0 +1,231 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pyfesom2"
+description = "FESOM2 analysis and visualization tools"
+authors = [
+    {name = "FESOM team", email = "koldunovn@gmail.com"}
+]
+readme = "README.md"
+license = {file = "LICENSE"}
+requires-python = ">=3.8"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research", 
+    "License :: OSI Approved :: MIT License",
+    "Natural Language :: English",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Atmospheric Science",
+    "Topic :: Scientific/Engineering :: Oceanography",
+    "Topic :: Scientific/Engineering :: Visualization",
+]
+keywords = ["oceanography", "climate", "modeling", "FESOM", "visualization", "analysis"]
+dependencies = [
+    "cartopy",
+    "cmocean", 
+    "dask",
+    "ipython",
+    "joblib",
+    "jupyter",
+    "matplotlib",
+    "netCDF4",
+    "numba",
+    "numpy",
+    "pandas",
+    "pyresample",
+    "scipy",
+    "seawater",
+    "shapely",
+    "xarray",
+    "pyproj",
+    "pymap3d",
+    "tqdm",
+]
+dynamic = ["version"]
+
+[project.urls]
+Homepage = "https://github.com/FESOM/pyfesom2"
+Repository = "https://github.com/FESOM/pyfesom2"
+Issues = "https://github.com/FESOM/pyfesom2/issues"
+Documentation = "https://pyfesom2.readthedocs.io"
+
+[project.entry-points."console_scripts"]
+pfplot = "pyfesom2.pfplot:pfplot"
+pfinterp = "pyfesom2.pfinterp:pfinterp"
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "pytest-runner",
+    "pytest-cov",
+    "black",
+    "isort",
+    "flake8",
+    "mypy",
+    "pre-commit",
+]
+docs = [
+    "sphinx",
+    "sphinx-rtd-theme", 
+    "nbsphinx",
+    "myst-parser",
+    "sphinx-autoapi",
+]
+test = [
+    "pytest",
+    "pytest-cov",
+    "pytest-xdist",
+]
+
+[tool.setuptools]
+packages = ["pyfesom2"]
+include-package-data = true
+
+[tool.setuptools.dynamic]
+version = {attr = "pyfesom2.__version__"}
+
+[tool.setuptools.package-data]
+pyfesom2 = ["*.geojson"]
+
+[tool.black]
+line-length = 88
+target-version = ['py38']
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+  # directories
+  \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | build
+  | dist
+  | docs/_build
+)/
+'''
+
+[tool.isort]
+profile = "black"
+multi_line_output = 3
+line_length = 88
+known_first_party = ["pyfesom2"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+collect_ignore = ["setup.py"]
+addopts = [
+    "--strict-markers",
+    "--strict-config",
+    "--cov=pyfesom2",
+    "--cov-report=term-missing",
+    "--cov-report=html",
+]
+
+[tool.mypy]
+python_version = "3.8"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false
+ignore_missing_imports = true
+
+# Optional: Add pixi configuration for pyfesom2 development
+[tool.pixi.project]
+name = "pyfesom2"  
+description = "FESOM2 analysis and visualization tools"
+authors = ["FESOM team <koldunovn@gmail.com>"]
+channels = ["conda-forge", "pyviz"]
+platforms = ["linux-64", "linux-aarch64", "osx-64", "osx-arm64", "win-64"]
+
+[tool.pixi.dependencies]
+python = ">=3.8"
+cartopy = "*"
+cmocean = "*" 
+dask = "*"
+ipython = "*"
+joblib = "*"
+jupyter = "*"
+matplotlib = "*"
+netcdf4 = "*"
+numba = "*"
+numpy = "*"
+pandas = "*"
+pyresample = "*"
+scipy = "*"
+seawater = "*"
+shapely = "*"
+xarray = "*"
+pyproj = "*"
+pymap3d = "*"
+tqdm = "*"
+
+[tool.pixi.pypi-dependencies]
+pyfesom2 = { path = ".", editable = true }
+
+[tool.pixi.feature.dev.dependencies]
+pytest = "*"
+pytest-cov = "*"
+black = "*"
+isort = "*"
+flake8 = "*"
+mypy = "*"
+pre-commit = "*"
+
+[tool.pixi.feature.docs.dependencies]
+sphinx = "*"
+sphinx-rtd-theme = "*"
+nbsphinx = "*" 
+myst-parser = "*"
+sphinx-autoapi = "*"
+
+[tool.pixi.feature.jupyter.dependencies]
+jupyterlab = "*"
+notebook = "*"
+ipykernel = "*"
+bokeh = "*"
+holoviews = "*"
+
+[tool.pixi.environments]
+default = { solve-group = "default" }
+dev = { features = ["dev"], solve-group = "default" }
+docs = { features = ["docs"], solve-group = "default" }
+jupyter = { features = ["jupyter"], solve-group = "default" }
+full = { features = ["dev", "docs", "jupyter"], solve-group = "default" }
+
+[tool.pixi.tasks]
+# Development tasks
+lint = "flake8 pyfesom2"
+format = "black pyfesom2"
+sort-imports = "isort pyfesom2"
+type-check = "mypy pyfesom2"
+test = "pytest"
+test-cov = "pytest --cov=pyfesom2"
+clean-format = { depends-on = ["format", "sort-imports"] }
+
+# Development environment
+jupyter = "jupyter lab"
+notebook = "jupyter notebook" 
+
+# Documentation
+docs-build = "sphinx-build -W -b html docs docs/_build/html"
+docs-clean = "rm -rf docs/_build"
+docs-serve = "python -m http.server 8000 --directory docs/_build/html"
+
+# Build and install
+build = "python -m build"
+install-dev = "pip install -e ."
+
+# Git hooks
+install-hooks = "pre-commit install"
