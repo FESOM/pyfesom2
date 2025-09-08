@@ -750,7 +750,7 @@ def _ComputeBrokenLineSegments(f_lat, f_lon, s_lat, s_lon, c_lat, c_lon, section
                                         lat=f_lat[ii],
                                         lon=f_lon[ii],
                                         h=0,
-                                     ell=pm.utils.Ellipsoid.from_name('wgs84')
+                                     ell=pm.Ellipsoid.from_name('wgs84')
                                    )
 
         first_segment_vector[ii,0], first_segment_vector[ii,1] = -dx, -dy # turn the vector to point towards the center, in the direction of the section
@@ -762,7 +762,7 @@ def _ComputeBrokenLineSegments(f_lat, f_lon, s_lat, s_lon, c_lat, c_lon, section
                                         lat=s_lat[ii],
                                         lon=s_lon[ii],
                                         h=0,
-                                     ell=pm.utils.Ellipsoid.from_name('wgs84')
+                                     ell=pm.Ellipsoid.from_name('wgs84')
                                    )
 
         second_segment_vector[ii,0], second_segment_vector[ii,1] = dx, dy
@@ -858,7 +858,7 @@ def _AddMetaData(ds, elem_box_indices, elem_box_nods, effective_dx, effective_dy
 
     return ds
 
-def _UnrotateLoadVelocity(how, files, elem_box_indices, elem_box_nods, vertical_cell_area_dx, vertical_cell_area_dy, c_lon, c_lat, effective_dx, effective_dy, elem_order, chunks, mesh, abg):
+def _UnrotateLoadVelocity(how, files, elem_box_indices, elem_box_nods, vertical_cell_area_dx, vertical_cell_area_dy, c_lon, c_lat, effective_dx, effective_dy, elem_order, chunks, mesh, abg, uvrotated):
     '''
     Load and unrotate the fesom velocity files. Additionally bring the mesh elements into the right order (according to the section)
 
@@ -890,7 +890,9 @@ def _UnrotateLoadVelocity(how, files, elem_box_indices, elem_box_nods, vertical_
         fesom.mesh
     abg (list)
         mesh rotation [50 15 -90]
-
+    uvrotated (bool)
+        True: u, v are rotated; False: u, v are unrotated
+        
     Returns
     -------
     ds (xr.Dataset)
@@ -912,23 +914,24 @@ def _UnrotateLoadVelocity(how, files, elem_box_indices, elem_box_nods, vertical_
 
     ds = _AddMetaData(ds, elem_box_indices, elem_box_nods, effective_dx, effective_dy, vertical_cell_area_dx, vertical_cell_area_dy, c_lon, c_lat)
 
-    # rename u and v to u_rot, v_rot
-    ds = ds.rename({'u': 'u_rot'})
-    ds = ds.rename({'v': 'v_rot'})
-    # UNROTATE
-    lon_elem_center = np.mean(mesh.x2[ds.elem_nods], axis=1)
-    lat_elem_center = np.mean(mesh.y2[ds.elem_nods], axis=1)
-    try:
-        u, v = vec_rotate_r2g(abg[0], abg[1], abg[2], lon_elem_center[np.newaxis, :, np.newaxis],
-                             lat_elem_center[np.newaxis, :, np.newaxis], ds.u_rot.values, ds.v_rot.values, flag=1)
-    except:
-        u, v = vec_rotate_r2g(abg[0], abg[1], abg[2], lon_elem_center[np.newaxis, :, np.newaxis],
-                             lat_elem_center[np.newaxis, :, np.newaxis], ds.u_rot.values.swapaxes(1,2), ds.v_rot.values.swapaxes(1,2), flag=1)
-
-    ds['u'] = (('time', 'elem', 'nz1'), u)
-    ds['v'] = (('time', 'elem', 'nz1'), v)
-
-    ds = ds.drop_vars(['u_rot','v_rot'])
+    if uvrotated:                             # only unrotate in case u, v are still rotated
+        # rename u and v to u_rot, v_rot
+        ds = ds.rename({'u': 'u_rot'})
+        ds = ds.rename({'v': 'v_rot'})
+        # UNROTATE
+        lon_elem_center = np.mean(mesh.x2[ds.elem_nods], axis=1)
+        lat_elem_center = np.mean(mesh.y2[ds.elem_nods], axis=1)
+        try:
+            u, v = vec_rotate_r2g(abg[0], abg[1], abg[2], lon_elem_center[np.newaxis, :, np.newaxis],
+                                 lat_elem_center[np.newaxis, :, np.newaxis], ds.u_rot.values, ds.v_rot.values, flag=1)
+        except:
+            u, v = vec_rotate_r2g(abg[0], abg[1], abg[2], lon_elem_center[np.newaxis, :, np.newaxis],
+                                 lat_elem_center[np.newaxis, :, np.newaxis], ds.u_rot.values.swapaxes(1,2), ds.v_rot.values.swapaxes(1,2), flag=1)
+    
+        ds['u'] = (('time', 'elem', 'nz1'), u)
+        ds['v'] = (('time', 'elem', 'nz1'), v)
+    
+        ds = ds.drop_vars(['u_rot','v_rot'])
 
     # bring u and v into the right order
     ds['u'] = ds.u.isel(elem=elem_order)
@@ -959,7 +962,7 @@ def _TransportAcross(ds):
 
     return ds
 
-def _AddTempSalt(section, ds, data_path, mesh, years, elem_order):
+def _AddTempSalt(section, ds, data_path, mesh, years, elem_order, chunks):
     '''
     _AddTempSalt.py
 
@@ -1003,8 +1006,11 @@ def _AddTempSalt(section, ds, data_path, mesh, years, elem_order):
         print('A lot of TS data (' + str(np.round(xr.open_dataset(files[0]).nbytes * 1e-9 * len(files), decimals=2)) + 'GB)... This will take some time...')
 
     # Open files
-    ds_ts = xr.open_mfdataset(files, combine='by_coords', chunks={'nod2': 1e4})
+    ds_ts = xr.open_mfdataset(files, combine='by_coords', chunks=chunks)
 
+    # Adjust dimension order
+    ds_ts = ds_ts.transpose('time','nod2','nz1')
+    
     # Only load the nods that belong to elements that are part of the section
     # Flatten the triplets first
     ds_ts = ds_ts.isel(nod2=ds.elem_nods.values.flatten()).load()
@@ -1040,7 +1046,22 @@ def _OrderIndices(ds, elem_order):
     print('\n Done!')
     return ds
 
-def cross_section_transport(section, mesh, data_path, years, mesh_diag, how='mean', add_extent=1, abg=[50, 15, -90], add_TS=False, chunks={'elem': 1e4}, use_great_circle=False, n_points=1000):
+def _MaskBathymetry(ds, how):
+    ''' Sets bathymetry values (gridcells where time mean transport is zero) to np.nan.
+
+    Inputs
+    ------
+    ds (xr.dataset)
+        dataset containing transport
+    '''
+    if how == 'ori':
+        ds = ds.where(ds.transport_across.mean(dim='time') != 0, np.nan)
+    elif how == 'mean':
+        ds = ds.where(ds.transport_across != 0, np.nan)
+        
+    return ds
+
+def cross_section_transport(section, mesh, data_path, years, mesh_diag, how='mean', add_extent=1, abg=[50, 15, -90], add_TS=False, chunks='auto', use_great_circle=False, n_points=1000, uvrotated=True):
     '''
     Inputs
     ------
@@ -1065,9 +1086,11 @@ def cross_section_transport(section, mesh, data_path, years, mesh_diag, how='mea
     add_TS (bool)
         add temperature and salinity to the section (default=False)
     chunks (dict)
-        chunks for parallelising the velocity data (default: chunks={'elem': 1e4})
+        chunks for parallelising the velocity/TS data e.g., chunks={'elem': 1e4} (default: 'auto')
     n_points (int)
         number of waypoints between start and end of section
+    uvrotated (bool)
+        True: u, v FESOM output is in rotated coordinates; False: u, v FESOM output is already unroated (default=True)
 
     Returns
     -------
@@ -1096,13 +1119,15 @@ def cross_section_transport(section, mesh, data_path, years, mesh_diag, how='mea
 
     vertical_cell_area_dx, vertical_cell_area_dy = _CreateVerticalGrid(effective_dx, effective_dy, mesh_diag)
 
-    ds = _UnrotateLoadVelocity(how, files, elem_box_indices, elem_box_nods, vertical_cell_area_dx, vertical_cell_area_dy, c_lon, c_lat, effective_dx, effective_dy, elem_order, chunks, mesh, abg)
+    ds = _UnrotateLoadVelocity(how, files, elem_box_indices, elem_box_nods, vertical_cell_area_dx, vertical_cell_area_dy, c_lon, c_lat, effective_dx, effective_dy, elem_order, chunks, mesh, abg, uvrotated)
 
     ds = _TransportAcross(ds)
 
     if add_TS:
-        ds = _AddTempSalt(section, ds, data_path, mesh, years, elem_order)
+        ds = _AddTempSalt(section, ds, data_path, mesh, years, elem_order, chunks)
 
     ds = _OrderIndices(ds, elem_order)
+
+    ds = _MaskBathymetry(ds, how)
 
     return  ds, section
