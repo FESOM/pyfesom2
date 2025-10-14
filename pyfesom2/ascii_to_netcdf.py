@@ -491,7 +491,7 @@ def read_fesom_ascii_grid(griddir, rot=False, rot_invert=False, rot_abg=None, th
                 cav_nod_depth = read_cav_nod_depth(os.path.join(griddir, "cavity_depth@node.out"))
                 cav_nod_lev = read_cav_nod_lev(os.path.join(griddir, "cavity_nlvls.out"))
                 cav_elem_lev = read_cav_elem_lev(os.path.join(griddir, "cavity_elvls.out"))
-                cav_nod_mask = (cav_nod_lev != 1)
+                cav_nod_mask = (cav_nod_lev != 0)
         else:
             aux3d_mat = np.genfromtxt(os.path.join(griddir, "aux3d.out"), skip_header=1, dtype=int, missing_values="-999", usemask=True)
             depth_lev = np.repeat(Nlev, N)
