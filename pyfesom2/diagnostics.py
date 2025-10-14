@@ -557,6 +557,64 @@ def areamean_data(data, mesh, mask="Global Ocean"):
 
     return data_by_area
 
+def layersum_data(data, mesh, uplow=[0, 100]):
+    """Calculate layered volume weighted sum over the range of depths.
+
+    Parameters
+     ----------
+     data: xarray.DataArray, numpy.array
+        Input data, that can be ether xarray data, or just numpy array,
+        with values of 3d tracer variable (on nodes).
+        Input should be 3d (time, nodes, levels(nz1))
+    mesh: mesh object
+        FESOM2 mesh object.
+    uplow: list
+        if None, all depths will be selected
+        if e.g. [200, 'depth'] all from model depth closest to 200 down to depth will be selected
+        if e.g. [0, 700] all between 0 and closest depth to 700 will be selected.
+        if e.g. [500, 500] only model level closest to 500 will be selected.
+
+    Returns
+    -------
+    2D arary: xarray.DataArray
+    """
+
+    indexes = select_depths(uplow, mesh)    
+    layer_thickness = np.abs(np.diff(mesh.zlev[indexes]))
+    
+    data_mean = np.nansum(np.multiply(data[:,indexes[0]:indexes[-1]],layer_thickness), axis = 1)
+
+    return data_mean
+
+def layermean_data(data, mesh, uplow=[0, 100]):
+    """Calculate layered volume weighted sum over the range of depths.
+
+    Parameters
+     ----------
+     data: xarray.DataArray, numpy.array
+        Input data, that can be ether xarray data, or just numpy array,
+        with values of 3d tracer variable (on nodes).
+        Input should be 3d (time, nodes, levels(nz1))
+    mesh: mesh object
+        FESOM2 mesh object.
+    uplow: list
+        if None, all depths will be selected
+        if e.g. [200, 'depth'] all from model depth closest to 200 down to depth will be selected
+        if e.g. [0, 700] all between 0 and closest depth to 700 will be selected.
+        if e.g. [500, 500] only model level closest to 500 will be selected.
+
+    Returns
+    -------
+    2D arary: xarray.DataArray
+    """
+
+    indexes = select_depths(uplow, mesh)    
+    layer_thickness = np.abs(np.diff(mesh.zlev[indexes]))
+    
+    data_mean = np.nansum(np.multiply(data[:,indexes[0]:indexes[-1]],layer_thickness), axis = 1) / np.sum(layer_thickness)
+
+    return data_mean
+
 def xmoc_data(
     mesh,
     data,
