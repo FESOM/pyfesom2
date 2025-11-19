@@ -6,6 +6,7 @@
 #
 
 import json
+import logging
 import math as mt
 from collections import OrderedDict
 
@@ -16,10 +17,12 @@ import pkg_resources
 import shapely
 from cmocean import cm as cmo
 
+logger = logging.getLogger(__name__)
+
 try:
     import cartopy.feature as cfeature
 except ImportError:
-    print("Cartopy is not installed, plotting is not available.")
+    logger.warning("Cartopy is not installed, plotting is not available.")
 
 
 def scalar_r2g(al, be, ga, rlon, rlat):

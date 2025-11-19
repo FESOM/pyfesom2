@@ -4,6 +4,7 @@ Author: Finn Heukamp (finn.heukamp@awi.de)
 Initial version: 23.11.2021
 """
 
+import logging
 import warnings
 from os.path import isfile, isdir
 import xarray as xr
@@ -15,6 +16,8 @@ from dask.diagnostics import ProgressBar
 from tqdm.notebook import tqdm
 from .load_mesh_data import load_mesh
 from .ut import vec_rotate_r2g, get_no_cyclic, cut_region
+
+logger = logging.getLogger(__name__)
 
 
 def _ProcessInputs(section, data_path, years, n_points):
@@ -52,7 +55,7 @@ def _ProcessInputs(section, data_path, years, n_points):
 
         '''
 
-    print('Starting computation...')
+    logger.info('Starting computation...')
 
     # Check the input data types
     if not isinstance(section, list) | isinstance(section, str):
@@ -181,7 +184,7 @@ def _CreateLoadSection(section):
         section['orientation'] = 'other'
         raise ValueError('Only zonal or meridional are currently supported!')
 
-    print('\nYour section: ', section['name'], ': Start: ', section['lon_start'], '°E ', section['lat_start'], '°N ', 'End: ', section['lon_end'], '°E ', section['lat_end'], '°N')
+    logger.info('\nYour section: %s: Start: %s°E %s°N End: %s°E %s°N', section['name'], section['lon_start'], section['lat_start'], section['lon_end'], section['lat_end'])
 
     return section
 
@@ -356,7 +359,7 @@ def _LinePolygonIntersections(mesh, section_waypoints, elem_box_nods, elem_box_i
 
     polygon_list = list()
 
-    print('\nConverting grid cells to Polygons... (If this takes very long try to reduce the add_extent parameter)')
+    logger.info('\nConverting grid cells to Polygons... (If this takes very long try to reduce the add_extent parameter)')
     for ii in tqdm(range(elem_box_nods.shape[0])):
         polygon_list.append(
             sg.Polygon(
@@ -380,7 +383,7 @@ def _LinePolygonIntersections(mesh, section_waypoints, elem_box_nods, elem_box_i
     intersection_points = list()
 
     # check for intersections
-    print('Looking for intersected grid cells...')
+    logger.info('Looking for intersected grid cells...')
     for ii in tqdm(range(len(polygon_list))):
         intersection = polygon_list[ii].intersection(line_section).coords
 
@@ -901,11 +904,11 @@ def _UnrotateLoadVelocity(how, files, elem_box_indices, elem_box_nods, vertical_
 
     '''
 
-    print('Loading the data into memory...')
+    logger.info('Loading the data into memory...')
      # decide on the loading strategy, for small datasets combine the data to one dataset, for large datasets load files individually
     overload = xr.open_dataset(files[0]).nbytes * 1e-9 * len(files) >= 25
     if overload:
-        print('A lot of velocity data (' + str(np.round(xr.open_dataset(files[0]).nbytes * 1e-9 * len(files), decimals=2)) + 'GB)... This will take some time...')
+        logger.warning('A lot of velocity data (' + str(np.round(xr.open_dataset(files[0]).nbytes * 1e-9 * len(files), decimals=2)) + 'GB)... This will take some time...')
 
     # Load and merge at the same time
     ProgressBar().register()
@@ -1003,7 +1006,7 @@ def _AddTempSalt(section, ds, data_path, mesh, years, elem_order, chunks):
 
     overload = xr.open_dataset(files[0]).nbytes * 1e-9 * len(files) >= 25
     if overload:
-        print('A lot of TS data (' + str(np.round(xr.open_dataset(files[0]).nbytes * 1e-9 * len(files), decimals=2)) + 'GB)... This will take some time...')
+        logger.warning('A lot of TS data (' + str(np.round(xr.open_dataset(files[0]).nbytes * 1e-9 * len(files), decimals=2)) + 'GB)... This will take some time...')
 
     # Open files
     ds_ts = xr.open_mfdataset(files, combine='by_coords', chunks=chunks)
@@ -1043,7 +1046,7 @@ def _OrderIndices(ds, elem_order):
     ds['elem_indices'] = ds.elem_indices.isel(elem=elem_order)
     ds['elem_nods'] = ds.elem_nods.isel(elem=elem_order)
 
-    print('\n Done!')
+    logger.info('\n Done!')
     return ds
 
 def _MaskBathymetry(ds, how):

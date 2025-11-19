@@ -18,6 +18,8 @@ from scipy.interpolate import CloughTocher2DInterpolator, LinearNDInterpolator
 from scipy.spatial import cKDTree
 import scipy
 
+logger = logging.getLogger(__name__)
+
 
 def lon_lat_to_cartesian(lon, lat, R=6371000):
     """
@@ -375,10 +377,9 @@ def fesom2clim(
     # import pdb
     # pdb.set_trace()
     iz = abs(abs(climatology.z) - abs(depth)).argmin()
-    print(
-        "the model depth is: ",
+    logger.info(
+        "the model depth is: %s; the closest depth in climatology is: %s",
         depth,
-        "; the closest depth in climatology is: ",
         climatology.z[iz],
     )
     out_data = fesom2regular(
@@ -521,13 +522,13 @@ def regular2clim(data, ilons, ilats, izlevs, climatology, levels=None, verbose=T
     for dep_ind in range(len(levels)):
         wdep = levels[dep_ind]
         if verbose:
-            print("interpolating to level: {}".format(str(wdep)))
+            logger.info("interpolating to level: {}".format(str(wdep)))
         dep_up = [z for z in abs(mesh.zlevs) if z <= wdep][-1]
         if verbose:
-            print("Upper level: {}".format(str(dep_up)))
+            logger.info("Upper level: {}".format(str(dep_up)))
         dep_lo = [z for z in abs(mesh.zlevs) if z > wdep][0]
         if verbose:
-            print("Lower level: {}".format(str(dep_lo)))
+            logger.info("Lower level: {}".format(str(dep_lo)))
         i_up = 1 - abs(wdep - dep_up) / (dep_lo - dep_up)
         i_lo = 1 - abs(wdep - dep_lo) / (dep_lo - dep_up)
         dind_up = (abs(mesh.zlevs - dep_up)).argmin()
@@ -611,13 +612,13 @@ def clim2regular(
     for dep_ind in range(len(levels)):
         wdep = levels[dep_ind]
         if verbose:
-            print("interpolating to level: {}".format(str(wdep)))
+            logger.info("interpolating to level: {}".format(str(wdep)))
         dep_up = [z for z in abs(mesh.zlevs) if z <= wdep][-1]
         if verbose:
-            print("Upper level: {}".format(str(dep_up)))
+            logger.info("Upper level: {}".format(str(dep_up)))
         dep_lo = [z for z in abs(mesh.zlevs) if z > wdep][0]
         if verbose:
-            print("Lower level: {}".format(str(dep_lo)))
+            logger.info("Lower level: {}".format(str(dep_lo)))
         i_up = 1 - abs(wdep - dep_up) / (dep_lo - dep_up)
         i_lo = 1 - abs(wdep - dep_lo) / (dep_lo - dep_up)
         dind_up = (abs(mesh.zlevs - dep_up)).argmin()
