@@ -10,6 +10,7 @@ import os
 import pickle
 import sys
 import time
+import warnings
 
 import joblib
 import numpy as np
@@ -19,6 +20,12 @@ import xarray as xr
 from netCDF4 import Dataset
 
 from .ut import scalar_r2g
+
+# Constants
+EARTH_RADIUS = 6371000.0  # meters
+LONGITUDE_WRAP_THRESHOLD = 355  # degrees
+LONGITUDE_PERIOD = 360  # degrees
+CYCLIC_ELEMENT_THRESHOLD = 100  # degrees
 
 
 def load_mesh(path, abg=[0, 0, 0], usepickle=True, usejoblib=False, protocol=4):
@@ -93,7 +100,7 @@ def load_mesh(path, abg=[0, 0, 0], usepickle=True, usejoblib=False, protocol=4):
         print("The usepickle == True")
         print("The pickle file for FESOM2 DO NOT exists")
 
-        mesh = fesom_mesh(path=path, abg=abg)
+        mesh = Mesh(path=path, abg=abg)
 
         try:  # to save in the mesh first...
             pickle_file = os.path.join(path, "pickle_mesh_py3_fesom2")
@@ -117,7 +124,7 @@ def load_mesh(path, abg=[0, 0, 0], usepickle=True, usejoblib=False, protocol=4):
         return mesh
 
     elif (usepickle == False) and (usejoblib == False):
-        mesh = fesom_mesh(path=path, abg=abg)
+        mesh = Mesh(path=path, abg=abg)
         return mesh
 
     if (usejoblib == True) and (os.path.isfile(joblib_file)):
@@ -132,7 +139,7 @@ def load_mesh(path, abg=[0, 0, 0], usepickle=True, usejoblib=False, protocol=4):
         print("The usejoblib == True")
         print("The joblib file for FESOM2 DO NOT exists")
 
-        mesh = fesom_mesh(path=path, abg=abg)
+        mesh = Mesh(path=path, abg=abg)
 
         try:  # to save in the mesh first...
             joblib_file = os.path.join(path, "joblib_mesh_py3_fesom2")
@@ -156,7 +163,7 @@ def load_mesh(path, abg=[0, 0, 0], usepickle=True, usejoblib=False, protocol=4):
         return mesh
 
 
-class fesom_mesh(object):
+class Mesh:
     """Creates instance of the FESOM mesh.
     This class creates instance that contain information
     about FESOM mesh. At present the class works with
@@ -204,7 +211,7 @@ class fesom_mesh(object):
     Returns
     -------
     mesh : object
-        fesom_mesh object
+        Mesh object
     """
 
     def __init__(self, path, abg=[50, 15, -90]):
@@ -228,21 +235,15 @@ class fesom_mesh(object):
         self.voltri = []
 
         logging.info("load 2d part of the mesh")
-        if (sys.version_info.major, sys.version_info.minor) >= (3, 7):
-            start = time.time()
-        else:
-            start = time.clock()
+        start = time.time()
         self.read2d()
-        if (sys.version_info.major, sys.version_info.minor) >= (3, 7):
-            end = time.time()
-        else:
-            end = time.clock()
+        end = time.time()
         print("Load 2d part of the mesh in {} second(s)".format(str(int(end - start))))
 
     def read2d(self):
         file_content = pd.read_csv(
             self.nod2dfile,
-            delim_whitespace=True,
+            sep=r'\s+',
             skiprows=1,
             names=["node_number", "x", "y", "flag"],
         )
@@ -253,7 +254,7 @@ class fesom_mesh(object):
 
         file_content = pd.read_csv(
             self.elm2dfile,
-            delim_whitespace=True,
+            sep=r'\s+',
             skiprows=1,
             names=["first_elem", "second_elem", "third_elem"],
         )
@@ -264,7 +265,6 @@ class fesom_mesh(object):
         # here we compute the volumes of the triangles
         # this should be moved into fesom general mesh output netcdf file
         #
-        r_earth = 6371000.0
         rad = np.pi / 180
         edx = self.x2[self.elem]
         edy = self.y2[self.elem]
@@ -273,12 +273,12 @@ class fesom_mesh(object):
         jacobian2D = ed[:, :, 1] - ed[:, :, 0]
         jacobian2D = np.array([jacobian2D, ed[:, :, 2] - ed[:, :, 0]])
         for j in range(2):
-            mind = [i for (i, val) in enumerate(jacobian2D[j, 0, :]) if val > 355]
-            pind = [i for (i, val) in enumerate(jacobian2D[j, 0, :]) if val < -355]
-            jacobian2D[j, 0, mind] = jacobian2D[j, 0, mind] - 360
-            jacobian2D[j, 0, pind] = jacobian2D[j, 0, pind] + 360
+            mind = [i for (i, val) in enumerate(jacobian2D[j, 0, :]) if val > LONGITUDE_WRAP_THRESHOLD]
+            pind = [i for (i, val) in enumerate(jacobian2D[j, 0, :]) if val < -LONGITUDE_WRAP_THRESHOLD]
+            jacobian2D[j, 0, mind] = jacobian2D[j, 0, mind] - LONGITUDE_PERIOD
+            jacobian2D[j, 0, pind] = jacobian2D[j, 0, pind] + LONGITUDE_PERIOD
 
-        jacobian2D = jacobian2D * r_earth * rad
+        jacobian2D = jacobian2D * EARTH_RADIUS * rad
 
         for k in range(2):
             jacobian2D[k, 0, :] = jacobian2D[k, 0, :] * np.cos(edy * rad).mean(axis=1)
@@ -299,7 +299,7 @@ class fesom_mesh(object):
         )
 
         d = self.x2[self.elem].max(axis=1) - self.x2[self.elem].min(axis=1)
-        self.no_cyclic_elem = np.argwhere(d < 100).ravel()
+        self.no_cyclic_elem = np.argwhere(d < CYCLIC_ELEMENT_THRESHOLD).ravel()
 
         with open(self.aux3dfile) as f:
             self.nlev = int(next(f))
@@ -335,6 +335,23 @@ number of 2d elements = {}
 
     def __str__(self):
         return self.meshinfo()
+
+
+# Deprecated alias for backward compatibility
+class fesom_mesh(Mesh):
+    """Deprecated: Use Mesh instead.
+
+    This class is maintained for backward compatibility only.
+    Please update your code to use Mesh.
+    """
+    def __init__(self, *args, **kwargs):
+        warnings.warn(
+            "fesom_mesh is deprecated and will be removed in a future version. "
+            "Use Mesh instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        super().__init__(*args, **kwargs)
 
 
 def ind_for_depth(depth, mesh):
