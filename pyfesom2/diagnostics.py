@@ -5,6 +5,7 @@
 # Qiang Wang, Sergey Danilov and Patrick Scholz
 #
 
+import logging
 import os
 
 import numpy as np
@@ -13,6 +14,8 @@ from pandas.plotting import register_matplotlib_converters
 
 from .load_mesh_data import ind_for_depth
 from .ut import compute_face_coords, get_mask
+
+logger = logging.getLogger(__name__)
 
 register_matplotlib_converters()
 
@@ -80,7 +83,7 @@ def ice_ext(data, mesh, hemisphere="N", threshhold=0.15, attrs={}):
         return da
 
     else:
-        print(data)
+        logger.debug(data)
         i, j = np.where(data < 0.15)
         data[:] = 1
         data[i, j] = 0
@@ -285,7 +288,7 @@ def select_depths(uplow, mesh):
     elif uplow[1] == "bottom":
         upper = ind_for_depth(uplow[0], mesh)
         lower = mesh.nlev - 1
-        print(f"Upper depth: {mesh.zlev[upper]}, Lower depth: bottom")
+        logger.info(f"Upper depth: {mesh.zlev[upper]}, Lower depth: bottom")
         indexes = range(upper, lower)
         return indexes
     else:
@@ -293,7 +296,7 @@ def select_depths(uplow, mesh):
         lower = ind_for_depth(uplow[1], mesh)
         if lower >= mesh.nlev - 2:
             lower = mesh.nlev - 2
-        print(f"Upper depth: {mesh.zlev[upper]}, Lower depth: {mesh.zlev[lower]}")
+        logger.info(f"Upper depth: {mesh.zlev[upper]}, Lower depth: {mesh.zlev[lower]}")
         indexes = range(upper, lower + 1)
         return indexes
 
