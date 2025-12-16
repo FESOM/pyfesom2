@@ -3,7 +3,7 @@
 
 """The setup script."""
 
-from setuptools import setup, find_packages
+from setuptools import find_packages, setup
 
 with open("README.md") as readme_file:
     readme = readme_file.read()
@@ -31,7 +31,7 @@ requirements = [
     "xarray",
     "pyproj",
     "pymap3d",
-    "tqdm"
+    "tqdm",
 ]
 
 setup_requirements = ["pytest-runner"]
@@ -65,13 +65,13 @@ setup(
     keywords="pyfesom2",
     name="pyfesom2",
     packages=["pyfesom2"],
-    #package_dir={"pyfesom2": "pyfesom2"},
-    #package_data={"": ["*.geojson"]},
+    # package_dir={"pyfesom2": "pyfesom2"},
+    # package_data={"": ["*.geojson"]},
     setup_requires=setup_requirements,
     test_suite="tests",
     tests_require=test_requirements,
     url="https://github.com/koldunovn/pyfesom2",
     download_url="https://github.com/FESOM/pyfesom2/archive/0.2.0.tar.gz",
-    version="0.2.0",
+    version="0.4.1",
     zip_safe=False,
 )

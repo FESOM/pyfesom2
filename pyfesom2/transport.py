@@ -4,6 +4,7 @@ Author: Finn Heukamp (finn.heukamp@awi.de)
 Initial version: 23.11.2021
 """
 
+import logging
 import warnings
 from os.path import isfile, isdir
 import xarray as xr
@@ -15,6 +16,8 @@ from dask.diagnostics import ProgressBar
 from tqdm.notebook import tqdm
 from .load_mesh_data import load_mesh
 from .ut import vec_rotate_r2g, get_no_cyclic, cut_region
+
+logger = logging.getLogger(__name__)
 
 
 def _ProcessInputs(section, data_path, years, n_points):
@@ -52,7 +55,7 @@ def _ProcessInputs(section, data_path, years, n_points):
 
         '''
 
-    print('Starting computation...')
+    logger.info('Starting computation...')
 
     # Check the input data types
     if not isinstance(section, list) | isinstance(section, str):
@@ -181,7 +184,7 @@ def _CreateLoadSection(section):
         section['orientation'] = 'other'
         raise ValueError('Only zonal or meridional are currently supported!')
 
-    print('\nYour section: ', section['name'], ': Start: ', section['lon_start'], '°E ', section['lat_start'], '°N ', 'End: ', section['lon_end'], '°E ', section['lat_end'], '°N')
+    logger.info('\nYour section: %s: Start: %s°E %s°N End: %s°E %s°N', section['name'], section['lon_start'], section['lat_start'], section['lon_end'], section['lat_end'])
 
     return section
 
@@ -356,7 +359,7 @@ def _LinePolygonIntersections(mesh, section_waypoints, elem_box_nods, elem_box_i
 
     polygon_list = list()
 
-    print('\nConverting grid cells to Polygons... (If this takes very long try to reduce the add_extent parameter)')
+    logger.info('\nConverting grid cells to Polygons... (If this takes very long try to reduce the add_extent parameter)')
     for ii in tqdm(range(elem_box_nods.shape[0])):
         polygon_list.append(
             sg.Polygon(
@@ -380,7 +383,7 @@ def _LinePolygonIntersections(mesh, section_waypoints, elem_box_nods, elem_box_i
     intersection_points = list()
 
     # check for intersections
-    print('Looking for intersected grid cells...')
+    logger.info('Looking for intersected grid cells...')
     for ii in tqdm(range(len(polygon_list))):
         intersection = polygon_list[ii].intersection(line_section).coords
 
@@ -750,7 +753,7 @@ def _ComputeBrokenLineSegments(f_lat, f_lon, s_lat, s_lon, c_lat, c_lon, section
                                         lat=f_lat[ii],
                                         lon=f_lon[ii],
                                         h=0,
-                                     ell=pm.utils.Ellipsoid('wgs84')
+                                     ell=pm.Ellipsoid.from_name('wgs84')
                                    )
 
         first_segment_vector[ii,0], first_segment_vector[ii,1] = -dx, -dy # turn the vector to point towards the center, in the direction of the section
@@ -762,7 +765,7 @@ def _ComputeBrokenLineSegments(f_lat, f_lon, s_lat, s_lon, c_lat, c_lon, section
                                         lat=s_lat[ii],
                                         lon=s_lon[ii],
                                         h=0,
-                                     ell=pm.utils.Ellipsoid('wgs84')
+                                     ell=pm.Ellipsoid.from_name('wgs84')
                                    )
 
         second_segment_vector[ii,0], second_segment_vector[ii,1] = dx, dy
@@ -858,7 +861,7 @@ def _AddMetaData(ds, elem_box_indices, elem_box_nods, effective_dx, effective_dy
 
     return ds
 
-def _UnrotateLoadVelocity(how, files, elem_box_indices, elem_box_nods, vertical_cell_area_dx, vertical_cell_area_dy, c_lon, c_lat, effective_dx, effective_dy, elem_order, chunks, mesh, abg):
+def _UnrotateLoadVelocity(how, files, elem_box_indices, elem_box_nods, vertical_cell_area_dx, vertical_cell_area_dy, c_lon, c_lat, effective_dx, effective_dy, elem_order, chunks, mesh, abg, uvrotated):
     '''
     Load and unrotate the fesom velocity files. Additionally bring the mesh elements into the right order (according to the section)
 
@@ -890,7 +893,9 @@ def _UnrotateLoadVelocity(how, files, elem_box_indices, elem_box_nods, vertical_
         fesom.mesh
     abg (list)
         mesh rotation [50 15 -90]
-
+    uvrotated (bool)
+        True: u, v are rotated; False: u, v are unrotated
+        
     Returns
     -------
     ds (xr.Dataset)
@@ -899,11 +904,11 @@ def _UnrotateLoadVelocity(how, files, elem_box_indices, elem_box_nods, vertical_
 
     '''
 
-    print('Loading the data into memory...')
+    logger.info('Loading the data into memory...')
      # decide on the loading strategy, for small datasets combine the data to one dataset, for large datasets load files individually
     overload = xr.open_dataset(files[0]).nbytes * 1e-9 * len(files) >= 25
     if overload:
-        print('A lot of velocity data (' + str(np.round(xr.open_dataset(files[0]).nbytes * 1e-9 * len(files), decimals=2)) + 'GB)... This will take some time...')
+        logger.warning('A lot of velocity data (' + str(np.round(xr.open_dataset(files[0]).nbytes * 1e-9 * len(files), decimals=2)) + 'GB)... This will take some time...')
 
     # Load and merge at the same time
     ProgressBar().register()
@@ -912,23 +917,24 @@ def _UnrotateLoadVelocity(how, files, elem_box_indices, elem_box_nods, vertical_
 
     ds = _AddMetaData(ds, elem_box_indices, elem_box_nods, effective_dx, effective_dy, vertical_cell_area_dx, vertical_cell_area_dy, c_lon, c_lat)
 
-    # rename u and v to u_rot, v_rot
-    ds = ds.rename({'u': 'u_rot'})
-    ds = ds.rename({'v': 'v_rot'})
-    # UNROTATE
-    lon_elem_center = np.mean(mesh.x2[ds.elem_nods], axis=1)
-    lat_elem_center = np.mean(mesh.y2[ds.elem_nods], axis=1)
-    try:
-        u, v = vec_rotate_r2g(abg[0], abg[1], abg[2], lon_elem_center[np.newaxis, :, np.newaxis],
-                             lat_elem_center[np.newaxis, :, np.newaxis], ds.u_rot.values, ds.v_rot.values, flag=1)
-    except:
-        u, v = vec_rotate_r2g(abg[0], abg[1], abg[2], lon_elem_center[np.newaxis, :, np.newaxis],
-                             lat_elem_center[np.newaxis, :, np.newaxis], ds.u_rot.values.swapaxes(1,2), ds.v_rot.values.swapaxes(1,2), flag=1)
-
-    ds['u'] = (('time', 'elem', 'nz1'), u)
-    ds['v'] = (('time', 'elem', 'nz1'), v)
-
-    ds = ds.drop_vars(['u_rot','v_rot'])
+    if uvrotated:                             # only unrotate in case u, v are still rotated
+        # rename u and v to u_rot, v_rot
+        ds = ds.rename({'u': 'u_rot'})
+        ds = ds.rename({'v': 'v_rot'})
+        # UNROTATE
+        lon_elem_center = np.mean(mesh.x2[ds.elem_nods], axis=1)
+        lat_elem_center = np.mean(mesh.y2[ds.elem_nods], axis=1)
+        try:
+            u, v = vec_rotate_r2g(abg[0], abg[1], abg[2], lon_elem_center[np.newaxis, :, np.newaxis],
+                                 lat_elem_center[np.newaxis, :, np.newaxis], ds.u_rot.values, ds.v_rot.values, flag=1)
+        except:
+            u, v = vec_rotate_r2g(abg[0], abg[1], abg[2], lon_elem_center[np.newaxis, :, np.newaxis],
+                                 lat_elem_center[np.newaxis, :, np.newaxis], ds.u_rot.values.swapaxes(1,2), ds.v_rot.values.swapaxes(1,2), flag=1)
+    
+        ds['u'] = (('time', 'elem', 'nz1'), u)
+        ds['v'] = (('time', 'elem', 'nz1'), v)
+    
+        ds = ds.drop_vars(['u_rot','v_rot'])
 
     # bring u and v into the right order
     ds['u'] = ds.u.isel(elem=elem_order)
@@ -959,7 +965,7 @@ def _TransportAcross(ds):
 
     return ds
 
-def _AddTempSalt(section, ds, data_path, mesh, years, elem_order):
+def _AddTempSalt(section, ds, data_path, mesh, years, elem_order, chunks):
     '''
     _AddTempSalt.py
 
@@ -1000,11 +1006,14 @@ def _AddTempSalt(section, ds, data_path, mesh, years, elem_order):
 
     overload = xr.open_dataset(files[0]).nbytes * 1e-9 * len(files) >= 25
     if overload:
-        print('A lot of TS data (' + str(np.round(xr.open_dataset(files[0]).nbytes * 1e-9 * len(files), decimals=2)) + 'GB)... This will take some time...')
+        logger.warning('A lot of TS data (' + str(np.round(xr.open_dataset(files[0]).nbytes * 1e-9 * len(files), decimals=2)) + 'GB)... This will take some time...')
 
     # Open files
-    ds_ts = xr.open_mfdataset(files, combine='by_coords', chunks={'nod2': 1e4})
+    ds_ts = xr.open_mfdataset(files, combine='by_coords', chunks=chunks)
 
+    # Adjust dimension order
+    ds_ts = ds_ts.transpose('time','nod2','nz1')
+    
     # Only load the nods that belong to elements that are part of the section
     # Flatten the triplets first
     ds_ts = ds_ts.isel(nod2=ds.elem_nods.values.flatten()).load()
@@ -1037,10 +1046,25 @@ def _OrderIndices(ds, elem_order):
     ds['elem_indices'] = ds.elem_indices.isel(elem=elem_order)
     ds['elem_nods'] = ds.elem_nods.isel(elem=elem_order)
 
-    print('\n Done!')
+    logger.info('\n Done!')
     return ds
 
-def cross_section_transport(section, mesh, data_path, years, mesh_diag, how='mean', add_extent=1, abg=[50, 15, -90], add_TS=False, chunks={'elem': 1e4}, use_great_circle=False, n_points=1000):
+def _MaskBathymetry(ds, how):
+    ''' Sets bathymetry values (gridcells where time mean transport is zero) to np.nan.
+
+    Inputs
+    ------
+    ds (xr.dataset)
+        dataset containing transport
+    '''
+    if how == 'ori':
+        ds = ds.where(ds.transport_across.mean(dim='time') != 0, np.nan)
+    elif how == 'mean':
+        ds = ds.where(ds.transport_across != 0, np.nan)
+        
+    return ds
+
+def cross_section_transport(section, mesh, data_path, years, mesh_diag, how='mean', add_extent=1, abg=[50, 15, -90], add_TS=False, chunks='auto', use_great_circle=False, n_points=1000, uvrotated=True):
     '''
     Inputs
     ------
@@ -1065,9 +1089,11 @@ def cross_section_transport(section, mesh, data_path, years, mesh_diag, how='mea
     add_TS (bool)
         add temperature and salinity to the section (default=False)
     chunks (dict)
-        chunks for parallelising the velocity data (default: chunks={'elem': 1e4})
+        chunks for parallelising the velocity/TS data e.g., chunks={'elem': 1e4} (default: 'auto')
     n_points (int)
         number of waypoints between start and end of section
+    uvrotated (bool)
+        True: u, v FESOM output is in rotated coordinates; False: u, v FESOM output is already unroated (default=True)
 
     Returns
     -------
@@ -1096,13 +1122,15 @@ def cross_section_transport(section, mesh, data_path, years, mesh_diag, how='mea
 
     vertical_cell_area_dx, vertical_cell_area_dy = _CreateVerticalGrid(effective_dx, effective_dy, mesh_diag)
 
-    ds = _UnrotateLoadVelocity(how, files, elem_box_indices, elem_box_nods, vertical_cell_area_dx, vertical_cell_area_dy, c_lon, c_lat, effective_dx, effective_dy, elem_order, chunks, mesh, abg)
+    ds = _UnrotateLoadVelocity(how, files, elem_box_indices, elem_box_nods, vertical_cell_area_dx, vertical_cell_area_dy, c_lon, c_lat, effective_dx, effective_dy, elem_order, chunks, mesh, abg, uvrotated)
 
     ds = _TransportAcross(ds)
 
     if add_TS:
-        ds = _AddTempSalt(section, ds, data_path, mesh, years, elem_order)
+        ds = _AddTempSalt(section, ds, data_path, mesh, years, elem_order, chunks)
 
     ds = _OrderIndices(ds, elem_order)
+
+    ds = _MaskBathymetry(ds, how)
 
     return  ds, section

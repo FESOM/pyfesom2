@@ -16,6 +16,7 @@
 # write_mesh_to_netcdf(grid, ofile=griddir+'mesh.nc',overwrite=True)
 
 
+import logging
 import numpy as np
 import os
 import warnings
@@ -26,8 +27,10 @@ import configparser
 from datetime import datetime
 from netCDF4 import Dataset
 
+logger = logging.getLogger(__name__)
+
 def read_fesom_ascii_grid(griddir, rot=False, rot_invert=False, rot_abg=None, threeD=True, remove_empty_lev=False, read_boundary=True,
-                    reorder_ccw=True, maxmaxneigh=12, findneighbours_maxiter=10, repeatlastpoint=True, onlybaryc=False,
+                    reorder_ccw=True, maxmaxneigh=12, findneighbours_maxiter=15, repeatlastpoint=True, onlybaryc=False,
                     omitcoastnds=False, calcpolyareas=True, Rearth=6371000, basicreadonly=False, fesom2=True, cavity=False, verbose=True):
 
 
@@ -301,7 +304,7 @@ def read_fesom_ascii_grid(griddir, rot=False, rot_invert=False, rot_abg=None, th
                 break
 
             if verbose:
-                print(f"Starting iteration {niter}...")
+                logger.debug(f"Starting iteration {niter}...")
             
             for ie in range(Ne):
                 if np.all(iekdone[ie, :]):
@@ -331,7 +334,7 @@ def read_fesom_ascii_grid(griddir, rot=False, rot_invert=False, rot_abg=None, th
 
                         if found1 and found2:
                             if verbose:
-                                print("Found both, node complete.")
+                                logger.debug("Found both, node complete.")
                             barmat[i, Nneigh[i]-1] = ie
                             iscomplete[i] = True
                             iekdone[ie, k] = True
@@ -341,7 +344,7 @@ def read_fesom_ascii_grid(griddir, rot=False, rot_invert=False, rot_abg=None, th
 
                             if found1:
                                 if verbose:
-                                    print("Found 1.")
+                                    logger.debug("Found 1.")
                                 neighmat[i, Nneigh[i]] = neigh2
                                 barmat[i, Nneigh[i]-1] = ie
                                 Nneigh[i] += 1
@@ -349,7 +352,7 @@ def read_fesom_ascii_grid(griddir, rot=False, rot_invert=False, rot_abg=None, th
 
                             elif found2:
                                 if verbose:
-                                    print("Found 2.")
+                                    logger.debug("Found 2.")
                                 neighmat[i, 1:Nneigh[i] + 1] = neighmat[i, :Nneigh[i]]
                                 neighmat[i, 0] = neigh1
                                 barmat[i, 1:Nneigh[i] + 1] = barmat[i, :Nneigh[i]]
@@ -358,14 +361,14 @@ def read_fesom_ascii_grid(griddir, rot=False, rot_invert=False, rot_abg=None, th
                                 iekdone[ie, k] = True
                             else:
                                 if verbose:
-                                    print("Found none, retry element in next iteration.")
+                                    logger.debug("Found none, retry element in next iteration.")
 
         maxneigh = max(Nneigh)
         neighmat = neighmat[:, :maxneigh]
         barmat = barmat[:, :maxneigh]
 
         if reverse:
-            print("Reversing order of neighbors")
+            logger.info("Reversing order of neighbors")
             for i in range(N):
                 if Nneigh[i] > 1:
                     neighmat[i, :Nneigh[i]] = neighmat[i, Nneigh[i] - 1::-1]
@@ -383,9 +386,9 @@ def read_fesom_ascii_grid(griddir, rot=False, rot_invert=False, rot_abg=None, th
 
     fun_call = None
     if basicreadonly:
-        print("Reading only basic grid data without further computation of neighborhood etc.")
+        logger.info("Reading only basic grid data without further computation of neighborhood etc.")
         if rot or threeD or reorder_ccw:
-            print("Reading would be even faster with rot, reorder_ccw, and threeD all set to False")
+            logger.info("Reading would be even faster with rot, reorder_ccw, and threeD all set to False")
 
     if not os.path.exists(os.path.join(griddir, "nod2d.out")) or not os.path.exists(os.path.join(griddir, "elem2d.out")):
         raise FileNotFoundError(f"Files nod2d.out and/or elem2d.out not found in {griddir}.")
@@ -409,23 +412,23 @@ def read_fesom_ascii_grid(griddir, rot=False, rot_invert=False, rot_abg=None, th
                 except ImportError:
                     raise ImportError("Package 'netCDF4' is required to read FESOM2 grid data.")
     if verbose:
-        print("reading node (grid point) coordinates and coast information ...")
+        logger.info("reading node (grid point) coordinates and coast information ...")
         start_time = time.time()
     N, lon_orig, lat_orig, coast = read_nod2d_out(os.path.join(griddir, "nod2d.out"))
     if verbose:
-        print(f"... done. grid contains {N} nodes of which {np.sum(coast)} are coastal (according to info in nod2d.out).")
+        logger.info(f"... done. grid contains {N} nodes of which {np.sum(coast)} are coastal (according to info in nod2d.out).")
         end_time = time.time()
-        print(f"... execution Time:", round(end_time - start_time, 2), "seconds")
+        logger.info(f"... execution Time: {round(end_time - start_time, 2)} seconds")
 
     if rot:
         if verbose:
-            print("rotating grid ...")
+            logger.info("rotating grid ...")
             start_time = time.time()
         lon, lat, x, y, z = rotate(lon_orig, lat_orig, rot_abg, invert=rot_invert)
         if verbose:
-            print("... done.")
+            logger.info("... done.")
             end_time = time.time()
-            print(f"... execution Time:", round(end_time - start_time, 2), "seconds")
+            logger.info(f"... execution Time: {round(end_time - start_time, 2)} seconds")
 
     else:
         lon, lat, x, y, z = lon_orig, lat_orig, np.cos(np.deg2rad(lat_orig)) * np.cos(np.deg2rad(lon_orig)), np.cos(np.deg2rad(lat_orig)) * np.sin(np.deg2rad(lon_orig)), np.sin(np.deg2rad(lat_orig))
@@ -433,19 +436,19 @@ def read_fesom_ascii_grid(griddir, rot=False, rot_invert=False, rot_abg=None, th
     lon[lon <= -180] += 360
 
     if verbose:
-        print("reading neighbourhood (triangular elements) information ...")
+        logger.info("reading neighbourhood (triangular elements) information ...")
         start_time = time.time()
     Ne, elem = read_elem2d_out(os.path.join(griddir, "elem2d.out"))
     if verbose:
-        print(f"... done. grid contains {Ne} triangular elements.")
+        logger.info(f"... done. grid contains {Ne} triangular elements.")
         end_time = time.time()
-        print(f"... execution Time:", round(end_time - start_time, 2), "seconds")
+        logger.info(f"... execution Time: {round(end_time - start_time, 2)} seconds")
 
     # Reorder clockwise triangular elements counterclockwise if specified
     if reorder_ccw:
         if verbose:
             start_time = time.time()
-            print("reordering clockwise triangular elements counterclockwise ...")
+            logger.info("reordering clockwise triangular elements counterclockwise ...")
         ord_c = 0
         for ie in range(Ne):
             a = np.array([lon_orig[elem[ie, 0] - 1], lat_orig[elem[ie, 0] - 1]])
@@ -455,9 +458,9 @@ def read_fesom_ascii_grid(griddir, rot=False, rot_invert=False, rot_abg=None, th
                 elem[ie, :] = elem[ie, ::-1]
                 ord_c += 1
         if verbose:
-            print(f"... done. {ord_c} of {Ne} elements reordered.")
+            logger.info(f"... done. {ord_c} of {Ne} elements reordered.")
             end_time = time.time()
-            print(f"... execution Time:", round(end_time - start_time, 2), "seconds")
+            logger.info(f"... execution Time: {round(end_time - start_time, 2)} seconds")
 
     N3D = None
     Nlev = None
@@ -469,7 +472,7 @@ def read_fesom_ascii_grid(griddir, rot=False, rot_invert=False, rot_abg=None, th
     if threeD:
         if verbose:
             start_time = time.time()
-            print("reading 3D information ...")
+            logger.info("reading 3D information ...")
         Nlev, depth, depth_bounds = read_aux3d_out(os.path.join(griddir, "aux3d.out"))
         if fesom2:
             #Nlev -= 1
@@ -482,7 +485,7 @@ def read_fesom_ascii_grid(griddir, rot=False, rot_invert=False, rot_abg=None, th
                 mesh_diag_fl.close()
             if remove_empty_lev and np.max(depth_lev) < Nlev:
                 if verbose:
-                    print(f"removing {Nlev - np.max(depth_lev)} empty levels from data")
+                    logger.info(f"removing {Nlev - np.max(depth_lev)} empty levels from data")
                 Nlev = np.max(depth_lev)
                 depth_bounds = depth_bounds[:Nlev + 1]
                 depth = depth[:Nlev]
@@ -491,7 +494,7 @@ def read_fesom_ascii_grid(griddir, rot=False, rot_invert=False, rot_abg=None, th
                 cav_nod_depth = read_cav_nod_depth(os.path.join(griddir, "cavity_depth@node.out"))
                 cav_nod_lev = read_cav_nod_lev(os.path.join(griddir, "cavity_nlvls.out"))
                 cav_elem_lev = read_cav_elem_lev(os.path.join(griddir, "cavity_elvls.out"))
-                cav_nod_mask = (cav_nod_lev > 0)  # 1 if cavity, 0 if no cavity (matches FESOM convention)
+                cav_nod_mask = (cav_nod_lev != 0)
         else:
             aux3d_mat = np.genfromtxt(os.path.join(griddir, "aux3d.out"), skip_header=1, dtype=int, missing_values="-999", usemask=True)
             depth_lev = np.repeat(Nlev, N)
@@ -499,26 +502,26 @@ def read_fesom_ascii_grid(griddir, rot=False, rot_invert=False, rot_abg=None, th
                 isna_lev = aux3d_mat[:, lev - 1].mask
                 if remove_empty_lev and np.sum(isna_lev) == N:
                     if verbose:
-                        print(f"removing empty level {lev} from data")
+                        logger.info(f"removing empty level {lev} from data")
                     Nlev -= 1
                     aux3d_mat = aux3d_mat[:, :Nlev]
                 depth_lev[isna_lev] -= 1
             N3D = np.sum(~aux3d_mat.mask)
 
             if verbose:
-                print("retrieving depth information from nod3d.out ...")
+                logger.info("retrieving depth information from nod3d.out ...")
             depth = read_nod3d_out(os.path.join(griddir, "nod3d.out"))
             if len(depth) != Nlev:
                 raise ValueError("data in aux3d.out is inconsistent with the number of depth levels; consider trying with 'remove_empty_lev=True'")
             depth_bounds = np.concatenate(([depth[0]], (depth[1:] + depth[:-1]) / 2, [depth[-1]]))
             if read_boundary:
                 if verbose:
-                    print("retrieving 'coast/bottom' information from nod3d.out ...")
+                    logger.info("retrieving 'coast/bottom' information from nod3d.out ...")
                 boundary = read_nod3d_out(os.path.join(griddir, "nod3d.out"))[4::5]
         if verbose:
             end_time = time.time()
-            print(f"... done. Grid over all levels contains {N3D} elements.")
-            print(f"... execution Time:", round(end_time - start_time, 2), "seconds")
+            logger.info(f"... done. Grid over all levels contains {N3D} elements.")
+            logger.info(f"... execution Time: {round(end_time - start_time, 2)} seconds")
     if basicreadonly:
         return {
             'N': N, 'Nlev': Nlev, 'N3D': N3D, 'lon': lon, 'lat': lat, 'elem': elem, 'coast': coast,
@@ -530,7 +533,7 @@ def read_fesom_ascii_grid(griddir, rot=False, rot_invert=False, rot_abg=None, th
 
     if verbose:
         start_time = time.time()
-        print("searching all neighbors of each node based on the triangular elements ...")
+        logger.info("searching all neighbors of each node based on the triangular elements ...")
     neighnodes, neighelems, internal_nodes, Nneighs, elems_completed, all_elements_arranged = find_neighbors(elem, maxmaxneigh, reverse=False, max_iter=findneighbours_maxiter)
 
     if np.any(coast == internal_nodes):
@@ -538,25 +541,25 @@ def read_fesom_ascii_grid(griddir, rot=False, rot_invert=False, rot_abg=None, th
         coast = ~internal_nodes
     badnodes = None if all_elements_arranged else np.arange(1, N + 1)[~elems_completed]
     if verbose:
-        print(f"... done. number of neighbors ranges from {np.min(Nneighs)} to {np.max(Nneighs)} nodes and is {np.mean(Nneighs):.4f} on average.")
+        logger.info(f"... done. number of neighbors ranges from {np.min(Nneighs)} to {np.max(Nneighs)} nodes and is {np.mean(Nneighs):.4f} on average.")
         end_time = time.time()
-        print(f"... execution Time:", round(end_time - start_time, 2), "seconds")
+        logger.info(f"... execution Time: {round(end_time - start_time, 2)} seconds")
     if badnodes is not None:
         warnings.warn(f"if 'findneighbours_maxiter' was not set too low, the grid contains {len(badnodes)} 'bad nodes'. consider increasing 'findneighbours_maxiter'. if the problem remains, the grid indeed contains bad nodes that should not exist in the first place. for such nodes only one part of the corresponding ocean patches will be returned by this function (which introduces a slight grid inaccuracy).")
 
     if verbose:
         start_time = time.time()
-        print("determining which elements include coastal nodes ...")
+        logger.info("determining which elements include coastal nodes ...")
     elemcoast = np.array([np.sum(coast[elem[ie] - 1]) > 1 for ie in range(Ne)])
     Nelemcoast = np.sum(elemcoast)
     if verbose:
-        print(f"... done. grid features {Nelemcoast} elements that contain coastal nodes.")
+        logger.info(f"... done. grid features {Nelemcoast} elements that contain coastal nodes.")
         end_time = time.time()
-        print(f"... execution Time:", round(end_time - start_time, 2), "seconds")
+        logger.info(f"... execution Time: {round(end_time - start_time, 2)} seconds")
 
     if verbose:
         start_time = time.time()
-        print("computing barycenters (centroids) for all triangular elements ...")
+        logger.info("computing barycenters (centroids) for all triangular elements ...")
     baryc_lon = np.zeros(Ne)
     baryc_lat = np.zeros(Ne)
     for ie in range(Ne):
@@ -567,14 +570,14 @@ def read_fesom_ascii_grid(griddir, rot=False, rot_invert=False, rot_abg=None, th
     baryc_lon[baryc_lon > 180] -= 360
     baryc_lon[baryc_lon <= -180] += 360
     if verbose:
-        print("... done.")
+        logger.info("... done.")
         end_time = time.time()
-        print(f"... execution Time:", round(end_time - start_time, 2), "seconds")
+        logger.info(f"... execution Time: {round(end_time - start_time, 2)} seconds")
 
 
     if verbose:
         start_time = time.time()
-        print("generate 'stamp polygons' around each node ...")
+        logger.info("generate 'stamp polygons' around each node ...")
     maxneighs = neighnodes.shape[1]
     maxNstamp = 2 * maxneighs
     stampmat_lon = np.full((N, maxNstamp), np.nan)
@@ -628,15 +631,15 @@ def read_fesom_ascii_grid(griddir, rot=False, rot_invert=False, rot_abg=None, th
     stampmat_lon[stampmat_lon > 180] -= 360
     stampmat_lon[stampmat_lon <= -180] += 360
     if verbose:
-        print(f"... done. number of 'stamp polygon' vertices per node ranges from {int(np.min(Nstamp))} (before padding) to {maxNstamp} and is {np.mean(Nstamp):.4f} on average (before padding).")
+        logger.info(f"... done. number of 'stamp polygon' vertices per node ranges from {int(np.min(Nstamp))} (before padding) to {maxNstamp} and is {np.mean(Nstamp):.4f} on average (before padding).")
         end_time = time.time()
-        print(f"... execution Time:", round(end_time - start_time, 2), "seconds")
+        logger.info(f"... execution Time: {round(end_time - start_time, 2)} seconds")
 
     cellareas, elemareas = None, None
     if calcpolyareas:
         if verbose:
             start_time = time.time()
-            print("computing element and 'stamp polygon' areas ...")
+            logger.info("computing element and 'stamp polygon' areas ...")
         elemareas = np.zeros(Ne)
         cellareas = np.zeros(N)
         for ie in range(Ne):
@@ -648,9 +651,9 @@ def read_fesom_ascii_grid(griddir, rot=False, rot_invert=False, rot_abg=None, th
                     cellareas[i] += elemareas[neighelems[i, j].astype(int)]
         cellareas /= 3
         if verbose:
-            print("... done.")
+            logger.info("... done.")
             end_time = time.time()
-            print(f"... execution Time:", round(end_time - start_time, 2), "seconds")
+            logger.info(f"... execution Time: {round(end_time - start_time, 2)} seconds")
 
     if cavity:
         return {
@@ -693,15 +696,15 @@ def write_mesh_to_netcdf(grid, ofile="~/sl.grid.CDO.nc", netcdf=True, netcdf_pre
         nc.variables[var].setncattr(name, value)
 
     if cell_area and "cellareas" not in grid:
-        print("'grid' does not contain an element 'cellareas'; setting 'cell_area' to False")
+        logger.warning("'grid' does not contain an element 'cellareas'; setting 'cell_area' to False")
         cell_area = False
 
     if node_node_links and "neighnodes" not in grid:
-        print("'grid' does not contain an element 'neighnodes'; setting 'node_node_links' to False")
+        logger.warning("'grid' does not contain an element 'neighnodes'; setting 'node_node_links' to False")
         node_node_links = False
 
     if triag_nodes and "elem" not in grid:
-        print("'grid' does not contain an element 'elem'; setting 'triag_nodes' to False")
+        logger.warning("'grid' does not contain an element 'elem'; setting 'triag_nodes' to False")
         triag_nodes = False
 
     if coast:
@@ -711,21 +714,21 @@ def write_mesh_to_netcdf(grid, ofile="~/sl.grid.CDO.nc", netcdf=True, netcdf_pre
             coast_key = "coast"
 
         if coast_key not in grid:
-            print(f"'grid' does not contain an element '{coast_key}'; setting 'coast' to False")
+            logger.warning(f"'grid' does not contain an element '{coast_key}'; setting 'coast' to False")
             coast = False
 
     if depth:
         if "Nlev" not in grid:
-            print("'grid' does not contain an element 'Nlev'; setting 'depth' to False")
+            logger.warning("'grid' does not contain an element 'Nlev'; setting 'depth' to False")
             depth = False
         elif "depth.bounds" not in grid:
-            print("'grid' does not contain an element 'depth.bounds'; setting 'depth' to False")
+            logger.warning("'grid' does not contain an element 'depth.bounds'; setting 'depth' to False")
             depth = False
         elif not fesom2velocities and "depth.lev" not in grid:
-            print("'grid' does not contain an element 'depth.lev'; setting 'depth' to False")
+            logger.warning("'grid' does not contain an element 'depth.lev'; setting 'depth' to False")
             depth = False
         elif fesom2velocities and "elemdepth.lev" not in grid:
-            print("'grid' does not contain an element 'elemdepth.lev'; setting 'depth' to False")
+            logger.warning("'grid' does not contain an element 'elemdepth.lev'; setting 'depth' to False")
             depth = False
 
     N = len(grid["lon"])
@@ -737,21 +740,21 @@ def write_mesh_to_netcdf(grid, ofile="~/sl.grid.CDO.nc", netcdf=True, netcdf_pre
             grid["stamppoly.lat"] = grid["lat_bounds"]
         maxNstamp = grid["stamppoly.lon"].shape[1]
         if verbose:
-            print(f"the grid has {N} nodes (grid points) with up to {maxNstamp} stamp polygon vertices per node.")
+            logger.info(f"the grid has {N} nodes (grid points) with up to {maxNstamp} stamp polygon vertices per node.")
     else:
         M = grid["elem"].shape[0]
         if verbose:
-            print("writing grid description for values defined at the centroids of the triangular elements instead of at the vertices.")
-            print(f"the grid has {M} triangular elements.")
+            logger.info("writing grid description for values defined at the centroids of the triangular elements instead of at the vertices.")
+            logger.info(f"the grid has {M} triangular elements.")
 
     if depth:
         Nlev = grid["Nlev"]
         if verbose:
-            print(f"the grid has {Nlev} vertical levels.")
+            logger.info(f"the grid has {Nlev} vertical levels.")
 
     if overwrite and os.path.exists(ofile):
         if overwrite:
-            print("overwriting existing file ...")
+            logger.info("overwriting existing file ...")
         else:
             raise ValueError(f"file {ofile} already exists. Rename/delete the original file or set 'overwrite=True'.")
 
@@ -946,8 +949,8 @@ def write_mesh_to_netcdf(grid, ofile="~/sl.grid.CDO.nc", netcdf=True, netcdf_pre
         raise NotImplementedError("Ascii output (which is deprecated and slow anyway) has not been implemented for fesom2velocities=True.")
 
     if verbose:
-        print("Horizontal grid description file complete.")
-        print(f"You can use this file to set the horizontal grid of a corresponding NetCDF file with 'cdo setgrid,{ofile} ifile.nc ofile.nc'.")
+        logger.info("Horizontal grid description file complete.")
+        logger.info(f"You can use this file to set the horizontal grid of a corresponding NetCDF file with 'cdo setgrid,{ofile} ifile.nc ofile.nc'.")
 
     if depth and ofile_ZAXIS is not None:
         # Assuming you have the corresponding writeZAXIS function.
