@@ -523,6 +523,18 @@ def plot(
                 cmap=colormap,
                 extend=cmap_extension,
             )
+        elif ptype == "cflog":
+            data_int_cyc, lon_cyc = add_cyclic_point(data_int, coord=lonreg)
+            image = ax[ind].contourf(
+                lon_cyc,
+                latreg,
+                data_int_cyc,
+                levels=data_levels,
+                transform=ccrs.PlateCarree(),
+                cmap=colormap,
+                extend=cmap_extension,
+                norm=colors.BoundaryNorm(boundaries=levels, ncolors=256),
+            )
         elif ptype == "pcm":
             mmin = data_levels[0]
             mmax = data_levels[-1]
@@ -727,7 +739,18 @@ def subplot(
                 cmap=colormap,
                 extend=cmap_extension,
             )
-            
+        elif ptype == "cflog":
+            data_int_cyc, lon_cyc = add_cyclic_point(data_int, coord=lonreg)
+            image = ax[ind].contourf(
+                lon_cyc,
+                latreg,
+                data_int_cyc,
+                levels=data_levels,
+                transform=ccrs.PlateCarree(),
+                cmap=colormap,
+                extend=cmap_extension,
+                norm=colors.BoundaryNorm(boundaries=levels, ncolors=256),
+            )
         elif ptype == "pcm":
             mmin = data_levels[0]
             mmax = data_levels[-1]
