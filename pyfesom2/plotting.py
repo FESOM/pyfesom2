@@ -12,6 +12,7 @@ import sys
 import joblib
 import matplotlib as mpl
 import matplotlib.pylab as plt
+import matplotlib.colors as colors
 import numpy as np
 import shapely.vectorized
 import xarray as xr
