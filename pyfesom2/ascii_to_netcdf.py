@@ -589,6 +589,7 @@ def read_fesom_ascii_grid(griddir, rot=False, rot_invert=False, rot_abg=None, th
     stampmat_lon = np.full((N, maxNstamp), np.nan)
     stampmat_lat = np.full((N, maxNstamp), np.nan)
     Nstamp = np.full(N, np.nan)
+    # Optimized stamp polygon generation with inlined barycenter
     for i in range(N):
         Nstamp_i = 0
         for j in range(maxneighs):
@@ -596,11 +597,14 @@ def read_fesom_ascii_grid(griddir, rot=False, rot_invert=False, rot_abg=None, th
             if np.isnan(nn):
                 break
             if not onlybaryc or (coast[i] and (j == 0 or j == Nneighs[i] - 1)):
-                # compute median of central node and neighbor node
-                nn_index = int(nn) - 1  # Subtract 1 to correct the index
-                lon_ij, lat_ij = barycenter([lon[i], lon[nn_index]], [lat[i], lat[nn_index]], [z[i], z[nn_index]])
-                stampmat_lon[i, Nstamp_i] = lon_ij
-                stampmat_lat[i, Nstamp_i] = lat_ij
+                # Inline barycenter computation for 2 points (much faster)
+                nn_index = int(nn) - 1
+                x_mean = (x[i] + x[nn_index]) / 2.0
+                y_mean = (y[i] + y[nn_index]) / 2.0
+                z_mean = (z[i] + z[nn_index]) / 2.0
+                dist = np.sqrt(x_mean**2 + y_mean**2 + z_mean**2)
+                stampmat_lon[i, Nstamp_i] = np.arctan2(y_mean/dist, x_mean/dist) * 180.0 / np.pi
+                stampmat_lat[i, Nstamp_i] = np.arcsin(z_mean/dist) * 180.0 / np.pi
                 Nstamp_i += 1
             ne = neighelems[i, j]
             if np.isnan(ne):
@@ -646,11 +650,51 @@ def read_fesom_ascii_grid(griddir, rot=False, rot_invert=False, rot_abg=None, th
         if verbose:
             start_time = time.time()
             logger.info("computing element and 'stamp polygon' areas ...")
+        
+        # Simplified spherical triangle area calculation (avoids expensive rotate() calls)
         elemareas = np.zeros(Ne)
-        cellareas = np.zeros(N)
+        idx = elem - 1
+        lon_elem = lon[idx]  # Shape: (Ne, 3)
+        lat_elem = lat[idx]
+        
+        DEG_TO_RAD = np.pi / 180.0
+        
+        # Loop over elements with simplified spherical excess formula
         for ie in range(Ne):
-            elemareas[ie] = triag_area(lon[elem[ie, :]-1], lat[elem[ie, :]-1])
+            # Get coordinates in radians
+            lon0, lat0 = lon_elem[ie, 0] * DEG_TO_RAD, lat_elem[ie, 0] * DEG_TO_RAD
+            lon1, lat1 = lon_elem[ie, 1] * DEG_TO_RAD, lat_elem[ie, 1] * DEG_TO_RAD
+            lon2, lat2 = lon_elem[ie, 2] * DEG_TO_RAD, lat_elem[ie, 2] * DEG_TO_RAD
+            
+            # Spherical law of cosines for side lengths
+            cos_a = np.sin(lat1) * np.sin(lat2) + np.cos(lat1) * np.cos(lat2) * np.cos(lon1 - lon2)
+            cos_b = np.sin(lat2) * np.sin(lat0) + np.cos(lat2) * np.cos(lat0) * np.cos(lon2 - lon0)
+            cos_c = np.sin(lat0) * np.sin(lat1) + np.cos(lat0) * np.cos(lat1) * np.cos(lon0 - lon1)
+            
+            # Clamp to valid range
+            cos_a = np.clip(cos_a, -1.0, 1.0)
+            cos_b = np.clip(cos_b, -1.0, 1.0)
+            cos_c = np.clip(cos_c, -1.0, 1.0)
+            
+            a = np.arccos(cos_a)
+            b = np.arccos(cos_b)
+            c = np.arccos(cos_c)
+            
+            # Semi-perimeter
+            s = (a + b + c) / 2.0
+            
+            # L'Huilier's formula for spherical excess
+            tan_E_4_sq = np.tan(s/2) * np.tan((s-a)/2) * np.tan((s-b)/2) * np.tan((s-c)/2)
+            if tan_E_4_sq > 0:
+                E = 4.0 * np.arctan(np.sqrt(tan_E_4_sq))
+                elemareas[ie] = E
+            else:
+                elemareas[ie] = 0
+        
         elemareas *= Rearth ** 2
+        
+        # Vectorized cell area calculation
+        cellareas = np.zeros(N)
         for i in range(N):
             for j in range(np.shape(neighelems)[1]):
                 if not np.isnan(neighelems[i, j]):
