@@ -46,6 +46,90 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
+# Numba-optimized helper functions
+if HAS_NUMBA:
+    @njit(parallel=True, fastmath=True)
+    def compute_spherical_areas_numba(lon_elem, lat_elem, Ne, Rearth):
+        """Compute spherical triangle areas in parallel using Numba"""
+        elemareas = np.empty(Ne, dtype=np.float64)
+        DEG_TO_RAD = np.pi / 180.0
+        
+        for ie in prange(Ne):
+            # Get coordinates in radians
+            lon0 = lon_elem[ie, 0] * DEG_TO_RAD
+            lat0 = lat_elem[ie, 0] * DEG_TO_RAD
+            lon1 = lon_elem[ie, 1] * DEG_TO_RAD
+            lat1 = lat_elem[ie, 1] * DEG_TO_RAD
+            lon2 = lon_elem[ie, 2] * DEG_TO_RAD
+            lat2 = lat_elem[ie, 2] * DEG_TO_RAD
+            
+            # Spherical law of cosines for side lengths
+            cos_a = np.sin(lat1) * np.sin(lat2) + np.cos(lat1) * np.cos(lat2) * np.cos(lon1 - lon2)
+            cos_b = np.sin(lat2) * np.sin(lat0) + np.cos(lat2) * np.cos(lat0) * np.cos(lon2 - lon0)
+            cos_c = np.sin(lat0) * np.sin(lat1) + np.cos(lat0) * np.cos(lat1) * np.cos(lon0 - lon1)
+            
+            # Clamp to valid range
+            cos_a = max(-1.0, min(1.0, cos_a))
+            cos_b = max(-1.0, min(1.0, cos_b))
+            cos_c = max(-1.0, min(1.0, cos_c))
+            
+            a = np.arccos(cos_a)
+            b = np.arccos(cos_b)
+            c = np.arccos(cos_c)
+            
+            # Semi-perimeter
+            s = (a + b + c) / 2.0
+            
+            # L'Huilier's formula for spherical excess
+            tan_E_4_sq = np.tan(s/2) * np.tan((s-a)/2) * np.tan((s-b)/2) * np.tan((s-c)/2)
+            if tan_E_4_sq > 0:
+                E = 4.0 * np.arctan(np.sqrt(tan_E_4_sq))
+                elemareas[ie] = E * Rearth * Rearth
+            else:
+                elemareas[ie] = 0.0
+        
+        return elemareas
+
+    @njit(parallel=True)
+    def compute_stamp_polygons_numba(N, maxneighs, neighnodes, neighelems, Nneighs, 
+                                     x, y, z, baryc_lon, baryc_lat, coast, 
+                                     onlybaryc, omitcoastnds, lon, lat):
+        """Compute stamp polygons with Numba acceleration"""
+        maxNstamp = 2 * maxneighs
+        stampmat_lon = np.full((N, maxNstamp), np.nan, dtype=np.float64)
+        stampmat_lat = np.full((N, maxNstamp), np.nan, dtype=np.float64)
+        Nstamp = np.full(N, np.nan, dtype=np.float64)
+        
+        for i in range(N):
+            Nstamp_i = 0
+            for j in range(maxneighs):
+                nn = neighnodes[i, j]
+                if np.isnan(nn):
+                    break
+                if not onlybaryc or (coast[i] and (j == 0 or j == Nneighs[i] - 1)):
+                    # Inline barycenter computation
+                    nn_index = int(nn) - 1
+                    x_mean = (x[i] + x[nn_index]) / 2.0
+                    y_mean = (y[i] + y[nn_index]) / 2.0
+                    z_mean = (z[i] + z[nn_index]) / 2.0
+                    dist = np.sqrt(x_mean*x_mean + y_mean*y_mean + z_mean*z_mean)
+                    stampmat_lon[i, Nstamp_i] = np.arctan2(y_mean/dist, x_mean/dist) * 180.0 / np.pi
+                    stampmat_lat[i, Nstamp_i] = np.arcsin(z_mean/dist) * 180.0 / np.pi
+                    Nstamp_i += 1
+                ne = neighelems[i, j]
+                if np.isnan(ne):
+                    break
+                stampmat_lon[i, Nstamp_i] = baryc_lon[int(ne)]
+                stampmat_lat[i, Nstamp_i] = baryc_lat[int(ne)]
+                Nstamp_i += 1
+            if coast[i] and not omitcoastnds:
+                stampmat_lon[i, Nstamp_i] = lon[i]
+                stampmat_lat[i, Nstamp_i] = lat[i]
+                Nstamp_i += 1
+            Nstamp[i] = Nstamp_i
+        
+        return stampmat_lon, stampmat_lat, Nstamp
+
 def read_fesom_ascii_grid(griddir, rot=False, rot_invert=False, rot_abg=None, threeD=True, remove_empty_lev=False, read_boundary=True,
                     reorder_ccw=True, maxmaxneigh=12, findneighbours_maxiter=15, repeatlastpoint=True, onlybaryc=False,
                     omitcoastnds=False, calcpolyareas=True, Rearth=6371000, basicreadonly=False, fesom2=True, cavity=False, verbose=True):
@@ -586,37 +670,45 @@ def read_fesom_ascii_grid(griddir, rot=False, rot_invert=False, rot_abg=None, th
         logger.info("generate 'stamp polygons' around each node ...")
     maxneighs = neighnodes.shape[1]
     maxNstamp = 2 * maxneighs
-    stampmat_lon = np.full((N, maxNstamp), np.nan)
-    stampmat_lat = np.full((N, maxNstamp), np.nan)
-    Nstamp = np.full(N, np.nan)
-    # Optimized stamp polygon generation with inlined barycenter
-    for i in range(N):
-        Nstamp_i = 0
-        for j in range(maxneighs):
-            nn = neighnodes[i, j]
-            if np.isnan(nn):
-                break
-            if not onlybaryc or (coast[i] and (j == 0 or j == Nneighs[i] - 1)):
-                # Inline barycenter computation for 2 points (much faster)
-                nn_index = int(nn) - 1
-                x_mean = (x[i] + x[nn_index]) / 2.0
-                y_mean = (y[i] + y[nn_index]) / 2.0
-                z_mean = (z[i] + z[nn_index]) / 2.0
-                dist = np.sqrt(x_mean**2 + y_mean**2 + z_mean**2)
-                stampmat_lon[i, Nstamp_i] = np.arctan2(y_mean/dist, x_mean/dist) * 180.0 / np.pi
-                stampmat_lat[i, Nstamp_i] = np.arcsin(z_mean/dist) * 180.0 / np.pi
+    
+    # Use Numba-optimized version if available
+    if HAS_NUMBA:
+        stampmat_lon, stampmat_lat, Nstamp = compute_stamp_polygons_numba(
+            N, maxneighs, neighnodes, neighelems, Nneighs, 
+            x, y, z, baryc_lon, baryc_lat, coast, 
+            onlybaryc, omitcoastnds, lon, lat
+        )
+    else:
+        # Fallback to pure Python version
+        stampmat_lon = np.full((N, maxNstamp), np.nan)
+        stampmat_lat = np.full((N, maxNstamp), np.nan)
+        Nstamp = np.full(N, np.nan)
+        for i in range(N):
+            Nstamp_i = 0
+            for j in range(maxneighs):
+                nn = neighnodes[i, j]
+                if np.isnan(nn):
+                    break
+                if not onlybaryc or (coast[i] and (j == 0 or j == Nneighs[i] - 1)):
+                    nn_index = int(nn) - 1
+                    x_mean = (x[i] + x[nn_index]) / 2.0
+                    y_mean = (y[i] + y[nn_index]) / 2.0
+                    z_mean = (z[i] + z[nn_index]) / 2.0
+                    dist = np.sqrt(x_mean**2 + y_mean**2 + z_mean**2)
+                    stampmat_lon[i, Nstamp_i] = np.arctan2(y_mean/dist, x_mean/dist) * 180.0 / np.pi
+                    stampmat_lat[i, Nstamp_i] = np.arcsin(z_mean/dist) * 180.0 / np.pi
+                    Nstamp_i += 1
+                ne = neighelems[i, j]
+                if np.isnan(ne):
+                    break
+                stampmat_lon[i, Nstamp_i] = baryc_lon[int(ne)]
+                stampmat_lat[i, Nstamp_i] = baryc_lat[int(ne)]
                 Nstamp_i += 1
-            ne = neighelems[i, j]
-            if np.isnan(ne):
-                break
-            stampmat_lon[i, Nstamp_i] = baryc_lon[int(ne)]
-            stampmat_lat[i, Nstamp_i] = baryc_lat[int(ne)]
-            Nstamp_i += 1
-        if coast[i] and not omitcoastnds:
-            stampmat_lon[i, Nstamp_i] = lon[i]
-            stampmat_lat[i, Nstamp_i] = lat[i]
-            Nstamp_i += 1
-        Nstamp[i] = Nstamp_i
+            if coast[i] and not omitcoastnds:
+                stampmat_lon[i, Nstamp_i] = lon[i]
+                stampmat_lat[i, Nstamp_i] = lat[i]
+                Nstamp_i += 1
+            Nstamp[i] = Nstamp_i
 
 
     if maxNstamp > int(np.max(Nstamp)):
@@ -651,47 +743,45 @@ def read_fesom_ascii_grid(griddir, rot=False, rot_invert=False, rot_abg=None, th
             start_time = time.time()
             logger.info("computing element and 'stamp polygon' areas ...")
         
-        # Simplified spherical triangle area calculation (avoids expensive rotate() calls)
-        elemareas = np.zeros(Ne)
+        # Use Numba-optimized version if available, otherwise fallback to pure Python
         idx = elem - 1
         lon_elem = lon[idx]  # Shape: (Ne, 3)
         lat_elem = lat[idx]
         
-        DEG_TO_RAD = np.pi / 180.0
-        
-        # Loop over elements with simplified spherical excess formula
-        for ie in range(Ne):
-            # Get coordinates in radians
-            lon0, lat0 = lon_elem[ie, 0] * DEG_TO_RAD, lat_elem[ie, 0] * DEG_TO_RAD
-            lon1, lat1 = lon_elem[ie, 1] * DEG_TO_RAD, lat_elem[ie, 1] * DEG_TO_RAD
-            lon2, lat2 = lon_elem[ie, 2] * DEG_TO_RAD, lat_elem[ie, 2] * DEG_TO_RAD
+        if HAS_NUMBA:
+            elemareas = compute_spherical_areas_numba(lon_elem, lat_elem, Ne, Rearth)
+        else:
+            # Fallback: simplified spherical triangle area calculation
+            elemareas = np.zeros(Ne)
+            DEG_TO_RAD = np.pi / 180.0
             
-            # Spherical law of cosines for side lengths
-            cos_a = np.sin(lat1) * np.sin(lat2) + np.cos(lat1) * np.cos(lat2) * np.cos(lon1 - lon2)
-            cos_b = np.sin(lat2) * np.sin(lat0) + np.cos(lat2) * np.cos(lat0) * np.cos(lon2 - lon0)
-            cos_c = np.sin(lat0) * np.sin(lat1) + np.cos(lat0) * np.cos(lat1) * np.cos(lon0 - lon1)
+            for ie in range(Ne):
+                lon0, lat0 = lon_elem[ie, 0] * DEG_TO_RAD, lat_elem[ie, 0] * DEG_TO_RAD
+                lon1, lat1 = lon_elem[ie, 1] * DEG_TO_RAD, lat_elem[ie, 1] * DEG_TO_RAD
+                lon2, lat2 = lon_elem[ie, 2] * DEG_TO_RAD, lat_elem[ie, 2] * DEG_TO_RAD
+                
+                cos_a = np.sin(lat1) * np.sin(lat2) + np.cos(lat1) * np.cos(lat2) * np.cos(lon1 - lon2)
+                cos_b = np.sin(lat2) * np.sin(lat0) + np.cos(lat2) * np.cos(lat0) * np.cos(lon2 - lon0)
+                cos_c = np.sin(lat0) * np.sin(lat1) + np.cos(lat0) * np.cos(lat1) * np.cos(lon0 - lon1)
+                
+                cos_a = np.clip(cos_a, -1.0, 1.0)
+                cos_b = np.clip(cos_b, -1.0, 1.0)
+                cos_c = np.clip(cos_c, -1.0, 1.0)
+                
+                a = np.arccos(cos_a)
+                b = np.arccos(cos_b)
+                c = np.arccos(cos_c)
+                
+                s = (a + b + c) / 2.0
+                
+                tan_E_4_sq = np.tan(s/2) * np.tan((s-a)/2) * np.tan((s-b)/2) * np.tan((s-c)/2)
+                if tan_E_4_sq > 0:
+                    E = 4.0 * np.arctan(np.sqrt(tan_E_4_sq))
+                    elemareas[ie] = E
+                else:
+                    elemareas[ie] = 0
             
-            # Clamp to valid range
-            cos_a = np.clip(cos_a, -1.0, 1.0)
-            cos_b = np.clip(cos_b, -1.0, 1.0)
-            cos_c = np.clip(cos_c, -1.0, 1.0)
-            
-            a = np.arccos(cos_a)
-            b = np.arccos(cos_b)
-            c = np.arccos(cos_c)
-            
-            # Semi-perimeter
-            s = (a + b + c) / 2.0
-            
-            # L'Huilier's formula for spherical excess
-            tan_E_4_sq = np.tan(s/2) * np.tan((s-a)/2) * np.tan((s-b)/2) * np.tan((s-c)/2)
-            if tan_E_4_sq > 0:
-                E = 4.0 * np.arctan(np.sqrt(tan_E_4_sq))
-                elemareas[ie] = E
-            else:
-                elemareas[ie] = 0
-        
-        elemareas *= Rearth ** 2
+            elemareas *= Rearth ** 2
         
         # Vectorized cell area calculation
         cellareas = np.zeros(N)
