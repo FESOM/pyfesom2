@@ -6,6 +6,7 @@
 #
 
 import argparse
+import logging
 from collections import OrderedDict
 
 import numpy as np
@@ -14,6 +15,8 @@ import xarray as xr
 from .load_mesh_data import get_data, ind_for_depth, load_mesh
 from .regridding import fesom2regular, tonodes
 from .ut import mask_ne, set_standard_attrs, vec_rotate_r2g
+
+logger = logging.getLogger(__name__)
 
 
 def parse_years(years):
@@ -49,7 +52,7 @@ def parse_timesteps(timesteps, time_shape):
     else:
         y = [int(timesteps)]
     timesteps = y
-    print("timesteps {}".format(timesteps))
+    logger.debug("timesteps {}".format(timesteps))
     return timesteps
 
 
@@ -61,7 +64,7 @@ def parse_depths(depths, mesh, vertical_type="nz1"):
         depths = [-1]
     else:
         depths = [int(depths)]
-    print(depths)
+    logger.debug(depths)
 
     if depths[0] == -1:
         if vertical_type == "nz":
@@ -81,8 +84,8 @@ def parse_depths(depths, mesh, vertical_type="nz1"):
             ddepth = ind_for_depth(depth, mesh)
             dind.append(ddepth)
             realdepth.append(mesh.zlev[ddepth])
-    print(dind)
-    print(realdepth)
+    logger.debug(dind)
+    logger.debug(realdepth)
     return dind, realdepth
 
 
@@ -274,21 +277,21 @@ def pfinterp():
     args = parser.parse_args()
     # args.func(args)
     if not args.quiet:
-        print("Mesh path:                     {}".format(args.meshpath))
-        print("Input file path:               {}".format(args.result_path))
-        print("Name of the variable:          {}".format(args.variable))
-        print("Years:                         {}".format(args.years))
-        print("Depths:                         {}".format(args.depths))
-        print("Bounding box:                  {}".format(args.box))
-        print("Number of points along sides:  {}".format(args.res))
-        print("Radius of influence (in m.):   {}".format(args.influence))
-        print("Nearest neighbors to use:      {}".format(args.k))
-        print("Timesteps index:               {}".format(args.timesteps))
-        print("Quiet?:                        {}".format(args.quiet))
-        print("Output file:                   {}".format(args.ofile))
-        print("Euler angles of mesh rotation: {}".format(args.abg))
-        print("Interpolation method:          {}".format(args.interp))
-        print("Do not mask PI by default:     {}".format(args.no_pi_mask))
+        logger.info("Mesh path:                     {}".format(args.meshpath))
+        logger.info("Input file path:               {}".format(args.result_path))
+        logger.info("Name of the variable:          {}".format(args.variable))
+        logger.info("Years:                         {}".format(args.years))
+        logger.info("Depths:                         {}".format(args.depths))
+        logger.info("Bounding box:                  {}".format(args.box))
+        logger.info("Number of points along sides:  {}".format(args.res))
+        logger.info("Radius of influence (in m.):   {}".format(args.influence))
+        logger.info("Nearest neighbors to use:      {}".format(args.k))
+        logger.info("Timesteps index:               {}".format(args.timesteps))
+        logger.info("Quiet?:                        {}".format(args.quiet))
+        logger.info("Output file:                   {}".format(args.ofile))
+        logger.info("Euler angles of mesh rotation: {}".format(args.abg))
+        logger.info("Interpolation method:          {}".format(args.interp))
+        logger.info("Do not mask PI by default:     {}".format(args.no_pi_mask))
 
     mesh = load_mesh(args.meshpath, abg=args.abg, usepickle=True, usejoblib=False)
 
