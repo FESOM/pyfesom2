@@ -76,7 +76,9 @@ def ice_ext(data, mesh, hemisphere="N", threshhold=0.15, attrs={}):
         data = data.where(data < threshhold, 1)
         data = data.where(data > threshhold)
 
-        ext = (data[:, hemis_mask] * mesh.lump2[hemis_mask]).sum(axis=1)
+        finite_mask = data.squeeze().values
+        
+        ext = (data[:, hemis_mask & finite_mask] * mesh.lump2[hemis_mask & finite_mask]).sum(axis=1)
         da = xr.DataArray(
             ext, dims=["time"], coords={"time": data.time}, name=varname, attrs=attrs
         )
@@ -84,10 +86,11 @@ def ice_ext(data, mesh, hemisphere="N", threshhold=0.15, attrs={}):
 
     else:
         logger.debug(data)
+        finite_mask = data.squeeze()
         i, j = np.where(data < 0.15)
         data[:] = 1
         data[i, j] = 0
-        ext = (data[:, hemis_mask] * mesh.lump2[hemis_mask]).sum(axis=1)
+        ext = (data[:, hemis_mask & finite_mask] * mesh.lump2[hemis_mask & finite_mask]).sum(axis=1)
         return ext
 
 
