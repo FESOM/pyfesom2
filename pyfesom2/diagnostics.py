@@ -76,7 +76,7 @@ def ice_ext(data, mesh, hemisphere="N", threshhold=0.15, attrs={}):
         data = data.where(data < threshhold, 1)
         data = data.where(data > threshhold)
 
-        finite_mask = data.squeeze().values
+        finite_mask = np.isfinite(data.squeeze().values)
         
         ext = (data[:, hemis_mask & finite_mask] * mesh.lump2[hemis_mask & finite_mask]).sum(axis=1)
         da = xr.DataArray(
@@ -86,8 +86,9 @@ def ice_ext(data, mesh, hemisphere="N", threshhold=0.15, attrs={}):
 
     else:
         logger.debug(data)
-        finite_mask = data.squeeze()
-        i, j = np.where(data < 0.15)
+        finite_mask = np.isfinite(data.squeeze())
+        data = np.where(~finite_mask, 0, data) # replace nan values by 0s
+        i, j = np.where(data < threshhold)
         data[:] = 1
         data[i, j] = 0
         ext = (data[:, hemis_mask & finite_mask] * mesh.lump2[hemis_mask & finite_mask]).sum(axis=1)
