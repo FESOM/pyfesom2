@@ -55,7 +55,7 @@ def test_fesom_like():
     assert len(ds.nod2) == ncells
     assert len(ds.time) == ntimes
     # check if we can pass datetime arrays
-    times = pd.date_range('2001-01-01', freq='M', periods=ntimes)
+    times = pd.date_range('2001-01-01', freq='ME', periods=ntimes)
     ds = datasets.fesom_like(ncells, times=times)
     assert len(ds.time) == len(times)
 

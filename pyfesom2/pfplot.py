@@ -6,6 +6,7 @@
 #
 
 import argparse
+import logging
 
 import cmocean.cm as cmo
 import matplotlib.pylab as plt
@@ -16,6 +17,8 @@ from .pfinterp import parse_depths, parse_timesteps, parse_years
 # import matplotlib as mpl
 # mpl.use('Qt5Agg')
 from .plotting import plot
+
+logger = logging.getLogger(__name__)
 
 
 def pfplot():
@@ -130,27 +133,27 @@ def pfplot():
     args = parser.parse_args()
     # args.func(args)
     if not args.quiet:
-        print("Mesh path:                     {}".format(args.meshpath))
-        print("Input file path:               {}".format(args.result_path))
-        print("Name of the variable:          {}".format(args.variable))
-        print("Years:                         {}".format(args.years))
-        print("Depth:                         {}".format(args.depth))
-        print("Bounding box:                  {}".format(args.box))
-        print("Number of points along sides:  {}".format(args.res))
-        print("Radius of influence (in m.):   {}".format(args.influence))
-        print("Nearest neighbors to use:      {}".format(args.k))
-        print("Timestep index:                {}".format(args.timestep))
-        print("Contour plot levels:           {}".format(args.levels))
-        print("Quiet?:                        {}".format(args.quiet))
-        print("Output file for image:         {}".format(args.ofile))
-        print("Map projection:                {}".format(args.mapproj))
-        print("Euler angles of mesh rotation: {}".format(args.abg))
-        # print("File with climatology:         {}".format(args.clim))
-        print("Name of the color map:         {}".format(args.cmap))
-        print("Interpolation method:          {}".format(args.interp))
-        print("Plot type:                     {}".format(args.ptype))
+        logger.info("Mesh path:                     {}".format(args.meshpath))
+        logger.info("Input file path:               {}".format(args.result_path))
+        logger.info("Name of the variable:          {}".format(args.variable))
+        logger.info("Years:                         {}".format(args.years))
+        logger.info("Depth:                         {}".format(args.depth))
+        logger.info("Bounding box:                  {}".format(args.box))
+        logger.info("Number of points along sides:  {}".format(args.res))
+        logger.info("Radius of influence (in m.):   {}".format(args.influence))
+        logger.info("Nearest neighbors to use:      {}".format(args.k))
+        logger.info("Timestep index:                {}".format(args.timestep))
+        logger.info("Contour plot levels:           {}".format(args.levels))
+        logger.info("Quiet?:                        {}".format(args.quiet))
+        logger.info("Output file for image:         {}".format(args.ofile))
+        logger.info("Map projection:                {}".format(args.mapproj))
+        logger.info("Euler angles of mesh rotation: {}".format(args.abg))
+        # logger.info("File with climatology:         {}".format(args.clim))
+        logger.info("Name of the color map:         {}".format(args.cmap))
+        logger.info("Interpolation method:          {}".format(args.interp))
+        logger.info("Plot type:                     {}".format(args.ptype))
 
-    print(args.cmap)
+    logger.debug(args.cmap)
     if args.cmap:
         colormap = args.cmap
     else:

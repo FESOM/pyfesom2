@@ -5,6 +5,7 @@
 # Qiang Wang, Sergey Danilov and Patrick Scholz
 #
 
+import logging
 import math
 import os
 import sys
@@ -25,12 +26,14 @@ from .regridding import fesom2regular, tonodes
 from .transect import transect_get_nodes
 from .ut import cut_region, get_cmap, get_no_cyclic, mask_ne, vec_rotate_r2g
 
+logger = logging.getLogger(__name__)
+
 try:
     import cartopy.crs as ccrs
     import cartopy.feature as cfeature
     from cartopy.util import add_cyclic_point
 except ImportError:
-    print("Cartopy is not installed, plotting is not available.")
+    logger.warning("Cartopy is not installed, plotting is not available.")
 
 
 sfmt = ticker.ScalarFormatter(useMathText=True)
@@ -158,10 +161,10 @@ def levels_to_data(mmin, mmax, data):
     mmax_d = np.nanmax(data)
     if mmin < mmin_d:
         mmin = mmin_d
-        print("minimum level changed to make cartopy happy")
+        logger.info("minimum level changed to make cartopy happy")
     if mmax > mmax_d:
         mmax = mmax_d
-        print("maximum level changed to make cartopy happy")
+        logger.info("maximum level changed to make cartopy happy")
     return mmin, mmax
 
 

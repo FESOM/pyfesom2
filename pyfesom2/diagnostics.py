@@ -5,6 +5,7 @@
 # Qiang Wang, Sergey Danilov and Patrick Scholz
 #
 
+import logging
 import os
 
 import numpy as np
@@ -13,6 +14,8 @@ from pandas.plotting import register_matplotlib_converters
 
 from .load_mesh_data import ind_for_depth
 from .ut import compute_face_coords, get_mask
+
+logger = logging.getLogger(__name__)
 
 register_matplotlib_converters()
 
@@ -70,21 +73,26 @@ def ice_ext(data, mesh, hemisphere="N", threshhold=0.15, attrs={}):
         hemis_mask = mesh.y2 < 0
 
     if isinstance(data, xr.DataArray):
-        data = data.where(data < threshhold, 1)
-        data = data.where(data > threshhold)
+        # Create binary ice extent field: 1 where ice >= threshold, 0 where < threshold, NaN stays NaN
+        ice_binary = xr.where(data >= threshhold, 1, 0)
+        ice_binary = ice_binary.where(~np.isnan(data))  # Preserve NaN values (land)
 
-        ext = (data[:, hemis_mask] * mesh.lump2[hemis_mask]).sum(axis=1)
+        finite_mask = ~np.isnan(ice_binary.squeeze().values)
+        
+        ext = (ice_binary[:, hemis_mask & finite_mask] * mesh.lump2[hemis_mask & finite_mask]).sum(axis=1)
         da = xr.DataArray(
             ext, dims=["time"], coords={"time": data.time}, name=varname, attrs=attrs
         )
         return da
 
     else:
-        print(data)
-        i, j = np.where(data < 0.15)
-        data[:] = 1
-        data[i, j] = 0
-        ext = (data[:, hemis_mask] * mesh.lump2[hemis_mask]).sum(axis=1)
+        logger.debug(data)
+        # Create binary ice extent field: 1 where ice >= threshold, 0 where < threshold, NaN stays NaN
+        ice_binary = np.where(data >= threshhold, 1, 0).astype(float)
+        ice_binary[np.isnan(data)] = np.nan  # Preserve NaN values (land)
+        
+        finite_mask = ~np.isnan(ice_binary.squeeze())
+        ext = (ice_binary[:, hemis_mask & finite_mask] * mesh.lump2[hemis_mask & finite_mask]).sum(axis=1)
         return ext
 
 
@@ -285,7 +293,7 @@ def select_depths(uplow, mesh):
     elif uplow[1] == "bottom":
         upper = ind_for_depth(uplow[0], mesh)
         lower = mesh.nlev - 1
-        print(f"Upper depth: {mesh.zlev[upper]}, Lower depth: bottom")
+        logger.info(f"Upper depth: {mesh.zlev[upper]}, Lower depth: bottom")
         indexes = range(upper, lower)
         return indexes
     else:
@@ -293,7 +301,7 @@ def select_depths(uplow, mesh):
         lower = ind_for_depth(uplow[1], mesh)
         if lower >= mesh.nlev - 2:
             lower = mesh.nlev - 2
-        print(f"Upper depth: {mesh.zlev[upper]}, Lower depth: {mesh.zlev[lower]}")
+        logger.info(f"Upper depth: {mesh.zlev[upper]}, Lower depth: {mesh.zlev[lower]}")
         indexes = range(upper, lower + 1)
         return indexes
 

@@ -8,7 +8,6 @@
 import logging
 import os
 import pickle
-import sys
 import time
 import warnings
 
@@ -26,6 +25,8 @@ EARTH_RADIUS = 6371000.0  # meters
 LONGITUDE_WRAP_THRESHOLD = 355  # degrees
 LONGITUDE_PERIOD = 360  # degrees
 CYCLIC_ELEMENT_THRESHOLD = 100  # degrees
+
+logger = logging.getLogger(__name__)
 
 
 def load_mesh(path, abg=[0, 0, 0], usepickle=True, usejoblib=False, protocol=4):
@@ -63,33 +64,33 @@ def load_mesh(path, abg=[0, 0, 0], usepickle=True, usejoblib=False, protocol=4):
     if usepickle:
         if os.path.isfile(os.path.join(path, "pickle_mesh_py3_fesom2")):
             pickle_file = os.path.join(path, "pickle_mesh_py3_fesom2")
-            print(pickle_file)
+            logger.debug(f"Found pickle file: {pickle_file}")
         elif os.path.isfile(os.path.join(CACHE_DIR, "pickle_mesh_py3_fesom2")):
             pickle_file = os.path.join(CACHE_DIR, "pickle_mesh_py3_fesom2")
-            print(pickle_file)
+            logger.debug(f"Found pickle file in cache: {pickle_file}")
         else:
             pickle_file = "/dev/null"
-            print(
+            logger.info(
                 "pickle file not found in any default location, a try will be made to create it..."
             )
 
     if usejoblib:
         if os.path.isfile(os.path.join(path, "joblib_mesh_py3_fesom2")):
             joblib_file = os.path.join(path, "joblib_mesh_py3_fesom2")
-            print(joblib_file)
+            logger.debug(f"Found joblib file: {joblib_file}")
         elif os.path.isfile(os.path.join(CACHE_DIR, "joblib_mesh_py3_fesom2")):
             joblib_file = os.path.join(CACHE_DIR, "joblib_mesh_py3_fesom2")
-            print(joblib_file)
+            logger.debug(f"Found joblib file in cache: {joblib_file}")
         else:
             joblib_file = "/dev/null"  # Use a string here, the check below needs it
-            print(
+            logger.info(
                 "joblib file not found in any default location, a try will be made to create it..."
             )
 
     if usepickle and (os.path.isfile(pickle_file)):
-        print("The usepickle == True)")
-        print("The pickle file for FESOM2 exists.")
-        print("The mesh will be loaded from {}".format(pickle_file))
+        logger.debug("The usepickle == True)")
+        logger.debug("The pickle file for FESOM2 exists.")
+        logger.info("The mesh will be loaded from {}".format(pickle_file))
 
         ifile = open(pickle_file, "rb")
         mesh = pickle.load(ifile)
@@ -97,30 +98,30 @@ def load_mesh(path, abg=[0, 0, 0], usepickle=True, usejoblib=False, protocol=4):
         return mesh
 
     elif (usepickle == True) and (os.path.isfile(pickle_file) == False):
-        print("The usepickle == True")
-        print("The pickle file for FESOM2 DO NOT exists")
+        logger.debug("The usepickle == True")
+        logger.debug("The pickle file for FESOM2 DO NOT exists")
 
         mesh = Mesh(path=path, abg=abg)
 
         try:  # to save in the mesh first...
             pickle_file = os.path.join(path, "pickle_mesh_py3_fesom2")
-            print("The mesh will be saved to {}".format(pickle_file))
-            logging.info("Use pickle to save the mesh information")
-            print("Save mesh to binary format")
+            logger.info("The mesh will be saved to {}".format(pickle_file))
+            logger.info("Use pickle to save the mesh information")
+            logger.info("Save mesh to binary format")
             outfile = open(pickle_file, "wb")
             pickle.dump(mesh, outfile, protocol=protocol)
             outfile.close()
         except PermissionError:
             try:  # to save in the cache next...
                 pickle_file = os.path.join(CACHE_DIR, "pickle_mesh_py3_fesom2")
-                print("The mesh will be saved to {}".format(pickle_file))
-                logging.info("Use pickle to save the mesh information")
-                print("Save mesh to binary format")
+                logger.info("The mesh will be saved to {}".format(pickle_file))
+                logger.info("Use pickle to save the mesh information")
+                logger.info("Save mesh to binary format")
                 outfile = open(pickle_file, "wb")
                 pickle.dump(mesh, outfile, protocol=protocol)
                 outfile.close()
             except PermissionError:  # couldn't save in either location...
-                print("Something went wrong with saving the pickle, sorry...")
+                logger.warning("Something went wrong with saving the pickle, sorry...")
         return mesh
 
     elif (usepickle == False) and (usejoblib == False):
@@ -128,38 +129,38 @@ def load_mesh(path, abg=[0, 0, 0], usepickle=True, usejoblib=False, protocol=4):
         return mesh
 
     if (usejoblib == True) and (os.path.isfile(joblib_file)):
-        print("The usejoblib == True)")
-        print("The joblib file for FESOM2 exists.")
-        print("The mesh will be loaded from {}".format(joblib_file))
+        logger.debug("The usejoblib == True)")
+        logger.debug("The joblib file for FESOM2 exists.")
+        logger.info("The mesh will be loaded from {}".format(joblib_file))
 
         mesh = joblib.load(joblib_file)
         return mesh
 
     elif (usejoblib == True) and (os.path.isfile(joblib_file) == False):
-        print("The usejoblib == True")
-        print("The joblib file for FESOM2 DO NOT exists")
+        logger.debug("The usejoblib == True")
+        logger.debug("The joblib file for FESOM2 DO NOT exists")
 
         mesh = Mesh(path=path, abg=abg)
 
         try:  # to save in the mesh first...
             joblib_file = os.path.join(path, "joblib_mesh_py3_fesom2")
-            print("The mesh will be saved to {}".format(joblib_file))
-            logging.info("Use joblib to save the mesh information")
-            print("Save mesh to binary format")
+            logger.info("The mesh will be saved to {}".format(joblib_file))
+            logger.info("Use joblib to save the mesh information")
+            logger.info("Save mesh to binary format")
             outfile = open(joblib_file, "wb")
             joblib.dump(mesh, outfile, protocol=protocol)
             outfile.close()
         except PermissionError:
             try:  # to save in the cache next...
                 joblib_file = os.path.join(CACHE_DIR, "joblib_mesh_py3_fesom2")
-                print("The mesh will be saved to {}".format(joblib_file))
-                logging.info("Use joblib to save the mesh information")
-                print("Save mesh to binary format")
+                logger.info("The mesh will be saved to {}".format(joblib_file))
+                logger.info("Use joblib to save the mesh information")
+                logger.info("Save mesh to binary format")
                 outfile = open(joblib_file, "wb")
                 joblib.dump(mesh, outfile, protocol=protocol)
                 outfile.close()
             except PermissionError:  # couldn't save in either location...
-                print("Something went wrong with saving the joblib, sorry...")
+                logger.warning("Something went wrong with saving the joblib, sorry...")
         return mesh
 
 
@@ -234,16 +235,16 @@ class Mesh:
         self.topo = []
         self.voltri = []
 
-        logging.info("load 2d part of the mesh")
+        logger.info("load 2d part of the mesh")
         start = time.time()
         self.read2d()
         end = time.time()
-        print("Load 2d part of the mesh in {} second(s)".format(str(int(end - start))))
+        logger.info("Load 2d part of the mesh in {} second(s)".format(str(int(end - start))))
 
     def read2d(self):
         file_content = pd.read_csv(
             self.nod2dfile,
-            sep=r'\s+',
+            sep=r"\s+",
             skiprows=1,
             names=["node_number", "x", "y", "flag"],
         )
@@ -254,7 +255,7 @@ class Mesh:
 
         file_content = pd.read_csv(
             self.elm2dfile,
-            sep=r'\s+',
+            sep=r"\s+",
             skiprows=1,
             names=["first_elem", "second_elem", "third_elem"],
         )
@@ -567,10 +568,10 @@ def get_data(
     if depth is not None:
         dind = ind_for_depth(depth, mesh)
         if not silent:
-            print("Model depth: {}".format(abs(mesh.zlev[dind])))
+            logger.info("Model depth: {}".format(abs(mesh.zlev[dind])))
     else:
         if not silent:
-            print("Depth is None, 3d field will be returned")
+            logger.info("Depth is None, 3d field will be returned")
 
     dataset = xr.open_mfdataset(paths, combine="by_coords", use_cftime=True, **kwargs)
     data = select_slices(dataset, variable, mesh, records, depth)

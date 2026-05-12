@@ -15,13 +15,13 @@ The easiest way is to install latest stable version from `conda-forge`::
 Development Installation
 ************************
 
-If you want to use the latest version of the code, or just plan to change the code inside the package, you have to install it in "development" mode. After you install `conda` (python 3.7 environment is recomended), clone the source code::
+If you want to use the latest version of the code, or just plan to change the code inside the package, you have to install it in "development" mode. After you install `conda` (python 3.12 environment is recommended), clone the source code::
 
     git clone https://github.com/FESOM/pyfesom2.git
 
 Create pyfesom2 environment by::
 
-    conda env create -f ./pyfesom2/ci/requirements-py37.yml
+    conda env create -f ./pyfesom2/ci/requirements.yml
     
 Activate the environment::
 

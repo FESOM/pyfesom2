@@ -4,14 +4,17 @@
 # Original code by Alireza Mahdavi
 #
 
+import logging
 import numpy as np
 
 from pyfesom2 import fesom2regular
 
+logger = logging.getLogger(__name__)
+
 try:
     from osgeo import osr, gdal
 except ImportError:
-    print('osgeo is not installed, conversion to Geo formats like Geotiff (fesom2GeoFormat) will not work.')
+    logger.warning('osgeo is not installed, conversion to Geo formats like Geotiff (fesom2GeoFormat) will not work.')
 
 
 def fesom2GeoFormat(data, mesh, outName, radius_of_influence=100000, method='nn', driver='Gtiff'):
