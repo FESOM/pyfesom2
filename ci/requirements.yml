@@ -26,3 +26,6 @@ dependencies:
   - pyproj
   - pymap3d
   - tqdm
+  - pip
+  - pip:
+      - pytest-github-actions-annotate-failures
