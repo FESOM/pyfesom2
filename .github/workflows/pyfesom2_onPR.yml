@@ -58,7 +58,7 @@ jobs:
       with:
         environment-file: main/ci/requirements-py37.yml
         environment-name: pyfesom2
-        cache-envronment-key: "${{runner.os}}-${{runner.arch}}-py${{env.PYTHON_VERSION}}-${{env.TODAY}}-${{hashFiles(env.CONDA_ENV_FILE)}}"
+        cache-environment-key: "${{runner.os}}-${{runner.arch}}-py${{env.PYTHON_VERSION}}-${{env.TODAY}}-${{hashFiles(env.CONDA_ENV_FILE)}}"
         init-shell: >-
             bash
             zsh
