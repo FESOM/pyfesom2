@@ -8,10 +8,43 @@
 # Add seasonal climatology
 ################################################################################
 import os
+import warnings
 
 import numpy as np
 import scipy as sc
-import seawater as sw
+
+# =============================================================================
+# WARNING: EOS-80 vs TEOS-10
+# -----------------------------------------------------------------------------
+# This module deliberately uses the (deprecated, unmaintained) `seawater`
+# library, which implements the EOS-80 equation of state. The successor
+# library `gsw` implements TEOS-10, which is the *current* international
+# standard (since 2010) for seawater thermodynamics.
+#
+# We have NOT migrated to gsw on purpose:
+#
+#   * EOS-80 takes Practical Salinity (PSS-78, unitless) as input.
+#   * TEOS-10 takes Absolute Salinity (g/kg) as input, which differs from
+#     Practical Salinity by a *regionally varying* composition anomaly that
+#     gsw retrieves from a bundled lon/lat/depth atlas (`gsw.SA_from_SP`).
+#   * Climatology inputs here are practical salinity from PHC / WOA, so a
+#     literal swap would silently change the numbers and break reproducibility
+#     against legacy pyfesom2 output.
+#
+# A proper TEOS-10 migration must (1) plumb lon/lat through to compute SA,
+# (2) decide whether to use SR (gsw.SR_from_SP) as a global-mean shortcut,
+# and (3) accept that potential temperatures will differ slightly from the
+# EOS-80 reference. Until that scientific decision is made, we keep EOS-80
+# and just silence the deprecation noise.
+# =============================================================================
+with warnings.catch_warnings():
+    warnings.filterwarnings(
+        "ignore",
+        message=".*seawater library is deprecated.*",
+        category=UserWarning,
+    )
+    import seawater as sw  # noqa: E402
+
 from netCDF4 import Dataset
 from numpy import nanmean
 
