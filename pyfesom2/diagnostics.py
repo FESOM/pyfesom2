@@ -37,7 +37,7 @@ in a function that accepts only 3d variables (e.g. `hovm_data`)"
         return data
 
 
-def ice_ext(data, mesh, hemisphere="N", threshhold=0.15, attrs={}):
+def ice_ext(data, mesh, hemisphere="N", threshold=0.15, attrs={}):
     """ Compute sea ice extent.
 
     Parameters
@@ -50,7 +50,7 @@ def ice_ext(data, mesh, hemisphere="N", threshhold=0.15, attrs={}):
         FESOM2 mesh object.
     hemisphere: str
         can be ether 'N' or 'S'
-    threshhold: float
+    threshold: float
         default is 0.15
     attrs: dict
         dictionary of attributes that will be put in the resulting
@@ -74,7 +74,7 @@ def ice_ext(data, mesh, hemisphere="N", threshhold=0.15, attrs={}):
 
     if isinstance(data, xr.DataArray):
         # Create binary ice extent field: 1 where ice >= threshold, 0 where < threshold, NaN stays NaN
-        ice_binary = xr.where(data >= threshhold, 1, 0)
+        ice_binary = xr.where(data >= threshold, 1, 0)
         ice_binary = ice_binary.where(~np.isnan(data))  # Preserve NaN values (land)
 
         finite_mask = ~np.isnan(ice_binary.squeeze().values)
@@ -88,7 +88,7 @@ def ice_ext(data, mesh, hemisphere="N", threshhold=0.15, attrs={}):
     else:
         logger.debug(data)
         # Create binary ice extent field: 1 where ice >= threshold, 0 where < threshold, NaN stays NaN
-        ice_binary = np.where(data >= threshhold, 1, 0).astype(float)
+        ice_binary = np.where(data >= threshold, 1, 0).astype(float)
         ice_binary[np.isnan(data)] = np.nan  # Preserve NaN values (land)
         
         finite_mask = ~np.isnan(ice_binary.squeeze())
@@ -140,8 +140,8 @@ def ice_vol(data, mesh, hemisphere="N", attrs={}):
         return vol
 
 
-def ice_area(data, mesh, hemisphere="N", attrs={}):
-    """ Compute sea ice volume.
+def ice_area(data, mesh, hemisphere="N", threshold=0., attrs={}):
+    """ Compute sea ice area.
 
     Parameters
     ----------
@@ -175,13 +175,25 @@ def ice_area(data, mesh, hemisphere="N", attrs={}):
         hemis_mask = mesh.y2 < 0
 
     if isinstance(data, xr.DataArray):
-        vol = (data[:, hemis_mask] * mesh.lump2[hemis_mask]).sum(axis=1)
+        # Create ice area field: data where ice >= threshold, 0 where < threshold, NaN stays NaN
+        ice_field = xr.where(data >= threshold, data, 0)
+        ice_field = ice_field.where(~np.isnan(data))  # Preserve NaN values (land)
+
+        finite_mask = ~np.isnan(ice_field.squeeze().values)
+
+        area = (ice_field[:, hemis_mask & finite_mask] * mesh.lump2[hemis_mask & finite_mask]).sum(axis=1)
         da = xr.DataArray(
-            vol, dims=["time"], coords={"time": data.time}, name=varname, attrs=attrs
+            area, dims=["time"], coords={"time": data.time}, name=varname, attrs=attrs
         )
         return da
+
     else:
-        area = (data[:, hemis_mask] * mesh.lump2[hemis_mask]).sum(axis=1)
+        # Create ice area field: data where ice >= threshold, 0 where < threshold, NaN stays NaN
+        ice_field = np.where(data >= threshold, data, 0).astype(float)
+        ice_field[np.isnan(data)] = np.nan  # Preserve NaN values (land)
+
+        finite_mask = ~np.isnan(ice_field.squeeze())
+        area = (ice_field[:, hemis_mask & finite_mask] * mesh.lump2[hemis_mask & finite_mask]).sum(axis=1)
         return area
 
 
