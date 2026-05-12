@@ -60,7 +60,7 @@ jobs:
         environment-name: pyfesom2
         create-args: >-
             python=${{ matrix.python-version }}
-        cache-envronment-key: "${{runner.os}}-${{runner.arch}}-py${{matrix.python-version}}-${{hashFiles('main/ci/requirements.yml')}}"
+        cache-environment-key: "${{runner.os}}-${{runner.arch}}-py${{matrix.python-version}}-${{hashFiles('main/ci/requirements.yml')}}"
         init-shell: >-
             bash
             zsh
