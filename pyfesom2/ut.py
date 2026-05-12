@@ -9,11 +9,11 @@ import json
 import logging
 import math as mt
 from collections import OrderedDict
+from importlib.resources import files
 
 import matplotlib as mpl
 import matplotlib.pylab as plt
 import numpy as np
-import pkg_resources
 import shapely
 from cmocean import cm as cmo
 
@@ -618,21 +618,15 @@ def get_mask(mesh, region):
         mask = np.hstack((ind_EB1[0], ind_EB2[0]))
 
     elif region in MOCBasins:
-        filename = pkg_resources.resource_filename(
-            __name__, "geojson/MOCBasins.geojson"
-        )
+        filename = str(files(__package__).joinpath("geojson/MOCBasins.geojson"))
         mask = mask_from_file(filename, region, mesh)
 
     elif region in NinoRegions:
-        filename = pkg_resources.resource_filename(
-            __name__, "geojson/NinoRegions.geojson"
-        )
+        filename = str(files(__package__).joinpath("geojson/NinoRegions.geojson"))
         mask = mask_from_file(filename, region, mesh)
 
     elif region in oceanBasins:
-        filename = pkg_resources.resource_filename(
-            __name__, "geojson/oceanBasins.geojson"
-        )
+        filename = str(files(__package__).joinpath("geojson/oceanBasins.geojson"))
         mask = mask_from_file(filename, region, mesh)
 
     else:
