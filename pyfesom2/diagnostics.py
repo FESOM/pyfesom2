@@ -180,7 +180,7 @@ def ice_area(data, mesh, hemisphere="N", threshhold=0.15, attrs={}):
         ice_field = ice_field.where(~np.isnan(data))  # Preserve NaN values (land)
 
         finite_mask = ~np.isnan(ice_field.squeeze().values)
-        
+
         area = (ice_field[:, hemis_mask & finite_mask] * mesh.lump2[hemis_mask & finite_mask]).sum(axis=1)
         da = xr.DataArray(
             area, dims=["time"], coords={"time": data.time}, name=varname, attrs=attrs
@@ -188,11 +188,10 @@ def ice_area(data, mesh, hemisphere="N", threshhold=0.15, attrs={}):
         return da
 
     else:
-        # logger.debug(data)
         # Create ice area field: data where ice >= threshold, 0 where < threshold, NaN stays NaN
         ice_field = np.where(data >= threshhold, data, 0).astype(float)
         ice_field[np.isnan(data)] = np.nan  # Preserve NaN values (land)
-        
+
         finite_mask = ~np.isnan(ice_field.squeeze())
         area = (ice_field[:, hemis_mask & finite_mask] * mesh.lump2[hemis_mask & finite_mask]).sum(axis=1)
         return area
