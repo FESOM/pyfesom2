@@ -244,7 +244,7 @@ class fesom_mesh(object):
     def read2d(self):
         file_content = pd.read_csv(
             self.nod2dfile,
-            delim_whitespace=True,
+            sep=r"\s+",
             skiprows=1,
             names=["node_number", "x", "y", "flag"],
         )
@@ -255,7 +255,7 @@ class fesom_mesh(object):
 
         file_content = pd.read_csv(
             self.elm2dfile,
-            delim_whitespace=True,
+            sep=r"\s+",
             skiprows=1,
             names=["first_elem", "second_elem", "third_elem"],
         )
