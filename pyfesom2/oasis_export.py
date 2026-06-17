@@ -194,9 +194,12 @@ def write_fesom_oasis_files(mesh, output_dir=None, prefix='feom', overwrite=Fals
     # Avoid division by zero
     node_count[node_count == 0] = 1
     
-    # Create mask (1 for ocean, 0 for land)
-    # In FESOM all nodes are considered wet (ocean)
-    mask = np.ones(n2d, dtype=np.int32)
+    # OASIS masks.nc convention: 1 = masked (excluded from coupling), 0 = active.
+    # This is the OPPOSITE of the SCRIP grid_imask convention (1 = valid). All
+    # FESOM nodes are wet (ocean) and must participate in coupling, so the OASIS
+    # mask is 0 everywhere. Writing 1 here masks the whole ocean and aborts OASIS
+    # when feom is used as a remapping source.
+    mask = np.zeros(n2d, dtype=np.int32)
     
     # Create corner coordinates arrays
     # For each node, find connected elements and get the coordinates of the centroids
