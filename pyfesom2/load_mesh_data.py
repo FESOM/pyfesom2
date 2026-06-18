@@ -53,7 +53,7 @@ def load_mesh(path, abg=[0, 0, 0], usepickle=True, usejoblib=False, protocol=4):
     MESH_NAME = os.path.basename(path)
     CACHE_DIR = os.path.join(CACHE_DIR, MESH_NAME)
     if not os.path.isdir(CACHE_DIR):
-        os.makedirs(CACHE_DIR)
+        os.makedirs(CACHE_DIR, exist_ok=True)
 
     if usepickle:
         if os.path.isfile(os.path.join(path, "pickle_mesh_py3_fesom2")):
