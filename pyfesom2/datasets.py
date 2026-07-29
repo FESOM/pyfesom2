@@ -288,7 +288,7 @@ def fesom_like(spatial_size: int, spatial_extent: Tuple[float, float, float, flo
     other_dims = {}
     if times is not None:
         if isinstance(times, int):
-            other_dims['time'] = pd.date_range('2010-01-01', freq='M', periods=times)
+            other_dims['time'] = pd.date_range('2010-01-01', freq='ME', periods=times)
         else:
             other_dims['time'] = times
 

@@ -18,7 +18,7 @@ jobs:
       fail-fast: false
       matrix:
         os: ["ubuntu-latest"]
-        python-version: ["3.9"]
+        python-version: ["3.12"]
     defaults:
       run:
         shell: bash -l {0}
@@ -47,9 +47,11 @@ jobs:
     - name: install conda environment
       uses: mamba-org/setup-micromamba@v2
       with:
-        environment-file: main/ci/requirements-py37.yml
+        environment-file: main/ci/requirements.yml
         environment-name: pyfesom2
-        cache-environment-key: "${{runner.os}}-${{runner.arch}}-py${{env.PYTHON_VERSION}}-${{env.TODAY}}-${{hashFiles(env.CONDA_ENV_FILE)}}"
+        create-args: >-
+            python=${{ matrix.python-version }}
+        cache-environment-key: "${{runner.os}}-${{runner.arch}}-py${{matrix.python-version}}-${{hashFiles('main/ci/requirements.yml')}}"
         init-shell: >-
             bash
             zsh

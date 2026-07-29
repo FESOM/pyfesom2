@@ -8,8 +8,8 @@
 import logging
 import os
 import pickle
-import sys
 import time
+import warnings
 
 import joblib
 import numpy as np
@@ -19,6 +19,14 @@ import xarray as xr
 from netCDF4 import Dataset
 
 from .ut import scalar_r2g
+
+# Constants
+EARTH_RADIUS = 6371000.0  # meters
+LONGITUDE_WRAP_THRESHOLD = 355  # degrees
+LONGITUDE_PERIOD = 360  # degrees
+CYCLIC_ELEMENT_THRESHOLD = 100  # degrees
+
+logger = logging.getLogger(__name__)
 
 
 def load_mesh(path, abg=[0, 0, 0], usepickle=True, usejoblib=False, protocol=4):
@@ -51,38 +59,38 @@ def load_mesh(path, abg=[0, 0, 0], usepickle=True, usejoblib=False, protocol=4):
     MESH_NAME = os.path.basename(path)
     CACHE_DIR = os.path.join(CACHE_DIR, MESH_NAME)
     if not os.path.isdir(CACHE_DIR):
-        os.makedirs(CACHE_DIR)
+        os.makedirs(CACHE_DIR, exist_ok=True)
 
     if usepickle:
         if os.path.isfile(os.path.join(path, "pickle_mesh_py3_fesom2")):
             pickle_file = os.path.join(path, "pickle_mesh_py3_fesom2")
-            print(pickle_file)
+            logger.debug(f"Found pickle file: {pickle_file}")
         elif os.path.isfile(os.path.join(CACHE_DIR, "pickle_mesh_py3_fesom2")):
             pickle_file = os.path.join(CACHE_DIR, "pickle_mesh_py3_fesom2")
-            print(pickle_file)
+            logger.debug(f"Found pickle file in cache: {pickle_file}")
         else:
             pickle_file = "/dev/null"
-            print(
+            logger.info(
                 "pickle file not found in any default location, a try will be made to create it..."
             )
 
     if usejoblib:
         if os.path.isfile(os.path.join(path, "joblib_mesh_py3_fesom2")):
             joblib_file = os.path.join(path, "joblib_mesh_py3_fesom2")
-            print(joblib_file)
+            logger.debug(f"Found joblib file: {joblib_file}")
         elif os.path.isfile(os.path.join(CACHE_DIR, "joblib_mesh_py3_fesom2")):
             joblib_file = os.path.join(CACHE_DIR, "joblib_mesh_py3_fesom2")
-            print(joblib_file)
+            logger.debug(f"Found joblib file in cache: {joblib_file}")
         else:
             joblib_file = "/dev/null"  # Use a string here, the check below needs it
-            print(
+            logger.info(
                 "joblib file not found in any default location, a try will be made to create it..."
             )
 
     if usepickle and (os.path.isfile(pickle_file)):
-        print("The usepickle == True)")
-        print("The pickle file for FESOM2 exists.")
-        print("The mesh will be loaded from {}".format(pickle_file))
+        logger.debug("The usepickle == True)")
+        logger.debug("The pickle file for FESOM2 exists.")
+        logger.info("The mesh will be loaded from {}".format(pickle_file))
 
         ifile = open(pickle_file, "rb")
         mesh = pickle.load(ifile)
@@ -90,73 +98,73 @@ def load_mesh(path, abg=[0, 0, 0], usepickle=True, usejoblib=False, protocol=4):
         return mesh
 
     elif (usepickle == True) and (os.path.isfile(pickle_file) == False):
-        print("The usepickle == True")
-        print("The pickle file for FESOM2 DO NOT exists")
+        logger.debug("The usepickle == True")
+        logger.debug("The pickle file for FESOM2 DO NOT exists")
 
-        mesh = fesom_mesh(path=path, abg=abg)
+        mesh = Mesh(path=path, abg=abg)
 
         try:  # to save in the mesh first...
             pickle_file = os.path.join(path, "pickle_mesh_py3_fesom2")
-            print("The mesh will be saved to {}".format(pickle_file))
-            logging.info("Use pickle to save the mesh information")
-            print("Save mesh to binary format")
+            logger.info("The mesh will be saved to {}".format(pickle_file))
+            logger.info("Use pickle to save the mesh information")
+            logger.info("Save mesh to binary format")
             outfile = open(pickle_file, "wb")
             pickle.dump(mesh, outfile, protocol=protocol)
             outfile.close()
         except PermissionError:
             try:  # to save in the cache next...
                 pickle_file = os.path.join(CACHE_DIR, "pickle_mesh_py3_fesom2")
-                print("The mesh will be saved to {}".format(pickle_file))
-                logging.info("Use pickle to save the mesh information")
-                print("Save mesh to binary format")
+                logger.info("The mesh will be saved to {}".format(pickle_file))
+                logger.info("Use pickle to save the mesh information")
+                logger.info("Save mesh to binary format")
                 outfile = open(pickle_file, "wb")
                 pickle.dump(mesh, outfile, protocol=protocol)
                 outfile.close()
             except PermissionError:  # couldn't save in either location...
-                print("Something went wrong with saving the pickle, sorry...")
+                logger.warning("Something went wrong with saving the pickle, sorry...")
         return mesh
 
     elif (usepickle == False) and (usejoblib == False):
-        mesh = fesom_mesh(path=path, abg=abg)
+        mesh = Mesh(path=path, abg=abg)
         return mesh
 
     if (usejoblib == True) and (os.path.isfile(joblib_file)):
-        print("The usejoblib == True)")
-        print("The joblib file for FESOM2 exists.")
-        print("The mesh will be loaded from {}".format(joblib_file))
+        logger.debug("The usejoblib == True)")
+        logger.debug("The joblib file for FESOM2 exists.")
+        logger.info("The mesh will be loaded from {}".format(joblib_file))
 
         mesh = joblib.load(joblib_file)
         return mesh
 
     elif (usejoblib == True) and (os.path.isfile(joblib_file) == False):
-        print("The usejoblib == True")
-        print("The joblib file for FESOM2 DO NOT exists")
+        logger.debug("The usejoblib == True")
+        logger.debug("The joblib file for FESOM2 DO NOT exists")
 
-        mesh = fesom_mesh(path=path, abg=abg)
+        mesh = Mesh(path=path, abg=abg)
 
         try:  # to save in the mesh first...
             joblib_file = os.path.join(path, "joblib_mesh_py3_fesom2")
-            print("The mesh will be saved to {}".format(joblib_file))
-            logging.info("Use joblib to save the mesh information")
-            print("Save mesh to binary format")
+            logger.info("The mesh will be saved to {}".format(joblib_file))
+            logger.info("Use joblib to save the mesh information")
+            logger.info("Save mesh to binary format")
             outfile = open(joblib_file, "wb")
             joblib.dump(mesh, outfile, protocol=protocol)
             outfile.close()
         except PermissionError:
             try:  # to save in the cache next...
                 joblib_file = os.path.join(CACHE_DIR, "joblib_mesh_py3_fesom2")
-                print("The mesh will be saved to {}".format(joblib_file))
-                logging.info("Use joblib to save the mesh information")
-                print("Save mesh to binary format")
+                logger.info("The mesh will be saved to {}".format(joblib_file))
+                logger.info("Use joblib to save the mesh information")
+                logger.info("Save mesh to binary format")
                 outfile = open(joblib_file, "wb")
                 joblib.dump(mesh, outfile, protocol=protocol)
                 outfile.close()
             except PermissionError:  # couldn't save in either location...
-                print("Something went wrong with saving the joblib, sorry...")
+                logger.warning("Something went wrong with saving the joblib, sorry...")
         return mesh
 
 
-class fesom_mesh(object):
+class Mesh:
     """Creates instance of the FESOM mesh.
     This class creates instance that contain information
     about FESOM mesh. At present the class works with
@@ -204,7 +212,7 @@ class fesom_mesh(object):
     Returns
     -------
     mesh : object
-        fesom_mesh object
+        Mesh object
     """
 
     def __init__(self, path, abg=[50, 15, -90]):
@@ -227,22 +235,16 @@ class fesom_mesh(object):
         self.topo = []
         self.voltri = []
 
-        logging.info("load 2d part of the mesh")
-        if (sys.version_info.major, sys.version_info.minor) >= (3, 7):
-            start = time.time()
-        else:
-            start = time.clock()
+        logger.info("load 2d part of the mesh")
+        start = time.time()
         self.read2d()
-        if (sys.version_info.major, sys.version_info.minor) >= (3, 7):
-            end = time.time()
-        else:
-            end = time.clock()
-        print("Load 2d part of the mesh in {} second(s)".format(str(int(end - start))))
+        end = time.time()
+        logger.info("Load 2d part of the mesh in {} second(s)".format(str(int(end - start))))
 
     def read2d(self):
         file_content = pd.read_csv(
             self.nod2dfile,
-            delim_whitespace=True,
+            sep=r"\s+",
             skiprows=1,
             names=["node_number", "x", "y", "flag"],
         )
@@ -253,7 +255,7 @@ class fesom_mesh(object):
 
         file_content = pd.read_csv(
             self.elm2dfile,
-            delim_whitespace=True,
+            sep=r"\s+",
             skiprows=1,
             names=["first_elem", "second_elem", "third_elem"],
         )
@@ -264,7 +266,6 @@ class fesom_mesh(object):
         # here we compute the volumes of the triangles
         # this should be moved into fesom general mesh output netcdf file
         #
-        r_earth = 6371000.0
         rad = np.pi / 180
         edx = self.x2[self.elem]
         edy = self.y2[self.elem]
@@ -273,12 +274,12 @@ class fesom_mesh(object):
         jacobian2D = ed[:, :, 1] - ed[:, :, 0]
         jacobian2D = np.array([jacobian2D, ed[:, :, 2] - ed[:, :, 0]])
         for j in range(2):
-            mind = [i for (i, val) in enumerate(jacobian2D[j, 0, :]) if val > 355]
-            pind = [i for (i, val) in enumerate(jacobian2D[j, 0, :]) if val < -355]
-            jacobian2D[j, 0, mind] = jacobian2D[j, 0, mind] - 360
-            jacobian2D[j, 0, pind] = jacobian2D[j, 0, pind] + 360
+            mind = [i for (i, val) in enumerate(jacobian2D[j, 0, :]) if val > LONGITUDE_WRAP_THRESHOLD]
+            pind = [i for (i, val) in enumerate(jacobian2D[j, 0, :]) if val < -LONGITUDE_WRAP_THRESHOLD]
+            jacobian2D[j, 0, mind] = jacobian2D[j, 0, mind] - LONGITUDE_PERIOD
+            jacobian2D[j, 0, pind] = jacobian2D[j, 0, pind] + LONGITUDE_PERIOD
 
-        jacobian2D = jacobian2D * r_earth * rad
+        jacobian2D = jacobian2D * EARTH_RADIUS * rad
 
         for k in range(2):
             jacobian2D[k, 0, :] = jacobian2D[k, 0, :] * np.cos(edy * rad).mean(axis=1)
@@ -299,7 +300,7 @@ class fesom_mesh(object):
         )
 
         d = self.x2[self.elem].max(axis=1) - self.x2[self.elem].min(axis=1)
-        self.no_cyclic_elem = np.argwhere(d < 100).ravel()
+        self.no_cyclic_elem = np.argwhere(d < CYCLIC_ELEMENT_THRESHOLD).ravel()
 
         with open(self.aux3dfile) as f:
             self.nlev = int(next(f))
@@ -335,6 +336,23 @@ number of 2d elements = {}
 
     def __str__(self):
         return self.meshinfo()
+
+
+# Deprecated alias for backward compatibility
+class fesom_mesh(Mesh):
+    """Deprecated: Use Mesh instead.
+
+    This class is maintained for backward compatibility only.
+    Please update your code to use Mesh.
+    """
+    def __init__(self, *args, **kwargs):
+        warnings.warn(
+            "fesom_mesh is deprecated and will be removed in a future version. "
+            "Use Mesh instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        super().__init__(*args, **kwargs)
 
 
 def ind_for_depth(depth, mesh):
@@ -550,10 +568,10 @@ def get_data(
     if depth is not None:
         dind = ind_for_depth(depth, mesh)
         if not silent:
-            print("Model depth: {}".format(abs(mesh.zlev[dind])))
+            logger.info("Model depth: {}".format(abs(mesh.zlev[dind])))
     else:
         if not silent:
-            print("Depth is None, 3d field will be returned")
+            logger.info("Depth is None, 3d field will be returned")
 
     dataset = xr.open_mfdataset(paths, combine="by_coords", use_cftime=True, **kwargs)
     data = select_slices(dataset, variable, mesh, records, depth)

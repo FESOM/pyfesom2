@@ -25,7 +25,7 @@ The easiest way is to install latest stable version from `conda-forge`:
 Development Installation
 ------------------------
 If you plan to change the code inside the package, you have to install it in "development" mode. For this you would also need a working `conda`. The short guide how to install it can be found for [Linux/Mac](https://github.com/koldunovn/python_for_geosciences/blob/master/README.md#getting-started-for-linuxmac) and [Windows](https://github.com/koldunovn/python_for_geosciences/blob/master/README.md#getting-started-for-windows).
-After you install `conda` (python 3.7 environment is recomendes), clone the source code:
+After you install `conda` (python 3.12 environment is recommended), clone the source code:
 
 
     git clone https://github.com/FESOM/pyfesom2.git
@@ -33,7 +33,7 @@ After you install `conda` (python 3.7 environment is recomendes), clone the sour
 
 Create pyfesom2 environment by:
 
-    conda env create -f ./pyfesom2/ci/requirements-py37.yml
+    conda env create -f ./pyfesom2/ci/requirements.yml
 
 
 Activate the environment
