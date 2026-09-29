@@ -332,8 +332,10 @@ def read_fesom_ascii_grid(griddir, rot=False, rot_invert=False, rot_abg=None, th
     def read_aux3d_out(file_path):
         with open(file_path, 'r') as file:
             lines = file.readlines()
+        # FESOM2: the header is the number of level interfaces, followed by
+        # their depths, so there are Nlev - 1 layers.
         Nlev = int(lines[0])
-        depth_bounds = np.array([float(line.strip()) for line in lines[1:Nlev+2]]) * -1
+        depth_bounds = np.array([float(line.strip()) for line in lines[1:Nlev+1]]) * -1
         depth = (depth_bounds[:-1] + depth_bounds[1:]) / 2
         return Nlev, depth, depth_bounds
 
@@ -368,7 +370,7 @@ def read_fesom_ascii_grid(griddir, rot=False, rot_invert=False, rot_abg=None, th
     def read_cav_nod_depth(file_path):
         with open(file_path, 'r') as file:
             lines = file.readlines()
-        cav_nod_depth = np.array([float(line.strip()) for line in lines]) - 1
+        cav_nod_depth = np.array([float(line.strip()) for line in lines])
         return cav_nod_depth
 
     def read_cav_nod_lev(file_path):
@@ -558,13 +560,15 @@ def read_fesom_ascii_grid(griddir, rot=False, rot_invert=False, rot_abg=None, th
             logger.info("reading 3D information ...")
         Nlev, depth, depth_bounds = read_aux3d_out(os.path.join(griddir, "aux3d.out"))
         if fesom2:
-            #Nlev -= 1
+            Nlev = len(depth)
+            # nlvls.out and nlevels_nod2D hold the 1-based index of the bottom
+            # interface, so the number of layers is that index minus one.
             if use_nlvls_out:
                 depth_lev = read_nlvls_out(os.path.join(griddir, "nlvls.out"))
             else:
                 mesh_diag_fl = netCDF4.Dataset(os.path.join(griddir, "fesom.mesh.diag.nc"))
-                depth_lev = mesh_diag_fl.variables["nlevels_nod2D"][:] - 2
-                elemdepth_lev = mesh_diag_fl.variables["nlevels"][:] - 2
+                depth_lev = mesh_diag_fl.variables["nlevels_nod2D"][:] - 1
+                elemdepth_lev = mesh_diag_fl.variables["nlevels"][:] - 1
                 mesh_diag_fl.close()
             if remove_empty_lev and np.max(depth_lev) < Nlev:
                 if verbose:
@@ -1050,7 +1054,8 @@ def write_mesh_to_netcdf(grid, ofile="~/sl.grid.CDO.nc", netcdf=True, netcdf_pre
                     cav_nod_lev_name = "cav_nod_lev"
                     cav_elem_lev_name = "cav_elem_lev"
                     cav_nod_mask_name = "cav_nod_mask"
-                    cav_nod_depth = ncfile.createVariable(cav_nod_depth_name, netcdf_prec, (ncells_dim_name,), fill_value=-1)
+                    # no fill value: -1 m is a valid ice-shelf draft
+                    cav_nod_depth = ncfile.createVariable(cav_nod_depth_name, netcdf_prec, (ncells_dim_name,), fill_value=False)
                     cav_nod_lev = ncfile.createVariable(cav_nod_lev_name, netcdf_prec, (ncells_dim_name,), fill_value=-1)
                     cav_elem_lev = ncfile.createVariable(cav_elem_lev_name, netcdf_prec, (ntriags_dim_name,), fill_value=-1)
                     cav_nod_mask = ncfile.createVariable(cav_nod_mask_name, netcdf_prec, (ncells_dim_name,), fill_value=-1)
