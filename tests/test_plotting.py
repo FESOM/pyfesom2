@@ -25,10 +25,14 @@ my_data_folder = os.path.join(THIS_DIR, "data")
 
 
 def test_create_proj_figure():
+    import cartopy.crs as ccrs
+
+    # The initial axis limits are a cartopy default ((0, 1) before 0.26, the
+    # global extent since), so check the projection rather than the limits.
     fig, ax = create_proj_figure("pc", (1, 1), (10, 10))
-    assert ax.get_ylim()[0] == 0
-    assert ax.get_ylim()[1] == 1
+    assert isinstance(ax.projection, ccrs.PlateCarree)
     fig, ax = create_proj_figure("merc", (1, 1), (10, 10))
+    assert isinstance(ax.projection, ccrs.Mercator)
 
 
 def test_get_plot_levels():

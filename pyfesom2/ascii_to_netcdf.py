@@ -26,7 +26,6 @@ import math
 import configparser
 from datetime import datetime
 from netCDF4 import Dataset
-from collections import defaultdict
 
 # Try to import numba for performance optimizations
 try:
@@ -332,8 +331,10 @@ def read_fesom_ascii_grid(griddir, rot=False, rot_invert=False, rot_abg=None, th
     def read_aux3d_out(file_path):
         with open(file_path, 'r') as file:
             lines = file.readlines()
+        # FESOM2: the header is the number of level interfaces, followed by
+        # their depths, so there are Nlev - 1 layers.
         Nlev = int(lines[0])
-        depth_bounds = np.array([float(line.strip()) for line in lines[1:Nlev+2]]) * -1
+        depth_bounds = np.array([float(line.strip()) for line in lines[1:Nlev+1]]) * -1
         depth = (depth_bounds[:-1] + depth_bounds[1:]) / 2
         return Nlev, depth, depth_bounds
 
@@ -368,7 +369,7 @@ def read_fesom_ascii_grid(griddir, rot=False, rot_invert=False, rot_abg=None, th
     def read_cav_nod_depth(file_path):
         with open(file_path, 'r') as file:
             lines = file.readlines()
-        cav_nod_depth = np.array([float(line.strip()) for line in lines]) - 1
+        cav_nod_depth = np.array([float(line.strip()) for line in lines])
         return cav_nod_depth
 
     def read_cav_nod_lev(file_path):
@@ -383,64 +384,108 @@ def read_fesom_ascii_grid(griddir, rot=False, rot_invert=False, rot_abg=None, th
         cav_elem_lev = np.array([int(line.strip()) for line in lines]) - 1
         return cav_elem_lev
 
-    def find_neighbors(elem, maxmaxneigh=12, reverse=True, verbose=False, max_iter=10):
+    @njit
+    def find_neighbors_kernel(elem, inc_elem, inc_k, starts, counts, maxmaxneigh, max_iter):
+        """Walk the ring of neighbours around each node.
+
+        A node's ring depends only on its own elements, visited in element
+        order and retried in later passes, so walking each node on its own
+        gives the same result as the original loop over all elements.
         """
-        Optimized neighbor finding using hash maps (17x faster)
-        Uses node-to-elements mapping instead of nested linear searches
+        N = counts.shape[0]
+        neighmat = np.full((N, maxmaxneigh), np.nan)
+        barmat = np.full((N, maxmaxneigh), np.nan)
+        Nneigh = np.zeros(N, dtype=np.int64)
+        iscomplete = np.zeros(N, dtype=np.bool_)
+        completed = True
+        done = np.zeros(max(counts.max(), 1), dtype=np.bool_)
+        for i in range(N):
+            c = counts[i]
+            s = starts[i]
+            done[:c] = False
+            ndone = 0
+            npass = 0
+            while ndone < c:
+                npass += 1
+                if npass > max_iter:
+                    completed = False
+                    break
+                for m in range(c):
+                    if done[m]:
+                        continue
+                    if iscomplete[i]:
+                        raise ValueError("Ups! Trying to add neighbors to a node labeled complete!")
+                    ie = inc_elem[s + m]
+                    k = inc_k[s + m]
+                    neigh1 = elem[ie, (k + 1) % 3]
+                    neigh2 = elem[ie, (k + 2) % 3]
+                    nn = Nneigh[i]
+                    if nn == 0:
+                        barmat[i, 0] = ie
+                        neighmat[i, 0] = neigh1
+                        neighmat[i, 1] = neigh2
+                        Nneigh[i] = 2
+                    else:
+                        found1 = False
+                        found2 = False
+                        for j in range(nn):
+                            if neighmat[i, j] == neigh1:
+                                found1 = True
+                            if neighmat[i, j] == neigh2:
+                                found2 = True
+                        if found1 and found2:
+                            # ring closed: interior node
+                            barmat[i, nn - 1] = ie
+                            iscomplete[i] = True
+                        elif nn == maxmaxneigh:
+                            raise ValueError("Ups! maxmaxneigh is insufficient!")
+                        elif found1:
+                            neighmat[i, nn] = neigh2
+                            barmat[i, nn - 1] = ie
+                            Nneigh[i] = nn + 1
+                        elif found2:
+                            for j in range(nn, 0, -1):
+                                neighmat[i, j] = neighmat[i, j - 1]
+                                barmat[i, j] = barmat[i, j - 1]
+                            neighmat[i, 0] = neigh1
+                            barmat[i, 0] = ie
+                            Nneigh[i] = nn + 1
+                        else:
+                            # not adjacent to the ring yet, retry next pass
+                            continue
+                    done[m] = True
+                    ndone += 1
+        return neighmat, barmat, iscomplete, Nneigh, completed
+
+    def find_neighbors(elem, maxmaxneigh=12, reverse=True, verbose=False, max_iter=10):
+        """Order the neighbours and elements around each node.
+
+        neighmat[i] lists the neighbour nodes of node i in rotational order
+        and barmat[i, j] the element between neighbours j and j + 1.
+        iscomplete[i] is True when the ring closes (interior node) and False
+        for coastal nodes.
         """
         if np.any(np.isnan(elem)):
             raise ValueError("'elem' must not contain NaNs.")
 
-        N = np.max(elem)
-        Ne = elem.shape[0]
-        
-        # Build node-to-elements map using hash table (O(1) lookups)
-        node_to_elems = defaultdict(list)
-        for ie in range(Ne):
-            for k in range(3):
-                node = elem[ie, k]
-                node_to_elems[node].append((ie, k))
-        
-        # Build neighbor matrices
-        neighmat = np.full((N, maxmaxneigh), np.nan)
-        barmat = np.full((N, maxmaxneigh), np.nan)
-        Nneigh = np.zeros(N, dtype=int)
-        
-        # For each node, collect neighbors from surrounding elements
-        for node in range(1, N + 1):
-            if node not in node_to_elems:
-                continue
-            
-            elems_with_node = node_to_elems[node]
-            neighbors = []
-            elem_list = []
-            
-            for ie, k in elems_with_node:
-                # The two other vertices of the triangle are neighbors
-                neigh1 = elem[ie, (k + 1) % 3]
-                neigh2 = elem[ie, (k + 2) % 3]
-                
-                if neigh1 not in neighbors:
-                    neighbors.append(neigh1)
-                    elem_list.append(ie)
-                if neigh2 not in neighbors:
-                    neighbors.append(neigh2)
-                    elem_list.append(ie)
-            
-            # Store in matrix
-            n_neighbors = len(neighbors)
-            if n_neighbors > maxmaxneigh:
-                warnings.warn(f"Node {node} has {n_neighbors} neighbors, exceeds maxmaxneigh={maxmaxneigh}")
-                n_neighbors = maxmaxneigh
-            
-            neighmat[node - 1, :n_neighbors] = neighbors[:n_neighbors]
-            barmat[node - 1, :n_neighbors] = elem_list[:n_neighbors]
-            Nneigh[node - 1] = n_neighbors
-        
-        maxneigh = int(np.max(Nneigh)) if np.max(Nneigh) > 0 else maxmaxneigh
+        N = int(np.max(elem))
+        # Group the (element, corner) incidences by node, in element order.
+        elem_flat = (elem - 1).reshape(-1)
+        order = np.argsort(elem_flat, kind="stable")
+        counts = np.bincount(elem_flat, minlength=N)
+        starts = np.zeros(N, dtype=np.int64)
+        starts[1:] = np.cumsum(counts)[:-1]
+
+        neighmat, barmat, iscomplete, Nneigh, completed = find_neighbors_kernel(
+            np.ascontiguousarray(elem, dtype=np.int64), order // 3, order % 3,
+            starts, counts, maxmaxneigh, max_iter)
+        if not completed:
+            warnings.warn("Some elements could not be arranged in order due to multi-domain nodes! Returned neighbourhood information is incomplete.")
+
+        maxneigh = int(np.max(Nneigh))
         neighmat = neighmat[:, :maxneigh]
         barmat = barmat[:, :maxneigh]
-        
+
         if reverse:
             if verbose:
                 logger.info("Reversing order of neighbors")
@@ -448,11 +493,9 @@ def read_fesom_ascii_grid(griddir, rot=False, rot_invert=False, rot_abg=None, th
                 if Nneigh[i] > 1:
                     neighmat[i, :Nneigh[i]] = neighmat[i, Nneigh[i] - 1::-1]
                     barmat[i, :Nneigh[i] - 1] = barmat[i, Nneigh[i] - 2::-1]
-        
-        iscomplete = Nneigh > 0
-        completed = True
+
         avg_num_neighbors = np.mean(Nneigh)
-        
+
         return neighmat, barmat, iscomplete, Nneigh, completed, avg_num_neighbors
 
     ##########################################
@@ -558,13 +601,15 @@ def read_fesom_ascii_grid(griddir, rot=False, rot_invert=False, rot_abg=None, th
             logger.info("reading 3D information ...")
         Nlev, depth, depth_bounds = read_aux3d_out(os.path.join(griddir, "aux3d.out"))
         if fesom2:
-            #Nlev -= 1
+            Nlev = len(depth)
+            # nlvls.out and nlevels_nod2D hold the 1-based index of the bottom
+            # interface, so the number of layers is that index minus one.
             if use_nlvls_out:
                 depth_lev = read_nlvls_out(os.path.join(griddir, "nlvls.out"))
             else:
                 mesh_diag_fl = netCDF4.Dataset(os.path.join(griddir, "fesom.mesh.diag.nc"))
-                depth_lev = mesh_diag_fl.variables["nlevels_nod2D"][:] - 2
-                elemdepth_lev = mesh_diag_fl.variables["nlevels"][:] - 2
+                depth_lev = mesh_diag_fl.variables["nlevels_nod2D"][:] - 1
+                elemdepth_lev = mesh_diag_fl.variables["nlevels"][:] - 1
                 mesh_diag_fl.close()
             if remove_empty_lev and np.max(depth_lev) < Nlev:
                 if verbose:
@@ -1050,7 +1095,8 @@ def write_mesh_to_netcdf(grid, ofile="~/sl.grid.CDO.nc", netcdf=True, netcdf_pre
                     cav_nod_lev_name = "cav_nod_lev"
                     cav_elem_lev_name = "cav_elem_lev"
                     cav_nod_mask_name = "cav_nod_mask"
-                    cav_nod_depth = ncfile.createVariable(cav_nod_depth_name, netcdf_prec, (ncells_dim_name,), fill_value=-1)
+                    # no fill value: -1 m is a valid ice-shelf draft
+                    cav_nod_depth = ncfile.createVariable(cav_nod_depth_name, netcdf_prec, (ncells_dim_name,), fill_value=False)
                     cav_nod_lev = ncfile.createVariable(cav_nod_lev_name, netcdf_prec, (ncells_dim_name,), fill_value=-1)
                     cav_elem_lev = ncfile.createVariable(cav_elem_lev_name, netcdf_prec, (ntriags_dim_name,), fill_value=-1)
                     cav_nod_mask = ncfile.createVariable(cav_nod_mask_name, netcdf_prec, (ncells_dim_name,), fill_value=-1)
@@ -1061,7 +1107,7 @@ def write_mesh_to_netcdf(grid, ofile="~/sl.grid.CDO.nc", netcdf=True, netcdf_pre
                     _ncatt_put(ncfile, cav_nod_depth_name, "long_name", "ceiling top depth of cavity on nodes (0.0=no cavity)")
                     _ncatt_put(ncfile, cav_nod_lev_name, "long_name", "top layer of cavity on nodes")
                     _ncatt_put(ncfile, cav_elem_lev_name, "long_name", "top layer of cavity on element")
-                    _ncatt_put(ncfile, cav_nod_mask_name, "long_name", "binary mask where ocean topped by atmophere = 1, ocean topped by ice shelf = 0")
+                    _ncatt_put(ncfile, cav_nod_mask_name, "long_name", "binary mask where ocean topped by ice shelf (cavity) = 1, ocean topped by atmosphere = 0")
                     _ncatt_put(ncfile, cav_nod_depth_name, "unit", "m")
                     _ncatt_put(ncfile, cav_nod_depth_name, "grid_type", "unstructured")
                     _ncatt_put(ncfile, cav_nod_lev_name, "grid_type", "unstructured")
